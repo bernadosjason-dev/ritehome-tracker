@@ -276,7 +276,7 @@
   .form-ok{color:var(--good);font-size:12.5px;font-weight:600;margin-top:8px;}
   .form-ok:empty{display:none;}
   body.readonly :is(#newProjectToggle, #newProjectCard, #completeBtn, #nameEditBtn, #budgetEditBtn, #priceEditBtn, #fuelEditBtn,
-    #infoEditBtn, #billingEditBtn, #bomEditBtn, #pkAddBtn, #expenseCard, .w,
+    #infoEditBtn, #billingEditBtn, #pkAddBtn, #expenseCard, .w,
     [data-action="delete-project"], [data-action="record-payment"], [data-action="pk-edit"], [data-action="pk-delete"],
     [data-action="edit"], [data-action="delete"]){display:none !important;}
 
@@ -934,32 +934,13 @@
     <!-- 4. Cost management -->
     <div class="pair">
       <div class="card">
-        <div class="card-head">
-          <h2>Materials — BOM vs actual</h2>
-          <div class="row-actions no-print">
-            <button class="btn ghost" id="bomEditBtn" type="button">Edit BOM</button>
-            <span id="bomEditActions" hidden style="display:inline-flex;gap:6px;">
-              <button class="btn small" id="bomSaveBtn" type="button">Save BOM</button>
-              <button class="btn ghost" id="bomCancelBtn" type="button">Cancel</button>
-            </span>
-          </div>
+        <h2>Materials</h2>
+        <div class="budget-fig">
+          <span class="label">Materials spent</span>
+          <span class="val mono" id="figMaterials">₱0</span>
+          <span class="fig-sub" id="figMaterialsSub"></span>
         </div>
-        <div class="table-wrap">
-          <table class="compact narrow stack">
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th class="num">BOM estimate</th>
-                <th class="num">Actual</th>
-                <th class="num">Variance</th>
-                <th>Used</th>
-              </tr>
-            </thead>
-            <tbody id="bomBody"></tbody>
-            <tfoot><tr id="bomFoot"></tr></tfoot>
-          </table>
-        </div>
-        <div class="note">Actual = Materials expenses by type, recorded with their PO / receipt no. Variance = BOM − actual; “over” means you've spent more than estimated.</div>
+        <div class="note">Every expense logged under Materials, with its PO / receipt no.</div>
       </div>
 
       <div class="card">
@@ -1350,27 +1331,8 @@
             text: next.m.label + " " + money(next.owed) + " · " + when};
   }
 
-  function normBom(p){
-    var src = p.bom || {}, out = {};
-    MATERIAL_TYPES.forEach(function(t){ out[t.id] = Number(src[t.id]) || 0; });
-    return out;
-  }
-  function bomTotal(bom){ return sum(MATERIAL_TYPES, function(t){ return bom[t.id]; }); }
-
   function categorySpent(list, category){
     return list.reduce(function(s,e){ return s + (e.category === category ? (Number(e.amount) || 0) : 0); }, 0);
-  }
-
-  function materialBreakdown(expenses, bom){
-    var actual = {unclassified: 0};
-    MATERIAL_TYPES.forEach(function(t){ actual[t.id] = 0; });
-    expenses.forEach(function(e){
-      if(e.category !== "materials") return;
-      actual[MAT_LABEL[e.materialType] ? e.materialType : "unclassified"] += Number(e.amount) || 0;
-    });
-    var rows = MATERIAL_TYPES.map(function(t){ return {id: t.id, label: t.label, est: bom[t.id], act: actual[t.id]}; });
-    if(actual.unclassified) rows.push({id:"unclassified", label:"Unclassified", est:0, act: actual.unclassified});
-    return {rows: rows, est: bomTotal(bom), act: sum(rows, function(r){ return r.act; })};
   }
 
   // Labor expenses link to a pakyawan contract, a daily-rate team, or nothing ("other"/legacy entries).
@@ -1532,7 +1494,6 @@
       progress: {dueDate: addDaysISO(todayISO(), 5), received: 0, receivedDate: ""},
       retention: {dueDate: addDaysISO(todayISO(), 19), received: 0, receivedDate: ""}
     },
-    bom: {boards: 30000, edgebanding: 2000, hardware: 12000, consumables: 2500},
     pakyawan: [{id:"pk-sample-1", task:"Kitchen cabinet installation", lead:"Mang Jun", amount:25000}],
     laborTotal: 0,
     fuelBudget: 3000,
@@ -1562,7 +1523,7 @@
     name: "", system: "", tier: "", address: "", details: "",
     manager: "", clientName: "", clientPhone: "", clientEmail: "",
     budget: 0, projectPrice: 0, laborTotal: 0, fuelBudget: 0,
-    billing: normBilling({}), bom: normBom({}), pakyawan: [],
+    billing: normBilling({}), pakyawan: [],
     status: "active", completedAt: "", targetDate: "",
     expenses: [],
 
@@ -1572,7 +1533,6 @@
     editingInfo: false,
     editingBilling: false,
     payingKey: null,
-    editingBom: false,
     pkFormOpen: false,
     editingPkId: null,
     confirmDeletePkId: null
@@ -1670,7 +1630,6 @@
     if(state.editingInfo) add("Project & client details", $("infoForm").closest(".card"));
     if(state.editingBilling) add("Payment schedule", $("billingBody").closest(".card"));
     if(state.payingKey) add("Payment being recorded", $("billingBody").closest(".card"));
-    if(state.editingBom) add("BOM", $("bomBody").closest(".card"));
     if(state.pkFormOpen && ($("pk-task").value.trim() || $("pk-amount").value)) add(state.editingPkId ? "Pakyawan contract" : "New pakyawan contract", $("pkForm").closest(".card"));
     if(expenseFormDirty()) add(state.editingId ? "Expense edit" : "New expense", $("expenseCard"));
     return list;
@@ -2521,43 +2480,14 @@
     '</tr>';
   }
 
-  function varianceHtml(est, act){
-    if(!est) return '<span class="muted">—</span>';
-    var v = est - act;
-    if(v === 0) return 'On estimate';
-    return '<span class="' + (v > 0 ? 'var-pos' : 'var-neg') + '">' + money(Math.abs(v)) + (v > 0 ? ' under' : ' over') + '</span>';
-  }
-  function usedBar(est, act){
-    if(!est) return '<span class="muted">—</span>';
-    var pct = act / est * 100;
-    return miniBar(pct, pct > 100 ? "bad" : pct >= 90 ? "warn" : "good");
-  }
-
   function renderMaterials(){
-    var mat = materialBreakdown(state.expenses, state.bom);
-    var body = $("bomBody");
-    var editing = state.editingBom;
-    $("bomEditBtn").hidden = editing;
-    $("bomEditActions").hidden = !editing;
-
-    $("bomFoot").innerHTML = '<td>Total</td><td class="num">' + (mat.est ? money(mat.est) : '—') + '</td>' +
-      '<td class="num">' + money(mat.act) + '</td><td class="num">' + varianceHtml(mat.est, mat.act) + '</td><td>' + usedBar(mat.est, mat.act) + '</td>';
-
-    if(editing && body.dataset.mode === "edit") return;   // keep what's being typed
-    body.dataset.mode = editing ? "edit" : "view";
-
-    body.innerHTML = mat.rows.map(function(r){
-      var estCell = editing && r.id !== "unclassified"
-        ? '<input type="number" class="amount-input" min="0" step="100" id="bom-' + r.id + '" value="' + (r.est || "") + '" placeholder="0" aria-label="' + esc(r.label) + ' BOM estimate" style="text-align:right;">'
-        : (r.est ? money(r.est) : '—');
-      return '<tr>' +
-        '<td>' + esc(r.label) + (r.id === "unclassified" ? '<div class="cell-sub">Materials logged without a type</div>' : '') + '</td>' +
-        '<td class="num">' + estCell + '</td>' +
-        '<td class="num">' + money(r.act) + '</td>' +
-        '<td class="num">' + varianceHtml(r.est, r.act) + '</td>' +
-        '<td>' + usedBar(r.est, r.act) + '</td>' +
-      '</tr>';
-    }).join("");
+    var mats = state.expenses.filter(function(e){ return e.category === "materials"; });
+    var spent = sum(mats, function(e){ return e.amount; });
+    var total = computeTotals(state.expenses).total;
+    $("figMaterials").textContent = money(spent);
+    $("figMaterialsSub").textContent = mats.length
+      ? plural(mats.length, "purchase") + (total > 0 ? " · " + Math.round(spent / total * 100) + "% of all spending" : "")
+      : "No materials logged yet";
   }
 
   function renderAllotment(a){
@@ -3001,7 +2931,6 @@
     var done = isCompleted(p);
     var sched = scheduleInfo(p);
     var profit = price - spent;
-    var bom = bomTotal(normBom(p));
 
     function line(label, value, cls){
       return '<div class="stat-line"><span class="muted">' + label + '</span><span class="v' + (cls ? " " + cls : "") + '">' + value + '</span></div>';
@@ -3025,7 +2954,7 @@
           (price && (!done || bill.balance > 0)
             ? line("Balance due", money(bill.balance) + (nd ? " · next " + dateFmt(nd.date) : ""), nd && nd.cls === "bad" ? "var-neg" : "") : "") +
           (p.laborCost ? line("Labor", money(p.laborCost)) : "") +
-          (bom ? line("Materials", money(p.materialsSpent || 0) + " / " + money(bom) + " BOM", (p.materialsSpent || 0) > bom ? "var-neg" : "") : "") +
+          (p.materialsSpent ? line("Materials", money(p.materialsSpent)) : "") +
           (p.itemCount && p.receiptVerified != null
             ? line("Receipts", p.receiptVerified + "/" + p.itemCount + " verified" + (p.receiptUnconfirmed ? " · " + p.receiptUnconfirmed + " not confirmed" : ""), p.receiptUnconfirmed ? "var-neg" : "") : "") +
           ALLOTMENTS.map(function(a){
@@ -3142,12 +3071,10 @@
     state.editingInfo = false;
     state.editingBilling = false;
     state.payingKey = null;
-    state.editingBom = false;
     state.pkFormOpen = false;
     state.editingPkId = null;
     state.confirmDeletePkId = null;
     $("billingBody").dataset.mode = "";
-    $("bomBody").dataset.mode = "";
     $("searchInput").value = "";
     $("filterCategory").value = "";
     $("sortSelect").value = "date-desc";
@@ -3169,7 +3096,6 @@
     state.budget = Number(d.budget) || 0;
     state.projectPrice = Number(d.price) || 0;
     state.billing = normBilling(d);
-    state.bom = normBom(d);
     state.pakyawan = Array.isArray(d.pakyawan) ? d.pakyawan.slice() : [];
     state.laborTotal = Number(d.laborTotal) || 0;
     state.fuelBudget = Number(d.fuelBudget) || 0;
@@ -3317,7 +3243,7 @@
   }
 
   var FIELD_NAMES = {name: "Project name", budget: "Budget", price: "Contract price", fuelBudget: "Fuel budget",
-    billing: "Payment schedule", bom: "BOM", pakyawan: "Pakyawan contracts", laborTotal: "Labor total",
+    billing: "Payment schedule", pakyawan: "Pakyawan contracts", laborTotal: "Labor total",
     status: "Project status", completedAt: "Project status"};
 
   // Applies the change to the screen immediately; the db snapshot then confirms it.
@@ -3412,7 +3338,6 @@
     var nd = nextDueInfo(bill.next);
     var profit = price - spent;
     var lab = laborBreakdown(state.expenses, state.pakyawan, state.laborTotal);
-    var mat = materialBreakdown(state.expenses, state.bom);
     var fuel = ALLOTMENTS[0];
     var fuelBudget = state[fuel.field] || 0;
     var fuelSpent = categorySpent(state.expenses, fuel.category);
@@ -3426,11 +3351,6 @@
         cols.map(function(c){ return '<th' + (c[1] ? ' class="num"' : '') + '>' + esc(c[0]) + '</th>'; }).join("") +
         '</tr></thead><tbody>' + rows.map(function(r){ return '<tr>' + cells(r) + '</tr>'; }).join("") + '</tbody>' +
         (foot ? '<tfoot><tr>' + cells(foot) + '</tr></tfoot>' : '') + '</table>';
-    }
-    function variance(est, act){
-      if(!est) return "—";
-      var v = est - act;
-      return v === 0 ? "On estimate" : '<span class="' + (v > 0 ? "under" : "over") + '">' + money(Math.abs(v)) + (v > 0 ? " under" : " over") + '</span>';
     }
 
     var contact = [state.clientPhone, state.clientEmail].filter(Boolean).map(esc).join("<br>") || "—";
@@ -3464,12 +3384,6 @@
       return [esc(t.label) + '<div class="sub">' + esc(t.where) + '</div>', d.count, fmtNum(d.hours), fmtNum(days), money(d.cost), days ? money(d.cost / days) : "—"];
     });
     var dailyTable = table([["Team"], ["Entries", 1], ["Man-hours", 1], ["Man-days", 1], ["Wages", 1], ["Avg daily wage", 1]], dailyRows, null, "keep");
-
-    var bomTable = table(
-      [["Material"], ["BOM estimate", 1], ["Actual", 1], ["Variance", 1]],
-      mat.rows.map(function(r){ return [esc(r.label), r.est ? money(r.est) : "—", money(r.act), variance(r.est, r.act)]; }),
-      ["Total", mat.est ? money(mat.est) : "—", money(mat.act), variance(mat.est, mat.act)],
-      "keep");
 
     var catRows = Object.keys(totals.byCat).map(function(k){ return {label: CAT_LABEL[k] || k, amount: totals.byCat[k]}; })
       .sort(function(a,b){ return b.amount - a.amount; });
@@ -3539,7 +3453,10 @@
         (lab.other.paid ? '<p class="note">Plus ' + money(lab.other.paid) + ' in other labor payments not linked to a contract.</p>' : '') +
         '<h3>Daily rate</h3>' + dailyTable + '</section>' +
       '<section class="grid2">' +
-        '<div><h2>Materials — BOM vs actual</h2>' + bomTable + '</div>' +
+        '<div><h2>Materials</h2><table class="kv">' +
+          kv("Materials spent", money(categorySpent(state.expenses, "materials"))) +
+          kv("Purchases", String(state.expenses.filter(function(e){ return e.category === "materials"; }).length)) +
+        '</table></div>' +
         '<div><h2>' + esc(fuel.title) + '</h2><table class="kv">' +
           kv("Budget", fuelBudget > 0 ? money(fuelBudget) : "Not set") +
           kv("Spent so far", money(fuelSpent)) +
@@ -3680,7 +3597,7 @@
         manager: f.manager.value.trim(),
         clientName: known.name || clientName, clientPhone: known.phone || "", clientEmail: known.email || "",
         address: known.address || "", details: "",
-        budget: 0, price: 0, billing: normBilling({}), bom: normBom({}), pakyawan: [],
+        budget: 0, price: 0, billing: normBilling({}), pakyawan: [],
         laborTotal: 0, fuelBudget: 0,
         status: "active", completedAt: "", targetDate: f.target.value,
         createdAt: nowIso, updatedAt: nowIso
@@ -3900,25 +3817,6 @@
       writeHowToPay(e.target.value.trim());
       var p = projectForReminder(remindTarget.pid), row = p && milestoneRow(p, remindTarget.key);
       if(row) $("rm-text").value = reminderText(p, row, e.target.value.trim());
-    });
-
-    // --- BOM ---
-
-    $("bomEditBtn").addEventListener("click", function(){
-      state.editingBom = true;
-      renderMaterials();
-      var first = $("bom-" + MATERIAL_TYPES[0].id);
-      if(first) first.focus();
-    });
-    $("bomCancelBtn").addEventListener("click", function(){
-      state.editingBom = false;
-      renderMaterials();
-    });
-    $("bomSaveBtn").addEventListener("click", function(){
-      var nb = {};
-      MATERIAL_TYPES.forEach(function(t){ nb[t.id] = Number($("bom-" + t.id).value) || 0; });
-      state.editingBom = false;
-      saveProjectFields({bom: nb});
     });
 
     // --- pakyawan contracts ---

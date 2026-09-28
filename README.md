@@ -16,3 +16,4 @@ The key lives in the Apps Script's Script Properties. It is never stored in this
 - Every save goes through `track()`. A failed save shows a red "not saved" bar with **Save again**, and edits that haven't been submitted warn before you leave the page. Don't add a write path that bypasses `track()`, and never bring back a silent local fallback: a real project was lost that way.
 - The same `index.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them.
 - The page is `noindex`. Keep the link private.
+- **Bump `PAGE_VERSION`** near the top of the script on every change. Open tabs compare it with the published page and show a "newer version — Reload now" bar. Without the bump, phones can keep running the old page for days.

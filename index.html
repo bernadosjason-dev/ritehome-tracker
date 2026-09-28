@@ -480,6 +480,10 @@
 
 <div class="wrap">
   <div id="saveBar" class="save-bar no-print" role="alert" hidden></div>
+  <div id="updateBar" class="save-bar warn static no-print" role="status" hidden>
+    <div class="sb-text"><strong>A newer version of the tracker is out</strong>Reload to get it — your saved data isn't affected.</div>
+    <div class="sb-actions"><button class="btn small" id="updateReloadBtn" type="button">Reload now</button></div>
+  </div>
 
   <div id="gateScreen" class="gate" hidden>
     <div class="card gate-card">
@@ -1161,6 +1165,8 @@
   // Inside claude.ai the page uses the artifact's own database instead and ignores this.
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
+  // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
+  var PAGE_VERSION = "2026-09-28.3";
 
   // ---------- reference data ----------
 
@@ -4302,7 +4308,32 @@
     return true;
   }
 
+  // GitHub Pages lets browsers cache this page for ~10 minutes and phones keep tabs open for days, so an open
+  // tab can run an old version long after an update. Check the published PAGE_VERSION and offer a reload.
+  var newerVersion = "";
+  function checkForUpdate(){
+    if(newerVersion) return;
+    fetch(location.pathname + "?check=" + Date.now(), {cache: "no-store"}).then(function(r){
+      return r.ok ? r.text() : "";
+    }).then(function(html){
+      var m = /var PAGE_VERSION = "([^"]+)"/.exec(html);
+      if(!m || m[1] === PAGE_VERSION) return;
+      newerVersion = m[1];
+      $("updateBar").hidden = false;
+    }).catch(function(){});
+  }
+  function watchForUpdates(){
+    $("updateReloadBtn").addEventListener("click", function(){
+      // a new query string skips the cached copy; the key is already remembered on this device
+      guardLeave(function(){ location.replace(location.pathname + "?v=" + encodeURIComponent(newerVersion) + location.hash); });
+    });
+    checkForUpdate();
+    setInterval(function(){ if(document.visibilityState === "visible") checkForUpdate(); }, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible") checkForUpdate(); });
+  }
+
   function bootHosted(){
+    watchForUpdates();
     takeKeyFromLink();
     window.addEventListener("hashchange", function(){
       if(TRACKER_ENDPOINT && takeKeyFromLink()){ showGate("connecting"); connectHosted(); }

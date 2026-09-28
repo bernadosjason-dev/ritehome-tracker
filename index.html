@@ -277,7 +277,7 @@
   .form-ok:empty{display:none;}
   body.readonly :is(#newProjectToggle, #newProjectCard, #completeBtn, #nameEditBtn, #budgetEditBtn, #priceEditBtn, #fuelEditBtn,
     #infoEditBtn, #billingEditBtn, #bomEditBtn, #pkAddBtn, #expenseCard, .w,
-    [data-action="delete-project"], [data-action="mark-paid"], [data-action="pk-edit"], [data-action="pk-delete"],
+    [data-action="delete-project"], [data-action="record-payment"], [data-action="pk-edit"], [data-action="pk-delete"],
     [data-action="edit"], [data-action="delete"]){display:none !important;}
 
   /* hosted copy: access gate + data footer */
@@ -289,6 +289,27 @@
   .data-foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:16px;margin-top:8px;}
   .data-foot .rc-status{flex-basis:100%;}
   .rc-links{font-size:12.5px;}
+
+  /* receivables ("who owes us") + payment recording + reminders */
+  .ar-list{display:flex;flex-direction:column;gap:10px;}
+  .ar-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;}
+  .ar-row.overdue{border-left:4px solid var(--bad);}
+  .ar-main{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .ar-title{font-weight:600;font-size:14.5px;overflow-wrap:anywhere;}
+  .ar-meta{font-size:12.5px;color:var(--ink-muted);overflow-wrap:anywhere;}
+  .ar-amt{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:17px;text-align:right;white-space:nowrap;}
+  .ar-actions{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;}
+  .ar-sum strong{color:var(--ink);font-family:'IBM Plex Mono',monospace;}
+  .ar-sum .var-neg{font-weight:600;}
+  .pay-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end;}
+  .pay-form .field{margin:0;}
+  .pay-actions{display:flex;gap:6px;}
+  tr.pay-row td{background:var(--surface-2);}
+  .remind-text{min-height:230px;font-size:13.5px;line-height:1.5;}
+  .remind-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  a.btn{text-decoration:none;}
+  @media (max-width:640px){ .pay-form{grid-template-columns:minmax(0,1fr);} }
 
   /* receipts */
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
@@ -390,7 +411,7 @@
     table.stack tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:12px 14px;border-bottom:1px solid var(--border);}
     table.stack tbody tr:last-child{border-bottom:none;}
     table.stack tfoot tr{background:var(--surface-2);border-top:1px solid var(--border);border-bottom:none;}
-    table.stack td, table.stack tfoot td{display:block;padding:0;border:none;background:none;text-align:left;min-width:0;}
+    table.stack td, table.stack tfoot td{display:block;padding:0;border:none;background:none;text-align:left;min-width:0;white-space:normal;overflow-wrap:anywhere;}
     table.stack td.c-main, table.stack td[colspan]{grid-column:1 / -1;order:-1;}
     table.stack td.no-print:last-child{grid-column:1 / -1;}
     table.stack td:has(> .status-pill){grid-column:1 / -1;}
@@ -509,6 +530,16 @@
         <span class="val small" id="dashProfit">—</span>
       </div>
     </div>
+
+    <section class="dash-section" id="arSection">
+      <div class="section-head">
+        <div>
+          <h2>Who owes us <span class="count" id="arCount"></span></h2>
+          <div class="muted section-sub ar-sum" id="arSub"></div>
+        </div>
+      </div>
+      <div class="ar-list" id="arList"></div>
+    </section>
 
     <section class="dash-section">
       <div class="section-head">
@@ -1137,6 +1168,7 @@
   </div>
 
   <div id="receiptDialog" class="modal-backdrop no-print" hidden></div>
+  <div id="remindDialog" class="modal-backdrop no-print" hidden></div>
 </div>
 
 <script>
@@ -1269,22 +1301,25 @@
     var out = {};
     MILESTONES.forEach(function(m){
       var b = src[m.key] || {};
-      out[m.key] = {dueDate: b.dueDate || "", received: Number(b.received) || 0, receivedDate: b.receivedDate || ""};
+      out[m.key] = {dueDate: b.dueDate || "", received: Number(b.received) || 0, withheld: Number(b.withheld) || 0,
+                    receivedDate: b.receivedDate || "", remindedAt: b.remindedAt || ""};
     });
     if(!p.billing && Number(p.downpayment) > 0) out.dp.received = Number(p.downpayment);
     return out;
   }
 
+  // A milestone is settled by cash received plus any tax the client withheld from the payment.
   function milestoneStatus(scheduled, b, today){
     if(scheduled <= 0) return {cls:"neutral", text:"Set contract price"};
-    if(b.received >= scheduled) return {cls:"good", text:"Paid" + (b.receivedDate ? " " + dateFmt(b.receivedDate) : "")};
-    var partial = b.received > 0 ? "Partial · " : "";
-    if(!b.dueDate) return {cls: b.received > 0 ? "warn" : "neutral", text: partial + "No due date"};
+    var settled = b.received + (b.withheld || 0);
+    if(settled >= scheduled) return {cls:"good", text:"Paid" + (b.receivedDate ? " " + dateFmt(b.receivedDate) : "")};
+    var partial = settled > 0 ? "Partial · " : "";
+    if(!b.dueDate) return {cls: settled > 0 ? "warn" : "neutral", text: partial + "No due date"};
     var d = dayDiff(today, b.dueDate);
     if(d < 0) return {cls:"bad", text: partial + "Overdue " + plural(-d, "day")};
     if(d === 0) return {cls:"warn", text: partial + "Due today"};
     if(d <= 7) return {cls:"warn", text: partial + "Due in " + plural(d, "day")};
-    return {cls: b.received > 0 ? "warn" : "neutral", text: partial + "Due " + dateFmt(b.dueDate)};
+    return {cls: settled > 0 ? "warn" : "neutral", text: partial + "Due " + dateFmt(b.dueDate)};
   }
 
   function billingSummary(price, billing){
@@ -1295,12 +1330,14 @@
       var scheduled = i === MILESTONES.length - 1 ? price - allocated : Math.round(price * m.pct);
       allocated += scheduled;
       var b = billing[m.key];
-      return {m: m, b: b, scheduled: scheduled, owed: Math.max(0, scheduled - b.received), status: milestoneStatus(scheduled, b, today)};
+      return {m: m, b: b, scheduled: scheduled, owed: Math.max(0, scheduled - b.received - (b.withheld || 0)), status: milestoneStatus(scheduled, b, today)};
     });
     var received = sum(rows, function(r){ return r.b.received; });
+    var withheld = sum(rows, function(r){ return r.b.withheld || 0; });
     var next = rows.filter(function(r){ return r.owed > 0 && r.b.dueDate; })
       .sort(function(a,b){ return a.b.dueDate.localeCompare(b.b.dueDate); })[0] || null;
-    return {rows: rows, received: received, balance: price - received, next: next};
+    return {rows: rows, received: received, withheld: withheld, settled: received + withheld,
+            balance: price - received - withheld, next: next};
   }
 
   function nextDueInfo(next){
@@ -1534,6 +1571,7 @@
     confirmDeleteId: null,
     editingInfo: false,
     editingBilling: false,
+    payingKey: null,
     editingBom: false,
     pkFormOpen: false,
     editingPkId: null,
@@ -1631,6 +1669,7 @@
     if(!$("fuelEditRow").hidden) add("Fuel budget", $("fuelEditRow").closest(".card"));
     if(state.editingInfo) add("Project & client details", $("infoForm").closest(".card"));
     if(state.editingBilling) add("Payment schedule", $("billingBody").closest(".card"));
+    if(state.payingKey) add("Payment being recorded", $("billingBody").closest(".card"));
     if(state.editingBom) add("BOM", $("bomBody").closest(".card"));
     if(state.pkFormOpen && ($("pk-task").value.trim() || $("pk-amount").value)) add(state.editingPkId ? "Pakyawan contract" : "New pakyawan contract", $("pkForm").closest(".card"));
     if(expenseFormDirty()) add(state.editingId ? "Expense edit" : "New expense", $("expenseCard"));
@@ -2116,14 +2155,15 @@
     pill.className = "status-pill " + pStatus;
     pill.textContent = pLabel + (price > 0 ? " · " + Math.round(profitPct) + "%" : "");
 
-    var collectedPct = price > 0 ? Math.min(100, (bill.received / price) * 100) : 0;
+    var collectedPct = price > 0 ? Math.min(100, (bill.settled / price) * 100) : 0;
     $("collectedBarFill").style.width = collectedPct + "%";
     $("collectedLabel").textContent = price > 0
-      ? Math.round(collectedPct) + "% collected · " + money(bill.received) + " of " + money(price)
+      ? Math.round(collectedPct) + "% collected · " + money(bill.settled) + " of " + money(price) +
+        (bill.withheld ? " (" + money(bill.received) + " cash + " + money(bill.withheld) + " tax withheld)" : "")
       : "Set the contract price to schedule billing";
 
     $("billTotal").textContent = price > 0 ? money(price) : "—";
-    $("billReceived").textContent = money(bill.received);
+    $("billReceived").textContent = money(bill.received) + (bill.withheld ? " + " + money(bill.withheld) + " withheld" : "");
     $("billBalance").textContent = price > 0 ? "Balance " + signedMoney(bill.balance) : "";
 
     renderBillingRows(bill);
@@ -2134,8 +2174,9 @@
     var editing = state.editingBilling;
     $("billingEditBtn").hidden = editing;
     $("billingEditActions").hidden = !editing;
-    if(editing && body.dataset.mode === "edit") return;   // keep what's being typed
-    body.dataset.mode = editing ? "edit" : "view";
+    var mode = editing ? "edit" : state.payingKey ? "pay-" + state.payingKey : "view";
+    if(mode !== "view" && body.dataset.mode === mode) return;   // keep what's being typed
+    body.dataset.mode = mode;
 
     body.innerHTML = bill.rows.map(function(r){
       var k = r.m.key;
@@ -2147,19 +2188,254 @@
         return '<tr>' + head +
           '<td><input type="date" id="bill-' + k + '-due" value="' + esc(r.b.dueDate) + '" aria-label="' + esc(r.m.label) + ' due date"></td>' +
           '<td><input type="number" class="amount-input" min="0" step="100" id="bill-' + k + '-rec" value="' + (r.b.received || "") + '" placeholder="Amount" aria-label="' + esc(r.m.label) + ' amount received">' +
-            '<input type="date" id="bill-' + k + '-recdate" value="' + esc(r.b.receivedDate) + '" style="margin-top:6px;" aria-label="' + esc(r.m.label) + ' date received"></td>' +
-          '<td class="cell-sub edit-hint">Due date, amount received, date received</td>' +
+            '<input type="date" id="bill-' + k + '-recdate" value="' + esc(r.b.receivedDate) + '" style="margin-top:6px;" aria-label="' + esc(r.m.label) + ' date received">' +
+            '<input type="number" class="amount-input" min="0" step="any" id="bill-' + k + '-wht" value="' + (r.b.withheld || "") + '" placeholder="Tax withheld" style="margin-top:6px;" aria-label="' + esc(r.m.label) + ' tax withheld"></td>' +
+          '<td class="cell-sub edit-hint">Due date · cash received, date received, tax withheld</td>' +
           '<td class="no-print"></td>' +
         '</tr>';
       }
+      var subs = [];
+      if(r.b.withheld) subs.push("+ " + money(r.b.withheld) + " tax withheld");
+      if(r.b.receivedDate) subs.push(dateFmt(r.b.receivedDate));
+      var actions = r.owed > 0 && r.scheduled > 0
+        ? '<div class="row-actions">' +
+            '<button class="btn ghost" data-action="remind" data-key="' + k + '" type="button">Remind</button>' +
+            '<button class="btn ghost" data-action="record-payment" data-key="' + k + '" type="button">Record payment</button>' +
+          '</div>' + (r.b.remindedAt ? '<div class="cell-sub" style="text-align:right;">Reminded ' + dateFmt(r.b.remindedAt) + '</div>' : '')
+        : '';
       return '<tr>' + head +
         '<td class="date">' + (r.b.dueDate ? dateFmt(r.b.dueDate) : '—') + '</td>' +
-        '<td class="num">' + (r.b.received ? money(r.b.received) : '—') + (r.b.receivedDate ? '<div class="cell-sub">' + dateFmt(r.b.receivedDate) + '</div>' : '') + '</td>' +
+        '<td class="num">' + (r.b.received ? money(r.b.received) : '—') +
+          subs.map(function(t){ return '<div class="cell-sub">' + esc(t) + '</div>'; }).join("") + '</td>' +
         '<td><span class="status-pill ' + r.status.cls + '">' + esc(r.status.text) + '</span></td>' +
-        '<td class="no-print">' + (r.owed > 0 && r.scheduled > 0
-          ? '<button class="btn ghost" data-action="mark-paid" data-key="' + k + '" type="button">Mark paid</button>' : '') + '</td>' +
-      '</tr>';
+        '<td class="no-print">' + actions + '</td>' +
+      '</tr>' + (state.payingKey === k ? payRowHtml(r) : '');
     }).join("");
+    if(state.payingKey) updatePayHint();
+  }
+
+  // Inline "record payment" form under a milestone: cash received and any tax the client withheld add up.
+  function payRowHtml(r){
+    return '<tr class="pay-row no-print"><td colspan="7">' +
+      '<div class="pay-form">' +
+        '<div class="field"><label for="pay-amt">Cash received (₱)</label>' +
+          '<input id="pay-amt" type="number" class="amount-input" min="0" step="any" inputmode="decimal" value="' + r.owed + '"></div>' +
+        '<div class="field"><label for="pay-wht">Tax withheld (₱) <span class="muted">(if the client deducted any)</span></label>' +
+          '<input id="pay-wht" type="number" class="amount-input" min="0" step="any" inputmode="decimal" placeholder="0"></div>' +
+        '<div class="field"><label for="pay-date">Date received</label>' +
+          '<input id="pay-date" type="date" value="' + todayISO() + '"></div>' +
+        '<div class="pay-actions">' +
+          '<button class="btn small" data-action="pay-save" data-key="' + r.m.key + '" type="button">Save payment</button>' +
+          '<button class="btn ghost" data-action="pay-cancel" type="button">Cancel</button></div>' +
+      '</div>' +
+      '<div class="field-hint" id="pay-hint" style="margin:8px 0 0;"></div>' +
+      '<div class="form-error" id="pay-error" role="alert"></div>' +
+    '</td></tr>';
+  }
+
+  function updatePayHint(){
+    var row = billingSummary(state.projectPrice || 0, state.billing).rows.find(function(r){ return r.m.key === state.payingKey; });
+    var hint = $("pay-hint");
+    if(!row || !hint) return;
+    var amt = Number($("pay-amt").value) || 0, wht = Number($("pay-wht").value) || 0;
+    var left = row.owed - amt - wht;
+    hint.textContent = money(amt) + " cash" + (wht ? " + " + money(wht) + " withheld" : "") + " against " + money(row.owed) + " owed — " +
+      (left > 0.5 ? money(left) + " will still be owed" : left < -0.5 ? money(-left) + " more than owed" : "fully paid");
+  }
+
+  // ---------- who owes us: receivables board + payment reminders ----------
+
+  var HOWTOPAY_STORE = "ritehome_howtopay";
+  function readHowToPay(){ try{ return localStorage.getItem(HOWTOPAY_STORE) || ""; } catch(e){ return ""; } }
+  function writeHowToPay(v){ try{ localStorage.setItem(HOWTOPAY_STORE, v); } catch(e){} }
+
+  // The project a reminder is about: the open one (its live state), the sample, or one from the dashboard list.
+  function projectForReminder(pid){
+    if(pid === state.currentProjectId){
+      return {id: pid, name: state.name, clientName: state.clientName, clientPhone: state.clientPhone, clientEmail: state.clientEmail,
+              system: state.system, manager: state.manager, price: state.projectPrice, billing: state.billing};
+    }
+    if(pid === "sample") return SAMPLE_PROJECT;
+    return state.projects.find(function(p){ return p.id === pid; }) || null;
+  }
+
+  function milestoneRow(p, key){
+    return billingSummary(Number(p.price) || 0, normBilling(p)).rows.find(function(r){ return r.m.key === key; }) || null;
+  }
+
+  function reminderText(p, row, howToPay){
+    var first = String(p.clientName || "").trim().split(/\s+/)[0];
+    var what = "the " + row.m.label.toLowerCase() + " for your " +
+      (SYSTEM_LABEL[p.system] ? SYSTEM_LABEL[p.system].toLowerCase() + " " : "") + "project (" + (p.name || "Ritehome project") + ")";
+    var d = row.b.dueDate ? dayDiff(todayISO(), row.b.dueDate) : null;
+    var settled = row.b.received + (row.b.withheld || 0);
+    var lines = [first ? "Hi " + first + "," : "Good day,", ""];
+    if(d === null) lines.push("This is a friendly reminder from Ritehome Modular Systems about " + what + ".");
+    else if(d < 0) lines.push("Our records show that " + what + " was due on " + dateFmt(row.b.dueDate) + ". We'd appreciate your settlement at your earliest convenience.");
+    else if(d === 0) lines.push("A friendly reminder from Ritehome Modular Systems that " + what + " is due today.");
+    else lines.push("A friendly reminder from Ritehome Modular Systems that " + what + " is due on " + dateFmt(row.b.dueDate) + ".");
+    lines.push("");
+    lines.push(row.m.label + " (" + Math.round(row.m.pct * 100) + "% of contract): " + money(row.owed) + (settled > 0 ? " remaining" : ""));
+    var price = Number(p.price) || 0;
+    if(price > 0){
+      var paid = billingSummary(price, normBilling(p)).settled;
+      lines.push("Contract total: " + money(price) + (paid > 0 ? " · Paid so far: " + money(paid) : ""));
+    }
+    if(howToPay){ lines.push(""); lines.push("Payment details: " + howToPay); }
+    lines.push("");
+    lines.push("Kindly send us a photo of the deposit slip or transfer receipt once paid. Thank you!");
+    lines.push("");
+    lines.push("— " + (p.manager ? p.manager + ", " : "") + "Ritehome Modular Systems");
+    return lines.join("\n");
+  }
+
+  var remindTarget = null;   // {pid, key} while the reminder dialog is open
+
+  function openRemind(pid, key){
+    var p = projectForReminder(pid);
+    var row = p && milestoneRow(p, key);
+    if(!row) return;
+    remindTarget = {pid: pid, key: key};
+    var phone = String(p.clientPhone || "").trim(), email = String(p.clientEmail || "").trim();
+    var how = readHowToPay();
+    var box = $("remindDialog");
+    box.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">' +
+      '<div class="modal-head"><div><h2 id="rmTitle">Payment reminder</h2>' +
+        '<div class="modal-meta">' + esc(row.m.label) + ' · ' + money(row.owed) + ' · ' + esc(p.name || "Project") + '</div></div>' +
+        '<button class="icon-btn" data-rm="close" type="button" title="Close" aria-label="Close">' + iconX() + '</button></div>' +
+      '<div class="modal-meta">To: ' + esc(p.clientName || "client") + (phone ? ' · ' + esc(phone) : '') + (email ? ' · ' + esc(email) : '') +
+        (!phone && !email ? ' — no phone or email saved yet (add them under Project &amp; client)' : '') + '</div>' +
+      '<div class="field" style="margin:0;"><label for="rm-how">How to pay <span class="muted">(bank or GCash details — remembered on this device)</span></label>' +
+        '<input id="rm-how" type="text" placeholder="e.g. BDO 0012-3456-7890, Ritehome Modular Systems · or GCash 0917…"></div>' +
+      '<div class="field" style="margin:0;"><label for="rm-text">Message <span class="muted">(edit freely)</span></label>' +
+        '<textarea id="rm-text" class="remind-text"></textarea></div>' +
+      '<div class="remind-actions">' +
+        '<button class="btn small" data-rm="copy" type="button">Copy message</button>' +
+        (phone.replace(/[^\d]/g, "") ? '<a class="btn ghost" data-rm="sms" href="#">Text (SMS)</a>' : '') +
+        '<a class="btn ghost" data-rm="viber" href="#">Viber</a>' +
+        (email ? '<a class="btn ghost" data-rm="email" href="#">Email</a>' : '') +
+      '</div>' +
+      '<div class="rc-status" id="rm-status" role="status"></div>' +
+    '</div>';
+    $("rm-how").value = how;
+    $("rm-text").value = reminderText(p, row, how);
+    box.hidden = false;
+    document.body.style.overflow = "hidden";
+    box.querySelector('[data-rm="copy"]').focus();
+  }
+
+  function closeRemind(){
+    var was = remindTarget;
+    remindTarget = null;
+    var box = $("remindDialog");
+    box.hidden = true;
+    box.innerHTML = "";
+    if(!rcDialog.id) document.body.style.overflow = "";
+    if(!was) return;
+    var again = document.querySelector('[data-key="' + was.key + '"][data-action="remind"], [data-ar="remind"][data-id="' + was.pid + '"][data-key="' + was.key + '"]');
+    if(again) again.focus();
+  }
+
+  // Remember that the client was reminded today. Always writes the whole normalized billing record, so a project
+  // saved before billing existed keeps its down payment (normBilling reads it from the old `downpayment` field).
+  function recordReminder(pid, key){
+    var today = todayISO();
+    if(pid === state.currentProjectId){
+      if(state.billing[key].remindedAt === today || (isPersisted() && !canWrite())) return;
+      var nb = cloneBilling(state.billing);
+      nb[key].remindedAt = today;
+      saveProjectFields({billing: nb});
+      return;
+    }
+    if(pid === "sample"){
+      SAMPLE_PROJECT.billing[key].remindedAt = today;
+      renderDashboard();
+      return;
+    }
+    var p = state.projects.find(function(x){ return x.id === pid; });
+    if(!p) return;
+    var full = normBilling(p);
+    if(full[key].remindedAt === today) return;
+    full[key].remindedAt = today;
+    if(db && canWrite()){
+      var ref = db.collection("projects").doc(pid);
+      var run = function(){ return track(function(){ return ref.update({billing: full}); }, "Reminder date for “" + (p.name || "project") + "”", run); };
+      run().catch(function(){});
+    } else if(!db && localProjectsStore[pid]){
+      localProjectsStore[pid].billing = full;
+    } else {
+      return;
+    }
+    p.billing = full;
+    renderDashboard();
+  }
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text).catch(function(){ return legacyCopy(); });
+    }
+    return legacyCopy();
+    function legacyCopy(){
+      var ta = $("rm-text");
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try{ ok = document.execCommand("copy"); } catch(e){}
+      return ok ? Promise.resolve() : Promise.reject();
+    }
+  }
+
+  function receivableRows(projects){
+    var today = todayISO(), out = [];
+    projects.forEach(function(p){
+      var price = Number(p.price) || 0;
+      if(price <= 0) return;
+      billingSummary(price, normBilling(p)).rows.forEach(function(r){
+        if(r.owed <= 0 || r.scheduled <= 0) return;
+        out.push({p: p, r: r, d: r.b.dueDate ? dayDiff(today, r.b.dueDate) : null});
+      });
+    });
+    // Overdue first (longest overdue on top), then soonest due, then milestones with no due date.
+    out.sort(function(a, b){
+      if(a.d === null && b.d === null) return b.r.owed - a.r.owed;
+      if(a.d === null) return 1;
+      if(b.d === null) return -1;
+      return a.d - b.d || b.r.owed - a.r.owed;
+    });
+    return out;
+  }
+
+  function renderReceivables(projects){
+    var rows = receivableRows(projects);
+    var overdue = rows.filter(function(x){ return x.d !== null && x.d < 0; });
+    var soon = rows.filter(function(x){ return x.d !== null && x.d >= 0 && x.d <= 7; });
+    var owed = function(list){ return sum(list, function(x){ return x.r.owed; }); };
+    $("arCount").textContent = "(" + rows.length + ")";
+    $("arSub").innerHTML = rows.length
+      ? '<strong>' + money(owed(rows)) + '</strong> to collect' +
+        (overdue.length ? ' · <span class="var-neg">' + money(owed(overdue)) + ' overdue</span>' : '') +
+        (soon.length ? ' · ' + money(owed(soon)) + ' due in the next 7 days' : '')
+      : "";
+    $("arList").innerHTML = rows.length ? rows.map(function(x){
+      var p = x.p, r = x.r, settled = r.b.received + (r.b.withheld || 0);
+      return '<div class="ar-row' + (x.d !== null && x.d < 0 ? ' overdue' : '') + '">' +
+        '<div class="ar-main">' +
+          '<div><span class="status-pill ' + r.status.cls + '">' + esc(r.status.text) + '</span></div>' +
+          '<div class="ar-title">' + esc(r.m.label) + ' — ' + esc(p.name || "Untitled project") +
+            (p.id === "sample" ? '<span class="sample-tag">SAMPLE</span>' : '') + '</div>' +
+          '<div class="ar-meta">' + esc(p.clientName || "Client not set") + ' · ' +
+            (r.b.dueDate ? 'Due ' + esc(dateFmt(r.b.dueDate)) : 'No due date set') +
+            (settled > 0 ? ' · ' + money(settled) + ' of ' + money(r.scheduled) + ' paid' : '') +
+            (r.b.remindedAt ? ' · reminded ' + esc(dateFmt(r.b.remindedAt)) : '') + '</div>' +
+        '</div>' +
+        '<div class="ar-amt">' + money(r.owed) + '</div>' +
+        '<div class="ar-actions">' +
+          '<button class="btn small" data-ar="remind" data-id="' + esc(p.id) + '" data-key="' + r.m.key + '" type="button">Remind</button>' +
+          '<button class="btn ghost" data-ar="open" data-id="' + esc(p.id) + '" type="button">Open project</button>' +
+        '</div></div>';
+    }).join("") : '<div class="empty-note">' + (projects.some(function(p){ return (Number(p.price) || 0) > 0; })
+      ? "Nobody owes you anything right now."
+      : "Set a contract price and milestone due dates on a project to see who owes you here.") + '</div>';
   }
 
   function renderLabor(){
@@ -2801,6 +3077,7 @@
 
     var showSample = state.projects.length === 0 && !state.sampleDismissed;
     $("dashSampleBanner").hidden = !showSample;
+    renderReceivables(showSample ? [SAMPLE_PROJECT] : state.projects);
     var ucards = showSample ? [SAMPLE_PROJECT] : unfinished;
     $("unfinishedCount").textContent = "(" + unfinished.length + ")";
     var uSpent = sum(unfinished, function(p){ return p.totalSpent; });
@@ -2859,10 +3136,12 @@
     state.filter = {search:"", category:"", receipt:"", sort:"date-desc"};
     $("filterReceipt").value = "";
     closeReceiptDialog(true);
+    if(remindTarget) closeRemind();
     leavePrompt = null;
     state.confirmDeleteId = null;
     state.editingInfo = false;
     state.editingBilling = false;
+    state.payingKey = null;
     state.editingBom = false;
     state.pkFormOpen = false;
     state.editingPkId = null;
@@ -3161,10 +3440,13 @@
       bill.rows.map(function(r){
         return [esc(r.m.label) + '<div class="sub">' + esc(r.m.when) + '</div>', Math.round(r.m.pct * 100) + "%",
                 r.scheduled > 0 ? money(r.scheduled) : "—", r.b.dueDate ? esc(dateFmt(r.b.dueDate)) : "—",
-                (r.b.received ? money(r.b.received) : "—") + (r.b.receivedDate ? '<div class="sub">' + esc(dateFmt(r.b.receivedDate)) + '</div>' : ""),
+                (r.b.received ? money(r.b.received) : "—") +
+                  (r.b.withheld ? '<div class="sub">+ ' + money(r.b.withheld) + ' tax withheld</div>' : "") +
+                  (r.b.receivedDate ? '<div class="sub">' + esc(dateFmt(r.b.receivedDate)) + '</div>' : ""),
                 esc(r.status.text)];
       }),
-      ["Total", "100%", price > 0 ? money(price) : "—", "", money(bill.received), price > 0 ? "Balance " + signedMoney(bill.balance) : ""],
+      ["Total", "100%", price > 0 ? money(price) : "—", "", money(bill.received) + (bill.withheld ? '<div class="sub">+ ' + money(bill.withheld) + ' withheld</div>' : ""),
+       price > 0 ? "Balance " + signedMoney(bill.balance) : ""],
       "keep");
 
     var pkTable = lab.contracts.length ? table(
@@ -3244,7 +3526,7 @@
       '</section>' +
       '<section><h2>Contract &amp; billing</h2><table class="kv">' +
         kv("Contract price", price > 0 ? money(price) : "Not set") +
-        kv("Received to date", money(bill.received)) +
+        kv("Received to date", money(bill.received) + (bill.withheld ? " cash + " + money(bill.withheld) + " tax withheld by client" : "")) +
         kv("Balance due", price > 0 ? signedMoney(bill.balance) : "—") +
         kv("Next due", nd ? esc(nd.text) : "—") +
         kv("Total profit (price − actual cost)", price > 0 ? signedMoney(profit) + " (" + Math.round(profit / price * 100) + "% margin)" : "—") +
@@ -3521,6 +3803,7 @@
 
     $("billingEditBtn").addEventListener("click", function(){
       state.editingBilling = true;
+      state.payingKey = null;
       renderContract();
     });
     $("billingCancelBtn").addEventListener("click", function(){
@@ -3531,26 +3814,92 @@
       var nb = {};
       MILESTONES.forEach(function(m){
         var received = Number($("bill-" + m.key + "-rec").value) || 0;
+        var withheld = Number($("bill-" + m.key + "-wht").value) || 0;
         var receivedDate = $("bill-" + m.key + "-recdate").value;
         nb[m.key] = {
           dueDate: $("bill-" + m.key + "-due").value,
           received: received,
-          receivedDate: received > 0 ? (receivedDate || todayISO()) : ""
+          withheld: withheld,
+          receivedDate: received + withheld > 0 ? (receivedDate || todayISO()) : "",
+          remindedAt: state.billing[m.key].remindedAt || ""
         };
       });
       state.editingBilling = false;
       saveProjectFields({billing: nb});
     });
     $("billingBody").addEventListener("click", function(e){
-      var btn = e.target.closest("button[data-action='mark-paid']");
+      var btn = e.target.closest("button[data-action]");
       if(!btn) return;
+      var act = btn.getAttribute("data-action");
       var key = btn.getAttribute("data-key");
-      var row = billingSummary(state.projectPrice || 0, state.billing).rows.find(function(r){ return r.m.key === key; });
-      if(!row || row.scheduled <= 0) return;
-      var nb = cloneBilling(state.billing);
-      nb[key].received = row.scheduled;
-      nb[key].receivedDate = todayISO();
-      saveProjectFields({billing: nb});
+      if(act === "remind"){ openRemind(state.currentProjectId, key); return; }
+      if(act === "record-payment"){
+        state.payingKey = key;
+        renderContract();
+        var amt = $("pay-amt");
+        if(amt){ amt.focus(); amt.select(); }
+        return;
+      }
+      if(act === "pay-cancel"){ state.payingKey = null; renderContract(); return; }
+      if(act === "pay-save"){
+        var amtV = Number($("pay-amt").value) || 0;
+        var whtV = Number($("pay-wht").value) || 0;
+        if(amtV < 0 || whtV < 0 || amtV + whtV <= 0){ $("pay-error").textContent = "Enter the amount received."; return; }
+        var nb = cloneBilling(state.billing);
+        nb[key].received = Math.round((nb[key].received + amtV) * 100) / 100;
+        nb[key].withheld = Math.round(((nb[key].withheld || 0) + whtV) * 100) / 100;
+        nb[key].receivedDate = $("pay-date").value || todayISO();
+        state.payingKey = null;
+        saveProjectFields({billing: nb});
+      }
+    });
+    $("billingBody").addEventListener("input", function(e){
+      if(e.target.id === "pay-amt" || e.target.id === "pay-wht") updatePayHint();
+    });
+
+    // --- who owes us (dashboard) + reminder dialog ---
+
+    $("arList").addEventListener("click", function(e){
+      var b = e.target.closest("button[data-ar]");
+      if(!b) return;
+      var pid = b.getAttribute("data-id");
+      if(b.getAttribute("data-ar") === "remind") openRemind(pid, b.getAttribute("data-key"));
+      else guardLeave(function(){ openProject(pid); });
+    });
+    var rmBox = $("remindDialog");
+    rmBox.addEventListener("click", function(e){
+      if(e.target === rmBox){ closeRemind(); return; }
+      var el = e.target.closest("[data-rm]");
+      if(!el || !remindTarget) return;
+      var act = el.getAttribute("data-rm");
+      if(act === "close"){ closeRemind(); return; }
+      var p = projectForReminder(remindTarget.pid);
+      var text = $("rm-text").value;
+      var status = $("rm-status");
+      var target = remindTarget;
+      if(act === "copy"){
+        copyText(text).then(function(){
+          status.className = "rc-status";
+          status.textContent = "Copied — paste it into Messenger, Viber or SMS.";
+        }, function(){
+          status.className = "rc-status err";
+          status.textContent = "Couldn't copy automatically — the message is selected, copy it by hand.";
+        });
+      } else if(act === "sms"){
+        el.setAttribute("href", "sms:" + String(p.clientPhone || "").replace(/[^\d+]/g, "") + "?&body=" + encodeURIComponent(text));
+      } else if(act === "viber"){
+        el.setAttribute("href", "viber://forward?text=" + encodeURIComponent(text));
+      } else if(act === "email"){
+        el.setAttribute("href", "mailto:" + encodeURIComponent(String(p.clientEmail || "").trim()) +
+          "?subject=" + encodeURIComponent("Payment reminder — " + (p.name || "Ritehome project")) + "&body=" + encodeURIComponent(text));
+      }
+      recordReminder(target.pid, target.key);
+    });
+    rmBox.addEventListener("input", function(e){
+      if(e.target.id !== "rm-how" || !remindTarget) return;
+      writeHowToPay(e.target.value.trim());
+      var p = projectForReminder(remindTarget.pid), row = p && milestoneRow(p, remindTarget.key);
+      if(row) $("rm-text").value = reminderText(p, row, e.target.value.trim());
     });
 
     // --- BOM ---
@@ -3752,7 +4101,8 @@
       }
     });
     document.addEventListener("keydown", function(e){
-      if(e.key === "Escape" && rcDialog.id) closeReceiptDialog();
+      if(e.key === "Escape" && remindTarget) closeRemind();
+      else if(e.key === "Escape" && rcDialog.id) closeReceiptDialog();
     });
     // a photo whose asset is gone renders as a note instead of a broken image
     document.addEventListener("error", function(e){

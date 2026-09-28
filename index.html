@@ -1183,7 +1183,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-09-28.4";
+  var PAGE_VERSION = "2026-09-28.5";
 
   // ---------- reference data ----------
 
@@ -1807,7 +1807,7 @@
       assetsApi = null;
       return "Photo upload isn’t available in this view.";
     }
-    return code === "too_large" ? "That photo is over 20 MB — take a smaller one and try again."
+    return code === "too_large" ? "That photo is too large — take a smaller one and try again."
       : code === "unsupported_type" ? "That file type isn’t supported — use a JPG or PNG photo."
       : code === "quota_or_state" ? "Receipt photo storage for this tracker is full."
       : code === "rate_limited" ? "Too many uploads at once — wait a moment, then try again."

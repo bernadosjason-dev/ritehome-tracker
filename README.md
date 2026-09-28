@@ -1,6 +1,6 @@
 # Ritehome Project Tracker
 
-An internal tool for running Ritehome Modular Systems jobs. It covers projects and clients, 50/40/10 progress billing, pakyawan and daily-rate labor, BOM vs actual materials, and receipt photos with a "confirmed by head" flag for expenses that have no receipt.
+An internal tool for running Ritehome Modular Systems jobs. It covers projects and clients, 50/40/10 progress billing, pakyawan and daily-rate labor, who owes us (with reminder messages), and receipt photos with a "confirmed by head" flag for expenses that have no receipt. **Scan receipt** reads a receipt photo with Gemini and fills in the expense form.
 
 - **Page:** `index.html`, served by GitHub Pages at `https://bernadosjason-dev.github.io/ritehome-tracker/`
 - **Data:** a Google Sheet you own, reached through the Apps Script web app in `backend/Code.gs`. Receipt photos live in a Drive folder that script creates. Setup and day-to-day operations are in [`backend/README.md`](backend/README.md).

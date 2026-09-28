@@ -311,6 +311,14 @@
   a.btn{text-decoration:none;}
   @media (max-width:640px){ .pay-form{grid-template-columns:minmax(0,1fr);} }
 
+  /* AI receipt scan */
+  .scan-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px;}
+  .scan-row .btn{width:auto;}
+  .scan-row .field-hint{margin:0;}
+  .scan-note{font-size:12.5px;line-height:1.45;color:var(--good);background:var(--good-bg);border-radius:9px;padding:8px 10px;margin:-6px 0 14px;}
+  .scan-note.warn{color:var(--warn);background:var(--warn-bg);}
+  input.ai-filled, select.ai-filled{border-color:var(--accent);background:color-mix(in oklab, var(--accent) 9%, var(--surface-2));}
+
   /* receipts */
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
   .receipt-box{border:1px dashed var(--border);border-radius:10px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;}
@@ -1010,6 +1018,15 @@
       <div class="col">
         <div class="card no-print" id="expenseCard">
           <h2 id="expenseFormTitle">Add expense</h2>
+          <div class="scan-row" id="scanRow" hidden>
+            <label class="btn small file-btn" id="scanLabel">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>
+              <span id="scanText">Scan receipt</span>
+              <input type="file" id="scanFile" accept="image/*" class="sr-only">
+            </label>
+            <span class="field-hint">AI fills in the amount, date and vendor for you to check</span>
+          </div>
+          <div class="scan-note" id="scanNote" role="status" hidden></div>
           <form id="expenseForm" novalidate>
             <div class="field">
               <label for="f-item">Item</label>
@@ -1166,7 +1183,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-09-28.3";
+  var PAGE_VERSION = "2026-09-28.4";
 
   // ---------- reference data ----------
 
@@ -1856,6 +1873,103 @@
     var seg = segHtml(rcForm.confirmed);
     if($("rcSeg").dataset.html !== seg){ $("rcSeg").innerHTML = seg; $("rcSeg").dataset.html = seg; }
     $("expenseSubmit").disabled = rcForm.uploading;
+    renderScan();
+  }
+
+  // ---------- AI receipt scan (hosted copy: the Apps Script reads the photo with Gemini) ----------
+
+  var scanNote = {text: "", warn: false};
+
+  function canScan(){
+    return HOSTED && !state.editingId && canUploadReceipts() && !!db && typeof db.scanReceipt === "function";
+  }
+
+  function renderScan(){
+    $("scanRow").hidden = !canScan();
+    $("scanLabel").classList.toggle("disabled", rcForm.uploading);
+    $("scanFile").disabled = rcForm.uploading;
+    $("scanText").textContent = rcForm.scanning ? "Reading receipt…" : "Scan receipt";
+    var note = $("scanNote");
+    note.hidden = !scanNote.text;
+    note.className = "scan-note" + (scanNote.warn ? " warn" : "");
+    note.textContent = scanNote.text;
+  }
+
+  function clearScanMarks(){
+    scanNote = {text: "", warn: false};
+    document.querySelectorAll("#expenseForm .ai-filled").forEach(function(el){ el.classList.remove("ai-filled"); });
+  }
+
+  function aiErrorText(code){
+    return code === "ai_not_configured"
+      ? "Photo attached. Receipt reading isn't switched on yet (it needs a Google AI key in the tracker's Apps Script) — fill in the details yourself."
+      : code === "ai_busy" || code === "ai_unavailable"
+      ? "Photo attached. The AI is busy right now — fill in the details, or scan again in a minute."
+      : "Photo attached, but the AI couldn't read it — fill in the details yourself.";
+  }
+
+  // Put what the AI read into the form. Everything stays editable; filled fields are highlighted.
+  function applyScan(f){
+    if(!f.isReceipt) return {text: "That doesn't look like a receipt — the photo is attached, fill in the details yourself.", warn: true};
+    var filled = [];
+    function put(id, value, label){
+      if(value === "" || value === 0 || value == null) return;
+      var el = $(id);
+      el.value = value;
+      el.classList.add("ai-filled");
+      filled.push(label);
+    }
+    if(f.category && CAT_LABEL[f.category]){
+      $("f-category").value = f.category;
+      if(f.category === "labor") $("f-labor").value = "other";   // a receipt is a lump payment, not man-hours
+      syncExpenseFormFields();
+      $("f-category").classList.add("ai-filled");
+      filled.push("category");
+    }
+    put("f-item", f.item, "item");
+    put("f-amount", f.total, "amount");
+    if(f.date && f.date <= addDaysISO(todayISO(), 1)) put("f-date", f.date, "date");
+    put("f-vendor", f.vendor, "vendor");
+    if($("f-category").value === "materials") put("f-ref", f.ref, "OR/PO no.");
+    if(!filled.length) return {text: "Couldn't read anything useful — the photo is attached, fill in the details yourself.", warn: true};
+    return {text: "Filled " + filled.join(", ") + " from the receipt. Check the amount and date, then tap Add to ledger.", warn: false};
+  }
+
+  function handleScan(file){
+    if(!file || !canScan() || rcForm.uploading) return;
+    var token = rcForm.token;
+    var photo = null;
+    rcForm.uploading = true;
+    rcForm.scanning = true;
+    rcForm.error = "";
+    clearScanMarks();
+    renderReceiptForm();
+    compressImage(file).then(function(blob){
+      if(!/^image\/(jpeg|png|webp|gif)$/.test(blob.type)) throw {code: "unsupported_type"};
+      photo = blob;
+      return db.scanReceipt(blob);
+    }).then(function(res){
+      if(rcForm.token !== token){ deleteAsset(res.id); return; }   // form was reset while scanning
+      blobUrls[res.id] = URL.createObjectURL(photo);
+      var prev = rcForm.current;
+      if(prev && prev !== rcForm.original){
+        deleteAsset(prev);
+        rcForm.uploads = rcForm.uploads.filter(function(x){ return x !== prev; });
+      }
+      rcForm.uploads.push(res.id);
+      rcForm.current = res.id;
+      rcForm.none = false;
+      rcForm.confirmed = false;
+      scanNote = res.fields ? applyScan(res.fields) : {text: aiErrorText(res.aiError), warn: true};
+    }, function(err){
+      if(rcForm.token === token) scanNote = {text: uploadErrorText(err), warn: true};
+    }).then(function(){
+      if(rcForm.token !== token) return;
+      rcForm.uploading = false;
+      rcForm.scanning = false;
+      renderReceiptForm();
+      renderUnsaved();
+    });
   }
 
   function handleFormPhoto(file){
@@ -2784,6 +2898,7 @@
   // Keeps category, labor/material type, date, vendor and daily wage so a batch of similar entries is quick.
   function clearAfterAdd(){
     ["f-item", "f-amount", "f-notes", "f-ref", "f-hours"].forEach(function(id){ $(id).value = ""; });
+    clearScanMarks();
     $("expenseError").textContent = "";
     rcFormReset(false);
     renderReceiptForm();
@@ -2814,6 +2929,7 @@
 
   function resetExpenseForm(){
     state.editingId = null;
+    clearScanMarks();
     rcFormReset(true);
     renderReceiptForm();
     $("expenseForm").reset();
@@ -2830,6 +2946,7 @@
     if(!e) return;
     state.editingId = id;
     state.confirmDeleteId = null;
+    clearScanMarks();
     $("f-item").value = e.item || "";
     $("f-category").value = e.category;
     $("f-amount").value = e.amount || "";
@@ -3934,6 +4051,14 @@
 
     // --- receipt (expense form) ---
 
+    $("scanFile").addEventListener("change", function(e){
+      var file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      handleScan(file);
+    });
+    $("expenseForm").addEventListener("input", function(e){
+      if(e.target.classList && e.target.classList.contains("ai-filled")) e.target.classList.remove("ai-filled");
+    });
     $("rcFile").addEventListener("change", function(e){
       var file = e.target.files && e.target.files[0];
       e.target.value = "";
@@ -4232,6 +4357,11 @@
         refreshNow: refreshNow,
         ping: function(){ return call("ping"); },
         getProject: function(id){ return call("getProject", {id: id}); },
+        // Saves the photo as a receipt and asks the backend's AI to read it: {id, fields, aiError}
+        scanReceipt: function(blob){
+          if(blob.size > 12 * 1024 * 1024) return Promise.reject({code: "too_large"});
+          return blobToBase64(blob).then(function(b64){ return call("scanReceipt", {data: b64, mimeType: blob.type}); });
+        },
         importProject: function(data, expenses){
           return call("importProject", {data: data, expenses: expenses}).then(function(res){ afterWrite(null); return res; });
         }

@@ -39,6 +39,29 @@ allowing. If this page is ever moved onto a domain that sets one, that policy ne
 `connect-src https://script.google.com https://script.googleusercontent.com` and
 `img-src blob: https://drive.google.com https://*.googleusercontent.com`.
 
+## Receipt scanning (optional, about 5 minutes)
+
+**Scan receipt** in the expense form sends the photo to Google's Gemini AI. It fills in
+the category, item, amount, date, vendor and OR number. Everything stays editable,
+the filled fields are highlighted, and nothing saves until someone taps **Add to ledger**.
+Without a key the button still works: it attaches the photo and says reading isn't switched on.
+
+1. Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+   It's the same kind of key Hannah (the website chat) uses. The free tier is enough for a
+   few dozen receipts a day. On the free tier, Google may use the photos to improve its
+   products. Turn on billing in AI Studio if that matters for a given job.
+2. In the Apps Script editor: **Project Settings** (gear) **→ Script Properties → Add script
+   property**. Property: `GEMINI_API_KEY`. Value: the key. Save.
+3. Pick `testReceiptAi` in the function dropdown and press **Run**. Approve the new
+   permission ("connect to an external service"). The web app can't ask for that
+   permission itself, so this step is required. The log should end with
+   `Receipt reading is ON`.
+4. **Deploy → Manage deployments →** pencil **→ Version: New version → Deploy**.
+
+The key stays in Script Properties. It is sent to Google in a request header, never
+to the page. To pin a model, add a `GEMINI_MODEL` property; otherwise the script tries
+cheap Flash models in order and skips any that are retired or out of quota.
+
 ## Moving projects over from the claude.ai tracker
 
 In the hosted tracker, open the dashboard. At the bottom, **Import projects** takes

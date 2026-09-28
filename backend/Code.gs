@@ -37,7 +37,7 @@ function doPost(e) {
   if (denied) return respond_(denied);
 
   var reads = { ping: ping_, listProjects: listProjects_, getProject: getProject_,
-                uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_ };
+                uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
   var writes = { addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
@@ -194,6 +194,135 @@ function uploadReceipt_(req) {
   // Viewable by link so the page can show it; the id is only handed out to key holders.
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return { ok: true, id: file.getId() };
+}
+
+/* Saves the photo exactly like uploadReceipt_, then asks Gemini to read it. The photo is kept even when
+   the AI part fails (no key, quota, unreadable), so the page can still attach it and let the person type. */
+function scanReceipt_(req) {
+  var saved = uploadReceipt_(req);
+  var out = { ok: true, id: saved.id, fields: null };
+  try {
+    out.fields = readReceiptWithAi_(String(req.data || ""), String(req.mimeType || ""));
+  } catch (err) {
+    out.aiError = err.code || "ai_failed";
+    out.aiMessage = String(err.message || err).slice(0, 300);
+  }
+  return out;
+}
+
+// ---------- AI receipt reading (Gemini, Google AI Studio key in Script Properties) ----------
+
+/* Same model list Hannah (the website chat) uses: Google renames and retires model ids, so try cheap
+   Flash models first and move on when one is missing (404) or out of quota (429). GEMINI_MODEL, if set
+   in Script Properties, is tried first. */
+function aiModels_() {
+  var models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash"];
+  var preferred = PropertiesService.getScriptProperties().getProperty("GEMINI_MODEL");
+  if (preferred) models.unshift(preferred);
+  return models.filter(function (m, i, a) { return a.indexOf(m) === i; });
+}
+
+var RECEIPT_CATEGORIES = ["materials", "transportation", "food", "labor", "other"];
+
+var RECEIPT_PROMPT = [
+  "This photo should be a receipt from the Philippines: an official receipt (OR), sales invoice, charge or delivery receipt, cash slip, or fuel receipt.",
+  "Read it and return JSON with:",
+  "- is_receipt: false if the photo is not a receipt or bill at all.",
+  "- vendor: the store or company name as printed.",
+  "- date: the purchase date as YYYY-MM-DD. Philippine receipts usually print dates as MM/DD/YYYY or MM-DD-YY.",
+  "- total: the final amount paid in pesos (the grand total or amount due). Not the VATable sales, VAT amount, subtotal, cash tendered or change.",
+  "- ref: the OR, invoice, DR or PO number if one is printed, e.g. \"OR 004512\".",
+  "- item: what was bought, in at most 8 words, e.g. \"18mm marine plywood, 14 sheets\" or \"Diesel, 40 liters\".",
+  "- category: exactly one of materials (boards, hardware, fittings, paint, adhesives, tools, construction or cabinet supplies), transportation (diesel, gasoline, tolls, parking, delivery or freight), food (meals, snacks, water for the crew), labor (payments to workers), other.",
+  "Use an empty string, or 0 for total, for anything you cannot read. Do not guess numbers."
+].join("\n");
+
+function readReceiptWithAi_(b64, mimeType) {
+  var key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!key) throw codeError_("ai_not_configured", "Add a GEMINI_API_KEY Script Property to switch on receipt reading.");
+  var body = {
+    contents: [{ role: "user", parts: [{ inlineData: { mimeType: mimeType, data: b64 } }, { text: RECEIPT_PROMPT }] }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          is_receipt: { type: "BOOLEAN" },
+          vendor: { type: "STRING" },
+          date: { type: "STRING" },
+          total: { type: "NUMBER" },
+          ref: { type: "STRING" },
+          item: { type: "STRING" },
+          category: { type: "STRING" }
+        },
+        required: ["is_receipt", "total"]
+      }
+    }
+  };
+  var lastErr = null;
+  var models = aiModels_();
+  for (var i = 0; i < models.length; i++) {
+    var res;
+    try {
+      // Key in a header, not the URL, so a network error message can't carry it back to the page.
+      res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + models[i] + ":generateContent", {
+        method: "post", contentType: "application/json", headers: { "x-goog-api-key": key },
+        payload: JSON.stringify(body), muteHttpExceptions: true });
+    } catch (err) {
+      lastErr = codeError_("ai_unavailable", "Gemini " + models[i] + ": network error");
+      continue;
+    }
+    var status = res.getResponseCode();
+    if (status === 404 || status === 429 || status === 503) {
+      lastErr = codeError_(status === 404 ? "ai_unavailable" : "ai_busy", "Gemini " + models[i] + ": " + status);
+      continue;
+    }
+    if (status !== 200) throw codeError_("ai_failed", "Gemini " + models[i] + ": " + status + " " + res.getContentText().slice(0, 200));
+    var data = JSON.parse(res.getContentText());
+    var parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+    var text = parts.map(function (p) { return p.text || ""; }).join("").replace(/^```(?:json)?\s*|\s*```$/g, "");
+    if (!text) throw codeError_("ai_failed", "Gemini " + models[i] + " returned no text.");
+    return cleanReceipt_(JSON.parse(text));
+  }
+  throw lastErr || codeError_("ai_failed", "No Gemini model answered.");
+}
+
+/* Run this once from the editor after adding GEMINI_API_KEY. It asks for the new "connect to an external
+   service" permission (the web app can't ask for it by itself) and checks the key with a tiny text request. */
+function testReceiptAi() {
+  var key = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!key) throw new Error("Add GEMINI_API_KEY in Project Settings > Script Properties first.");
+  var models = aiModels_();
+  for (var i = 0; i < models.length; i++) {
+    var res = UrlFetchApp.fetch("https://generativelanguage.googleapis.com/v1beta/models/" + models[i] + ":generateContent", {
+      method: "post", contentType: "application/json", headers: { "x-goog-api-key": key }, muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Reply with the word OK." }] }], generationConfig: { maxOutputTokens: 5 } }) });
+    var status = res.getResponseCode();
+    Logger.log(models[i] + ": " + status);
+    if (status === 200) { Logger.log("Receipt reading is ON (model " + models[i] + "). Scan receipt will fill the form."); return; }
+    if (status === 400 || status === 401 || status === 403) throw new Error("Google rejected the key (" + status + "). Copy it again from aistudio.google.com/apikey.");
+  }
+  throw new Error("No Gemini model answered. Wait a minute and run this again.");
+}
+
+/* Never trust the model's output shape: keep only well-formed values. */
+function cleanReceipt_(r) {
+  r = r || {};
+  var str = function (v, max) { return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max); };
+  var total = Math.round(Number(r.total) * 100) / 100;
+  var date = str(r.date, 10);
+  var category = str(r.category, 20).toLowerCase();
+  return {
+    isReceipt: r.is_receipt !== false,
+    vendor: str(r.vendor, 80),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
+    total: isFinite(total) && total > 0 && total < 10000000 ? total : 0,
+    ref: str(r.ref, 40),
+    item: str(r.item, 80),
+    category: RECEIPT_CATEGORIES.indexOf(category) >= 0 ? category : ""
+  };
 }
 
 function deleteReceipt_(req) {

@@ -21,6 +21,7 @@
 
 var PROJECT_HEADERS = ["ID", "Name", "Status", "Client", "Contract price", "Budget", "Total spent", "Target date", "Updated", "Data"];
 var EXPENSE_HEADERS = ["ID", "Project ID", "Date", "Item", "Category", "Amount", "Vendor / payee", "Receipt", "Head confirmed", "Updated", "Data"];
+var FUEL_HEADERS = ["ID", "Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "Driver", "Odometer km", "Station", "Notes", "Updated", "Data"];
 var RECEIPT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 var MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
 var SHARE_URL = "https://bernadosjason-dev.github.io/ritehome-tracker/";
@@ -36,9 +37,9 @@ function doPost(e) {
   var denied = checkKey_(req.key);
   if (denied) return respond_(denied);
 
-  var reads = { ping: ping_, listProjects: listProjects_, getProject: getProject_,
+  var reads = { listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -341,6 +342,52 @@ function trashReceipt_(fileId) {
   while (parents.hasNext()) {
     if (parents.next().getId() === folderId) { file.setTrashed(true); return; }
   }
+}
+
+// ---------- company-wide fuel ----------
+
+function fuelSheet_() { return sheet_("Company Fuel", FUEL_HEADERS); }
+function listFuel_() {
+  return { ok: true, entries: readRows_(fuelSheet_(), FUEL_HEADERS).map(function(r) { return withId_(r.id, r.data); }) };
+}
+function fuelData_(value) {
+  var d = objectOrThrow_(value);
+  var date = String(d.date || "");
+  var parsed = new Date(date + "T00:00:00Z");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date) throw codeError_("invalid_argument", "A valid fuel date is required.");
+  function textValue(name, max) {
+    var v = String(d[name] == null ? "" : d[name]).trim();
+    if (v.length > max) throw codeError_("invalid_argument", "Fuel " + name + " is too long.");
+    return v;
+  }
+  if (d.fuelType !== "gasoline" && d.fuelType !== "diesel") throw codeError_("invalid_argument", "Choose gasoline or diesel.");
+  if (typeof d.liters !== "number" || !isFinite(d.liters) || d.liters <= 0 || typeof d.amount !== "number" || !isFinite(d.amount) || d.amount <= 0) throw codeError_("invalid_argument", "Liters and cost must be positive numbers.");
+  var odometer = d.odometer == null ? null : d.odometer;
+  if (odometer !== null && (typeof odometer !== "number" || !isFinite(odometer) || odometer < 0)) throw codeError_("invalid_argument", "Odometer must be a nonnegative number.");
+  var vehicle = textValue("vehicle", 100);
+  if (!vehicle) throw codeError_("invalid_argument", "A vehicle or equipment name is required.");
+  return {date: date, vehicle: vehicle, fuelType: d.fuelType, liters: d.liters, amount: d.amount, driver: textValue("driver", 100), odometer: odometer, vendor: textValue("vendor", 150), notes: textValue("notes", 500), updatedAt: new Date().toISOString()};
+}
+function saveFuel_(req) {
+  var id = String(req.id || "");
+  if (!/^fuel-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "A valid fuel entry ID is required.");
+  var data = fuelData_(req.data);
+  var sh = fuelSheet_(), existing = findRow_(sh, FUEL_HEADERS, id);
+  // A repeated create after a lost response returns the original record, without duplicates.
+  if (req.create === true && existing) {
+    var same = Object.keys(data).filter(function(k) { return k !== "updatedAt"; }).every(function(k) { return data[k] === existing.data[k]; });
+    if (!same) throw codeError_("already_exists", "This purchase was already saved with different details. Refresh the ledger, then edit the saved purchase.");
+    return {ok: true, id: id};
+  }
+  if (req.create !== true && !existing) throw codeError_("not_found", "This fuel purchase no longer exists.");
+  var row = [id, text_(data.date), text_(data.vehicle), text_(data.fuelType), data.liters, data.amount, text_(data.driver), data.odometer == null ? "" : data.odometer, text_(data.vendor), text_(data.notes), data.updatedAt, JSON.stringify(data)];
+  if (existing) writeRow_(sh, existing.row, row); else appendRows_(sh, [row]);
+  return {ok: true, id: id};
+}
+function deleteFuel_(req) {
+  var sh = fuelSheet_(), existing = findRow_(sh, FUEL_HEADERS, String(req.id || ""));
+  if (existing) sh.deleteRow(existing.row);
+  return {ok: true};
 }
 
 // ---------- sheet storage ----------

@@ -101,3 +101,24 @@ a backup `.json` file. Importing the same project twice is skipped, not duplicat
 - A wrong key gets a "key isn't right" screen and nothing else. The key is 40 random
   characters, so guessing it isn't practical. If you set `TRACKER_KEY` by hand in
   Script Properties instead of using `setup()`/`rotateKey()`, keep it just as long.
+
+## Enabling the company fuel ledger
+
+For an existing tracker, paste the updated `Code.gs` into its existing Apps Script
+project, save, then **Deploy → Manage deployments → pencil → Version: New version
+→ Deploy**. Keep the existing `/exec` URL and Script Properties. Deploy this backend
+update before publishing the new `index.html` to GitHub Pages. No key rotation or
+new Google Sheet is required.
+
+The first authenticated fuel-ledger request creates a **Company Fuel** tab in the
+same Sheet. Its final **Data** column holds each complete JSON record; the other
+columns mirror it for reading, just like project and expense tabs. Make edits in
+the tracker rather than in those mirrored columns. Fuel saves and deletes use
+the existing script lock and require the same `TRACKER_KEY`.
+
+After deploying, open the tracker with your private link and check that the company
+fuel section says **Fuel ledger synced**. Check one purchase, edit, filtered totals
+and CSV export on a test Sheet/deployment before using production data. If the page
+asks you to update Apps Script, it is connected to an older backend deployment.
+Company fuel is separate from project expenses and their JSON backups; export it
+with the fuel section's CSV button.

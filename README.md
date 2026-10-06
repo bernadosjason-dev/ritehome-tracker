@@ -17,3 +17,28 @@ The key lives in the Apps Script's Script Properties. It is never stored in this
 - The same `index.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them.
 - The page is `noindex`. Keep the link private.
 - **Bump `PAGE_VERSION`** near the top of the script on every change. Open tabs compare it with the published page and show a "newer version — Reload now" bar. Without the bump, phones can keep running the old page for days.
+
+## Company fuel tracker
+
+The dashboard has a separate company-wide gasoline/diesel ledger for vehicles and
+equipment. Record the date, vehicle or equipment name, fuel type, liters and total
+cost in pesos; driver/operator, odometer, station and notes are optional. Entries
+can be edited or deleted. Month, vehicle and fuel-type filters control the displayed
+records, liters and spending totals, and the CSV export. Clear the month to see all
+dates. Totals measure fuel purchased; odometer readings alone do not establish
+actual consumption or km/L. Company fuel purchases do not change project budgets.
+
+The hosted ledger uses the same private access key as projects and stores records
+in a new **Company Fuel** Sheet tab. Update the Apps Script deployment before
+publishing the new page; see backend/README.md. In a Claude Artifact, records use
+the database's `companyFuel` collection. Failed saves retain form inputs and show
+the existing save warning; retrying a hosted create does not duplicate it.
+
+**Download projects backup** continues to export projects and their expenses.
+Export company fuel separately with **Export filtered CSV**; clear all filters
+to export the complete company fuel ledger. The CSV is a report, not a tracker
+import file.
+
+Run the fuel backend regression checks with `node --test tests/fuel.test.cjs`.
+These tests emulate Google Sheets and Apps Script services locally; they do not
+contact the production deployment.

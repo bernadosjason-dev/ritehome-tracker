@@ -627,8 +627,44 @@
       <div class="project-grid" id="completedGrid"></div>
     </section>
 
+    <section class="dash-section card" id="companyFuelCard">
+      <div class="card-head"><div><h2>Company fuel tracker</h2><div class="muted section-sub">Gasoline and diesel for all company vehicles and equipment. Separate from project expenses.</div></div></div>
+      <div class="field-row cols-3">
+        <div class="field"><label for="cf-month">Month</label><input id="cf-month" type="month"></div>
+        <div class="field"><label for="cf-vehicle-filter">Vehicle / equipment</label><select id="cf-vehicle-filter"><option value="">All vehicles / equipment</option></select></div>
+        <div class="field"><label for="cf-type-filter">Fuel type</label><select id="cf-type-filter"><option value="">All fuel</option><option value="gasoline">Gasoline</option><option value="diesel">Diesel</option></select></div>
+      </div>
+      <div id="cf-summary" class="muted" role="status"></div>
+      <p class="muted">Totals show fuel purchased, not measured engine consumption.</p>
+      <form id="companyFuelForm" class="no-print">
+        <h3 id="cf-form-title">Record fuel purchase</h3>
+        <fieldset id="cf-fields" style="border:0;padding:0;margin:0;min-width:0;" disabled>
+          <div class="field-row cols-3">
+            <div class="field"><label for="cf-date">Date</label><input id="cf-date" type="date" required></div>
+            <div class="field"><label for="cf-vehicle">Vehicle / equipment</label><input id="cf-vehicle" list="companyVehicles" maxlength="100" placeholder="Plate number or equipment name" required><datalist id="companyVehicles"></datalist></div>
+            <div class="field"><label for="cf-type">Fuel type</label><select id="cf-type"><option value="gasoline">Gasoline</option><option value="diesel">Diesel</option></select></div>
+          </div>
+          <div class="field-row cols-3">
+            <div class="field"><label for="cf-liters">Liters</label><input id="cf-liters" type="number" min="0.001" step="0.001" inputmode="decimal" required></div>
+            <div class="field"><label for="cf-amount">Total cost (₱)</label><input id="cf-amount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+            <div class="field"><label for="cf-driver">Driver / operator <span class="muted">(optional)</span></label><input id="cf-driver" maxlength="100"></div>
+          </div>
+          <div class="field-row cols-3">
+            <div class="field"><label for="cf-odometer">Odometer (km) <span class="muted">(optional)</span></label><input id="cf-odometer" type="number" min="0" step="0.1" inputmode="decimal"></div>
+            <div class="field"><label for="cf-vendor">Station / supplier <span class="muted">(optional)</span></label><input id="cf-vendor" maxlength="150"></div>
+            <div class="field"><label for="cf-notes">Notes <span class="muted">(optional)</span></label><input id="cf-notes" maxlength="500"></div>
+          </div>
+          <div class="form-actions"><button class="btn" id="cf-submit" type="submit">Save fuel purchase</button><button class="btn ghost" id="cf-cancel" type="button">Clear form</button></div>
+        </fieldset>
+        <div class="form-error" id="cf-error" role="alert"></div>
+      </form>
+      <p id="cf-status" class="rc-status" role="status">Connecting to fuel ledger…</p>
+      <div class="form-actions"><button class="btn ghost" id="cf-export" type="button" disabled>Export filtered CSV</button><button class="btn ghost" id="cf-refresh" type="button">Refresh fuel ledger</button></div>
+      <div class="table-wrap"><table class="stack" data-main-col="1"><thead><tr><th>Date</th><th>Vehicle / equipment</th><th>Fuel</th><th>Liters</th><th>Cost</th><th>₱ / liter</th><th>Driver</th><th>Odometer (km)</th><th>Station / notes</th><th class="no-print">Actions</th></tr></thead><tbody id="cf-rows"></tbody></table></div>
+    </section>
+
     <footer class="data-foot no-print" id="dataFoot" hidden>
-      <button class="btn ghost" id="exportBtn" type="button">Download backup</button>
+      <button class="btn ghost" id="exportBtn" type="button">Download projects backup</button>
       <label class="btn ghost file-btn">Import projects<input type="file" id="importFile" accept="application/json,.json" class="sr-only"></label>
       <button class="btn ghost" id="forgetKeyBtn" type="button">Forget this device</button>
       <div class="rc-status" id="dataStatus" role="status"></div>
@@ -1183,7 +1219,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-09-28.5";
+  var PAGE_VERSION = "2026-10-06.1";
 
   // ---------- reference data ----------
 
@@ -1561,6 +1597,7 @@
     confirmDeletePkId: null
   };
 
+  var companyFuel = {entries: [], loaded: false, error: null, editing: null, requestId: null, busy: false, subscribed: false};
   var db = null;
   var downloadsApi = null;
   var localProjectsStore = {};   // used only when db is unavailable
@@ -1614,6 +1651,7 @@
     var code = err && err.code;
     if(access === "view") return "Not saved — your access to this tracker is view-only.";
     if(access === "none") return HOSTED ? "Not saved — can't reach the tracker. Check your internet connection." : "Not saved — this view isn't connected to the tracker's database.";
+    if(code === "already_exists") return "Not saved — this fuel purchase already exists. Refresh the fuel ledger, then edit the saved purchase.";
     if(code === "quota_exceeded") return "Not saved — the tracker's storage is full.";
     if(code === "resource_exhausted") return "Not saved — too many changes at once. Wait a moment and try again.";
     return "Not saved — check your connection and try again.";
@@ -1640,6 +1678,7 @@
   function unsavedEdits(){
     var list = [];
     function add(what, el){ list.push({what: what, el: el}); }
+    if(companyFuelDirty()) add("Fuel purchase", $("companyFuelCard"));
     if(!$("dashboardScreen").hidden){
       if(!$("newProjectCard").hidden && $("np-name").value.trim()) add("New project", $("newProjectCard"));
       return list;
@@ -3096,6 +3135,7 @@
   }
 
   function renderDashboard(){
+    renderCompanyFuel();
     var today = todayISO();
     fillDatalists();
     // Unfinished: soonest target first, projects without a target last.
@@ -3151,6 +3191,112 @@
     $("completedGrid").innerHTML = completed.length
       ? completed.map(renderProjectCard).join("")
       : '<div class="empty-note">Nothing completed yet. Open a project and tap “Mark as complete” when the job’s done.</div>';
+  }
+
+  // ---------- company-wide fuel ledger ----------
+
+  function companyFuelDirty(){
+    return !!companyFuel.editing || ["vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].some(function(k){ return $("cf-" + k).value !== ""; });
+  }
+  function filteredCompanyFuel(){
+    var month = $("cf-month").value, vehicle = $("cf-vehicle-filter").value, type = $("cf-type-filter").value;
+    return companyFuel.entries.filter(function(e){ return (!month || e.date.slice(0,7) === month) && (!vehicle || e.vehicle === vehicle) && (!type || e.fuelType === type); }).sort(function(a,b){ return b.date.localeCompare(a.date) || (b.updatedAt || "").localeCompare(a.updatedAt || ""); });
+  }
+  function fuelNumber(n){ return Number(n).toLocaleString("en-PH", {maximumFractionDigits:3}); }
+  function fuelMoney(n){ return Number(n).toLocaleString("en-PH", {style:"currency", currency:"PHP", minimumFractionDigits:2, maximumFractionDigits:2}); }
+  function renderCompanyFuel(){
+    if(!$("cf-rows") || !companyFuel) return;
+    var selected = $("cf-vehicle-filter").value;
+    var vehicles = Array.from(new Set(companyFuel.entries.map(function(e){ return e.vehicle; }))).sort(function(a,b){ return a.localeCompare(b); });
+    $("cf-vehicle-filter").innerHTML = '<option value="">All vehicles / equipment</option>' + vehicles.map(function(v){ return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join("");
+    $("cf-vehicle-filter").value = selected;
+    $("companyVehicles").innerHTML = vehicles.map(function(v){ return '<option value="' + esc(v) + '"></option>'; }).join("");
+    $("cf-fields").disabled = !canWrite() || !companyFuel.loaded || !!companyFuel.error || companyFuel.busy;
+    $("cf-export").disabled = !companyFuel.loaded || !!companyFuel.error;
+    $("cf-status").className = "rc-status" + (companyFuel.error ? " err" : "");
+    $("cf-status").textContent = companyFuel.error ? "Fuel ledger could not refresh. Displayed records may be out of date. " + (companyFuel.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable company fuel tracking." : saveErrorText(companyFuel.error)) : companyFuel.loaded ? "Fuel ledger synced." : "Connecting to fuel ledger…";
+    var rows = filteredCompanyFuel();
+    $("cf-summary").textContent = companyFuel.loaded ? plural(rows.length, "purchase") + " · Gasoline: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "gasoline"; }), function(e){ return e.liters; })) + " L · Diesel: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "diesel"; }), function(e){ return e.liters; })) + " L · Total cost: " + fuelMoney(sum(rows, function(e){ return e.amount; })) : "Totals available after the ledger loads.";
+    $("cf-rows").innerHTML = rows.length ? rows.map(function(e){
+      return '<tr><td>' + esc(dateFmt(e.date)) + '</td><td>' + esc(e.vehicle) + '</td><td>' + (e.fuelType === "diesel" ? "Diesel" : "Gasoline") + '</td><td>' + fuelNumber(e.liters) + '</td><td>' + fuelMoney(e.amount) + '</td><td>' + fuelMoney(e.amount / e.liters) + '</td><td>' + esc(e.driver || "—") + '</td><td>' + (e.odometer == null ? "—" : fuelNumber(e.odometer)) + '</td><td>' + esc([e.vendor, e.notes].filter(Boolean).join(" · ") || "—") + '</td><td class="no-print">' + (canWrite() && !companyFuel.error ? '<button class="btn ghost small" data-fuel-edit="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Edit</button> <button class="btn ghost small" data-fuel-delete="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Delete</button>' : '') + '</td></tr>';
+    }).join("") : '<tr><td colspan="10">' + (companyFuel.loaded ? 'No fuel purchases for these filters.' : 'Fuel records have not loaded yet.') + '</td></tr>';
+  }
+  function subscribeCompanyFuel(){
+    if(companyFuel.subscribed || !db) return;
+    companyFuel.subscribed = true;
+    db.collection("companyFuel").onSnapshot(function(snap){
+      companyFuel.entries = snap.docs.map(function(d){ return Object.assign({}, d.data(), {id:d.id}); });
+      companyFuel.loaded = true;
+      companyFuel.error = null;
+      renderCompanyFuel();
+    }, function(err){ companyFuel.error = err; renderCompanyFuel(); });
+  }
+  function resetCompanyFuel(){
+    $("companyFuelForm").reset();
+    $("cf-date").value = todayISO();
+    companyFuel.editing = null;
+    companyFuel.requestId = null;
+    $("cf-form-title").textContent = "Record fuel purchase";
+    $("cf-submit").textContent = "Save fuel purchase";
+    $("cf-error").textContent = "";
+    renderSaveStatus();
+  }
+  function wireCompanyFuel(){
+    $("cf-month").value = todayISO().slice(0,7);
+    $("cf-date").value = todayISO();
+    ["cf-month", "cf-vehicle-filter", "cf-type-filter"].forEach(function(id){ $(id).addEventListener("change", renderCompanyFuel); });
+    $("cf-cancel").addEventListener("click", function(){ if(!companyFuelDirty() || confirm("Discard this unsaved fuel purchase?")) resetCompanyFuel(); });
+    $("cf-refresh").addEventListener("click", function(){ if(db && db.refreshNow) db.refreshNow(); });
+    $("companyFuelForm").addEventListener("submit", function(ev){
+      ev.preventDefault();
+      if(!canWrite() || !db || companyFuel.busy || !companyFuel.loaded || companyFuel.error) return;
+      var data = {date: $("cf-date").value, vehicle: $("cf-vehicle").value.trim(), fuelType: $("cf-type").value, liters: Number($("cf-liters").value), amount: Number($("cf-amount").value), driver: $("cf-driver").value.trim(), odometer: $("cf-odometer").value === "" ? null : Number($("cf-odometer").value), vendor: $("cf-vendor").value.trim(), notes: $("cf-notes").value.trim(), updatedAt: new Date().toISOString()};
+      if(!data.vehicle || !data.date || !isFinite(data.liters) || data.liters <= 0 || !isFinite(data.amount) || data.amount <= 0 || (data.odometer != null && (!isFinite(data.odometer) || data.odometer < 0))){ $("cf-error").textContent = "Enter a vehicle, date, positive liters and cost, and a valid odometer reading."; return; }
+      companyFuel.busy = true;
+      $("cf-error").textContent = "";
+      renderCompanyFuel();
+      var id = companyFuel.editing || companyFuel.requestId || (companyFuel.requestId = "fuel-" + crypto.randomUUID());
+      var ref = db.collection("companyFuel").doc(id), editing = !!companyFuel.editing;
+      function savePurchase(){
+        companyFuel.busy = true;
+        renderCompanyFuel();
+        return track(function(){ return editing ? ref.update(data) : ref.set(data); }, "Fuel purchase", savePurchase).then(function(){
+        saveState.failed = saveState.failed.filter(function(f){ return f.retry !== savePurchase; });
+        $("cf-month").value = data.date.slice(0,7);
+        $("cf-vehicle-filter").value = "";
+        $("cf-type-filter").value = "";
+        if(companyFuel.editing === id || companyFuel.requestId === id) resetCompanyFuel();
+      }).catch(function(err){ $("cf-error").textContent = saveErrorText(err); }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
+      }
+      savePurchase();
+    });
+    $("cf-rows").addEventListener("click", function(ev){
+      var edit = ev.target.closest("[data-fuel-edit]"), del = ev.target.closest("[data-fuel-delete]");
+      if((!edit && !del) || !canWrite() || companyFuel.busy || companyFuel.error) return;
+      var entry = companyFuel.entries.find(function(e){ return e.id === (edit || del).getAttribute(edit ? "data-fuel-edit" : "data-fuel-delete"); });
+      if(!entry) return;
+      if(edit){
+        if(companyFuelDirty() && !confirm("Discard the unsaved fuel form and edit this purchase?")) return;
+        resetCompanyFuel();
+        companyFuel.editing = entry.id;
+        ["date", "vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].forEach(function(k){ $("cf-" + k).value = entry[k] == null ? "" : entry[k]; });
+        $("cf-type").value = entry.fuelType;
+        $("cf-form-title").textContent = "Edit fuel purchase";
+        $("cf-submit").textContent = "Save changes";
+        $("cf-vehicle").focus();
+        renderSaveStatus();
+      } else if(confirm("Delete the fuel purchase for " + entry.vehicle + " on " + entry.date + "?")){
+        companyFuel.busy = true;
+        renderCompanyFuel();
+        track(function(){ return db.collection("companyFuel").doc(entry.id).delete(); }, "Deleting fuel purchase", null).then(function(){ if(companyFuel.editing === entry.id) resetCompanyFuel(); }).catch(function(err){ $("cf-error").textContent = saveErrorText(err); }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
+      }
+    });
+    $("cf-export").addEventListener("click", function(){
+      if(!companyFuel.loaded || companyFuel.error) return;
+      function cell(v){ var t = String(v == null ? "" : v); if(/^[=+@\-\t\r\n]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; }
+      var csv = [["Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "PHP per liter", "Driver", "Odometer km", "Station", "Notes"]].concat(filteredCompanyFuel().map(function(e){ return [e.date, e.vehicle, e.fuelType, e.liters, e.amount, (e.amount/e.liters).toFixed(2), e.driver, e.odometer, e.vendor, e.notes]; })).map(function(row){ return row.map(cell).join(","); }).join("\r\n");
+      downloadFile("ritehome-company-fuel-" + ($("cf-month").value || "all") + ".csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
+    });
   }
 
   // ---------- sync status ----------
@@ -3308,6 +3454,7 @@
 
   function subscribeProjectsList(){
     if(!db) return;
+    subscribeCompanyFuel();
     db.collection("projects").orderBy("updatedAt", "desc").limit(200).onSnapshot(function(snap){
       state.projects = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
       onReadOk();
@@ -4230,7 +4377,7 @@
 
   function makeSheetBackend(endpoint, onKeyRejected){
     var subs = [];         // {kind: "list"|"project"|"expenses", key, pid, cb, err}
-    var cache = {list: null, projects: {}};
+    var cache = {list: null, fuel: null, projects: {}};
     var lastSig = {};      // key -> last delivered result, so an unchanged poll doesn't re-render
     var failed = {};       // key -> the last read failed (deliver the next success even if unchanged)
     var inflight = {};
@@ -4253,6 +4400,7 @@
 
     function deliverTo(s){
       if(s.kind === "list"){ if(cache.list) s.cb({docs: cache.list.map(snapDoc)}); return; }
+      if(s.kind === "fuel"){ if(cache.fuel) s.cb({docs: cache.fuel.map(snapDoc)}); return; }
       var entry = cache.projects[s.pid];
       if(!entry) return;
       if(s.kind === "project") s.cb({exists: !!entry.project, id: s.pid, data: function(){ return entry.project ? clone(entry.project) : undefined; }});
@@ -4261,10 +4409,10 @@
 
     function refresh(key, pid){
       if(inflight[key]) return inflight[key];
-      var p = (key === "list" ? call("listProjects") : call("getProject", {id: pid})).then(function(res){
+      var p = (key === "fuel" ? call("listFuel") : key === "list" ? call("listProjects") : call("getProject", {id: pid})).then(function(res){
         inflight[key] = null;
-        var sig = JSON.stringify(key === "list" ? res.projects : [res.project, res.expenses]);
-        if(key === "list") cache.list = res.projects; else cache.projects[pid] = {project: res.project, expenses: res.expenses};
+        var sig = JSON.stringify(key === "fuel" ? res.entries : key === "list" ? res.projects : [res.project, res.expenses]);
+        if(key === "fuel") cache.fuel = res.entries; else if(key === "list") cache.list = res.projects; else cache.projects[pid] = {project: res.project, expenses: res.expenses};
         if(sig === lastSig[key] && !failed[key]) return;
         lastSig[key] = sig;
         failed[key] = false;
@@ -4279,7 +4427,7 @@
     }
 
     function subscribe(kind, pid, cb, err){
-      var key = kind === "list" ? "list" : "p:" + pid;
+      var key = kind === "fuel" ? "fuel" : kind === "list" ? "list" : "p:" + pid;
       var s = {kind: kind, key: key, pid: pid, cb: cb, err: err};
       subs.push(s);
       setTimeout(function(){ if(subs.indexOf(s) >= 0) deliverTo(s); }, 0);   // cached copy first, if any
@@ -4337,6 +4485,15 @@
       doc: projectDoc
     };
 
+    var fuelCol = {
+      onSnapshot: function(cb, err){ return subscribe("fuel", null, cb, err); },
+      doc: function(id){ return {
+        set: function(data){ return call("saveFuel", {id: id, data: data, create: true}).then(function(){ refresh("fuel"); }); },
+        update: function(data){ return call("saveFuel", {id: id, data: data, create: false}).then(function(){ refresh("fuel"); }); },
+        delete: function(){ return call("deleteFuel", {id: id}).then(function(){ refresh("fuel"); }); }
+      }; }
+    };
+
     function awake(){ return document.visibilityState === "visible" && !document.body.classList.contains("gated"); }
     setInterval(function(){ if(awake()) refreshNow(); }, 30000);
     document.addEventListener("visibilitychange", function(){ if(awake()) refreshNow(); });
@@ -4352,7 +4509,7 @@
 
     return {
       db: {
-        collection: function(){ return projectsCol; },
+        collection: function(name){ return name === "companyFuel" ? fuelCol : projectsCol; },
         deleteProjectCascade: function(id){ return projectDoc(id).delete(); },
         refreshNow: refreshNow,
         ping: function(){ return call("ping"); },
@@ -4551,6 +4708,7 @@
   populateSelects();
   watchStackTables();
   wireEvents();
+  wireCompanyFuel();
   route();
   window.addEventListener("hashchange", route);
 

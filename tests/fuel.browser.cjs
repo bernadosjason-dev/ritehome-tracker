@@ -83,7 +83,39 @@ const {createBackend}=require('./fuel.test.cjs');
  b.storage.failure='read';await page.locator('#cf-check-storage').click();await page.waitForFunction(()=>document.getElementById('cf-storage-status').textContent.includes('Google Drive')&&!document.getElementById('cf-fields').disabled);
  b.storage.failure=null;await page.locator('#cf-check-storage').click();await page.waitForFunction(()=>document.getElementById('cf-storage-status').textContent.includes('check passed'));
  assert([...b.storage.files.values()].some(f=>f.trashed),'diagnostic probe cleaned up');
+ // A corrected manual resubmission must remove the older failed snapshot.
+ await page.locator('#cf-date').fill('2026-10-06');await page.locator('#cf-vehicle').fill('Retry review');await page.locator('#cf-liters').fill('10');await page.locator('#cf-amount').fill('650');
+ failWrites=2;await page.locator('#cf-submit').click();await page.locator('[data-sb="retry"]').waitFor();
+ await page.locator('#cf-amount').fill('700');await page.locator('#cf-submit').click();
+ await page.waitForFunction(()=>document.getElementById('cf-rows').textContent.includes('Retry review')&&!document.getElementById('cf-fields').disabled);
+ assert.equal(b.request({action:'listFuel'}).entries.find(e=>e.vehicle==='Retry review').amount,700);
+ assert.equal(await page.locator('[data-sb="retry"]').count(),0,'successful manual save must clear obsolete retry');
+ // Clearing a failed form must discard its retry rather than resurrecting the purchase.
+ await page.locator('#cf-date').fill('2026-10-06');await page.locator('#cf-vehicle').fill('Discard review');await page.locator('#cf-liters').fill('10');await page.locator('#cf-amount').fill('650');
+ failWrites=2;await page.locator('#cf-submit').click();await page.locator('[data-sb="retry"]').waitFor();await page.locator('#cf-cancel').click();
+ assert.equal(await page.locator('[data-sb="retry"]').count(),0,'cleared form must discard queued retry');
+ assert(!b.request({action:'listFuel'}).entries.some(e=>e.vehicle==='Discard review'));
+ // Invalid deployment replies disable editing, explain the cause, and recover through Retry connection.
+ for(const mode of ['html','http','network']) {
+  const failedPage=await browser.newPage();let recovered=false;
+  await failedPage.route('https://fonts.googleapis.com/**',r=>r.abort());
+  await failedPage.route('https://script.google.com/**',async r=>{
+   const req=r.request().postDataJSON();
+   if(!recovered){
+    if(mode==='network')return r.abort();
+    return r.fulfill(mode==='http'?{status:403,body:'Forbidden'}:{contentType:'text/html',body:'<html>Sign in to Google</html>'});
+   }
+   return r.fulfill({json:req.action==='listProjects'?{ok:true,projects:[]}:b.request(req)});
+  });
+  await failedPage.goto('http://127.0.0.1:8000/',{waitUntil:'domcontentloaded'});
+  await failedPage.locator('#gateKey').fill('test-only-key');await failedPage.locator('#gateForm').evaluate(f=>f.requestSubmit());
+  await failedPage.locator('[data-sb="connect"]').waitFor();
+  assert(await failedPage.locator('#cf-vehicle').isDisabled());assert(await failedPage.locator('#cv-name').isDisabled());
+  assert.match(await failedPage.locator('#saveBar').innerText(),mode==='html'?/sign-in or error page/:mode==='http'?/HTTP 403/:/cannot reach the Google backend/);
+  recovered=true;await failedPage.locator('[data-sb="connect"]').click();await failedPage.waitForFunction(()=>!document.getElementById('cf-fields').disabled&&!document.getElementById('cv-fields').disabled);
+  await failedPage.close();
+ }
  assert.deepEqual(errors,[]);
- console.log('PASS browser: receipt preview/upload/view/remove, Drive failure recovery, upload retry deduplication, no-photo admin confirmation, receipt CSV, vehicle add/edit, fuel defaults, reload persistence, gate, add, lost-response retry, edit, failed-save retry, monthly/vehicle filters, CSV export, delete, mobile rendering; no JS errors.');
+ console.log('PASS browser: receipt preview/upload/view/remove, Drive failure recovery, upload retry deduplication, no-photo admin confirmation, receipt CSV, vehicle add/edit, fuel defaults, reload persistence, gate, add, lost-response retry, edit, failed-save retry, daily/monthly/vehicle filters, corrected manual retry, discarded retry, deployment error diagnostics and reconnection, CSV export, delete, mobile rendering; no JS errors.');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

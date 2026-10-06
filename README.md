@@ -91,3 +91,22 @@ records or photos are written.
 The fuel ledger also has a **Specific date** filter for day/month/year selection.
 Choosing a day clears the month filter; choosing a month clears the day filter.
 Clear both to view all dates. Totals and CSV export follow the selected day.
+
+## Connection and save troubleshooting
+
+**Can't save here** means the hosted page could not connect to its Google backend,
+so editing remains disabled. Check the Web app `/exec` URL in the existing Apps
+Script deployment; it must match `TRACKER_ENDPOINT` in the page. Deploy as the
+owner with access set to **Anyone**. A GitHub Pages URL ending in `/exec` is not
+a backend URL. The connection banner distinguishes HTTP errors, sign-in/error
+pages and network failures, with **Retry connection** and **Check backend link**
+controls. Once the connection and relevant ledger reads succeed, editing unlocks.
+
+Fuel and vehicle failed saves are tracked by record identity: a successful manual
+resubmission clears the old retry, and clearing a failed form discards its queued
+retry. This prevents an obsolete retry from restoring discarded form details.
+
+Additional project calculation checks: `node --test tests/tracker-logic.test.cjs`.
+They cover billing allocations/withheld tax, category totals, receipt counts,
+contract/daily labor totals and date boundaries. Local logic checks do not prove
+that a particular live deployment is reachable or authorized.

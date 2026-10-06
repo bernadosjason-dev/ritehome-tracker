@@ -1251,10 +1251,10 @@
   // Hosted copy (bernadosjason-dev.github.io/ritehome-tracker/): the Apps Script web app that stores projects
   // in a Google Sheet — its /exec URL, from Deploy in the Apps Script editor (backend/README.md).
   // Inside claude.ai the page uses the artifact's own database instead and ignores this.
-  var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
+  var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-06.4";
+  var PAGE_VERSION = "2026-10-06.5";
 
   // ---------- reference data ----------
 
@@ -1646,6 +1646,9 @@
   // ---------- access & saving ----------
   // access: "checking" until the database answers; "none" = this view has no database (signed out, outside the
   // owner's organization, or not served); "view" = read-only access; "write" = may save.
+  var hostedConnectionError = "";
+  var hostedRetryTimer = null;
+  var hostedConnecting = false;
   var access = "checking";
   var writeKnown = null;    // user.can("data.write"): true / false / null (platform didn't say)
   var assetsWrite = null;   // user.can("assets.write")
@@ -1664,11 +1667,12 @@
 
   // Every database write goes through here so a failed save is never silent.
   // what: named in the "not saved" bar (omit when the form shows the error itself); retry: re-runs the write.
-  function track(fn, what, retry){
+  function track(fn, what, retry, operationKey){
     saveState.pending++;
     renderSaveStatus();
     return withRetry(fn).then(function(v){
       saveState.pending--;
+      if(operationKey) saveState.failed = saveState.failed.filter(function(f){ return f.operationKey !== operationKey; });
       saveState.savedAt = new Date();
       renderSaveStatus();
       return v;
@@ -1677,7 +1681,10 @@
       var code = err && err.code;
       if(code === "revoked" || code === "not_granted"){ access = "none"; retry = null; }
       else if(code === "invalid_argument" && writeKnown !== true){ access = "view"; retry = null; }
-      if(what) saveState.failed.push({what: what, retry: retry || null});
+      if(what){
+        if(operationKey) saveState.failed = saveState.failed.filter(function(f){ return f.operationKey !== operationKey; });
+        saveState.failed.push({what: what, retry: retry || null, operationKey: operationKey});
+      }
       renderSaveStatus();
       throw err;
     });
@@ -1705,7 +1712,11 @@
   }
 
   function discardFailed(){
+    var resetFuel = saveState.failed.some(function(f){ return f.operationKey && f.operationKey.indexOf("fuel:") === 0; });
+    var resetVehicle = saveState.failed.some(function(f){ return f.operationKey && f.operationKey.indexOf("vehicle:") === 0; });
     saveState.failed = [];
+    if(resetFuel) resetCompanyFuel();
+    if(resetVehicle) resetCompanyVehicle();
     renderSaveStatus();
     if(state.currentProjectId && !isSample()) loadProject(state.currentProjectId);   // reload what is really saved
   }
@@ -1798,7 +1809,8 @@
       actions += '<button class="btn ghost" data-sb="discard" type="button">' + (access === "write" ? "Undo unsaved changes" : "Dismiss") + '</button>';
     } else if(access === "none" && HOSTED){
       title = "Can’t reach the tracker right now";
-      text = "Nothing can be saved until the connection is back — check your internet. The page keeps retrying on its own.";
+      text = (hostedConnectionError || "The Google backend connection is unavailable. Check the deployment URL, web app permissions and your network.") + " Editing is disabled until the connection succeeds.";
+      actions = '<button class="btn small" data-sb="connect" type="button">Retry connection</button>' + '<a class="btn ghost" href="' + esc(TRACKER_ENDPOINT) + '" target="_blank" rel="noopener">Check backend link</a>';
     } else if(access === "none"){
       title = "Nothing you do here is saved";
       text = "This view isn’t connected to the tracker’s database, so new projects and expenses disappear when you refresh. " +
@@ -3235,7 +3247,7 @@
   function renderCompanyVehicles(){
     $("cv-fields").disabled = !canWrite() || !companyVehicles.loaded || !!companyVehicles.error || companyVehicles.busy;
     $("cv-status").className = "rc-status" + (companyVehicles.error ? " err" : "");
-    $("cv-status").textContent = companyVehicles.error ? "Vehicles could not load. Update the Apps Script deployment if vehicle management is not enabled, then refresh the fuel ledger." : companyVehicles.loaded ? "Vehicle list synced." : "Loading vehicles…";
+    $("cv-status").textContent = HOSTED && access === "none" ? "Vehicle editing is disabled until the tracker reconnects to Google." : companyVehicles.error ? "Vehicles could not load. Update the Apps Script deployment if vehicle management is not enabled, then refresh the fuel ledger." : companyVehicles.loaded ? "Vehicle list synced." : "Loading vehicles…";
     $("cv-rows").innerHTML = companyVehicles.entries.length ? companyVehicles.entries.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(v){
       return '<tr><td>' + esc(v.name) + '</td><td>' + esc(v.plate || "—") + '</td><td>' + (v.fuelType === "diesel" ? "Diesel" : "Gasoline") + '</td><td><button type="button" class="btn ghost small" data-vehicle-edit="' + esc(v.id) + '" ' + (!canWrite() || companyVehicles.busy || companyVehicles.error ? 'disabled' : '') + '>Edit</button></td></tr>';
     }).join("") : '<tr><td colspan="4">' + (companyVehicles.loaded ? 'No saved vehicles yet. Add Wigo with Gasoline, or Van with Diesel, above.' : 'Vehicle records have not loaded yet.') + '</td></tr>';
@@ -3251,6 +3263,8 @@
     }, function(err){ companyVehicles.error = err; renderCompanyVehicles(); });
   }
   function resetCompanyVehicle(){
+    var key = "vehicle:" + (companyVehicles.editing || companyVehicles.requestId);
+    saveState.failed = saveState.failed.filter(function(f){ return f.operationKey !== key; });
     $("companyVehicleForm").reset();
     companyVehicles.editing = null;
     companyVehicles.requestId = null;
@@ -3296,7 +3310,7 @@
         companyVehicles.busy = true;
         $("cv-error").textContent = "";
         renderCompanyVehicles();
-        return track(function(){ return editing ? ref.update(data) : ref.set(data); }, "Vehicle details", saveVehicle).then(function(){
+        return track(function(){ return editing ? ref.update(data) : ref.set(data); }, "Vehicle details", saveVehicle, "vehicle:" + id).then(function(){
           saveState.failed = saveState.failed.filter(function(f){ return f.retry !== saveVehicle; });
           if(companyVehicles.editing === id || companyVehicles.requestId === id) resetCompanyVehicle();
         }).catch(function(err){ $("cv-error").textContent = (err && (err.code === "already_exists" || err.code === "invalid_argument" || err.code === "not_found") && err.message) || saveErrorText(err); }).finally(function(){ companyVehicles.busy = false; renderCompanyFuel(); });
@@ -3326,7 +3340,7 @@
     $("cf-fields").disabled = !canWrite() || !companyFuel.loaded || !!companyFuel.error || companyFuel.busy;
     $("cf-export").disabled = !companyFuel.loaded || !!companyFuel.error;
     $("cf-status").className = "rc-status" + (companyFuel.error ? " err" : "");
-    $("cf-status").textContent = companyFuel.error ? "Fuel ledger could not refresh. Displayed records may be out of date. " + (companyFuel.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable company fuel tracking." : saveErrorText(companyFuel.error)) : companyFuel.loaded ? "Fuel ledger synced." : "Connecting to fuel ledger…";
+    $("cf-status").textContent = HOSTED && access === "none" ? "Fuel editing is disabled until the tracker reconnects to Google." : companyFuel.error ? "Fuel ledger could not refresh. Displayed records may be out of date. " + (companyFuel.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable company fuel tracking." : saveErrorText(companyFuel.error)) : companyFuel.loaded ? "Fuel ledger synced." : "Connecting to fuel ledger…";
     var rows = filteredCompanyFuel();
     $("cf-summary").textContent = companyFuel.loaded ? plural(rows.length, "purchase") + " · Gasoline: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "gasoline"; }), function(e){ return e.liters; })) + " L · Diesel: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "diesel"; }), function(e){ return e.liters; })) + " L · Total cost: " + fuelMoney(sum(rows, function(e){ return e.amount; })) : "Totals available after the ledger loads.";
     $("cf-rows").innerHTML = rows.length ? rows.map(function(e){
@@ -3372,6 +3386,8 @@
   }
 
   function resetCompanyFuel(){
+    var key = "fuel:" + (companyFuel.editing || companyFuel.requestId);
+    saveState.failed = saveState.failed.filter(function(f){ return f.operationKey !== key; });
     clearFuelPhoto();
     $("companyFuelForm").reset();
     $("cf-date").value = todayISO();
@@ -3447,7 +3463,7 @@
             if(companyFuel.editing === id || companyFuel.requestId === id) companyFuel.receipt = data.receipt;
             return editing ? ref.update(data) : ref.set(data);
           });
-        }, "Fuel purchase", savePurchase).then(function(){
+        }, "Fuel purchase", savePurchase, "fuel:" + id).then(function(){
         saveState.failed = saveState.failed.filter(function(f){ return f.retry !== savePurchase; });
         $("cf-month").value = data.date.slice(0,7);
         $("cf-day").value = "";
@@ -4499,7 +4515,8 @@
       var b = e.target.closest("button[data-sb]");
       if(!b) return;
       var act = b.getAttribute("data-sb");
-      if(act === "retry") retryFailed();
+      if(act === "connect"){ showGate("connecting"); connectHosted(); }
+      else if(act === "retry") retryFailed();
       else if(act === "discard") discardFailed();
       else if(act === "stay"){
         var first = leavePrompt && leavePrompt.list[0];
@@ -4588,13 +4605,19 @@
     function call(action, payload){
       var body = JSON.stringify(Object.assign({action: action, key: readKey()}, payload || {}));
       return fetch(endpoint, {method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"}, body: body})
-        .then(function(r){ return r.json(); })
+        .then(function(r){
+          if(!r.ok) throw {code:"backend_http_error", message:"The Google backend returned HTTP " + r.status + ". Check that the web app executes as its owner and allows access to Anyone."};
+          return r.text().then(function(text){
+            try { return JSON.parse(text); }
+            catch(e){ throw {code:"backend_response_invalid", message:"The backend returned a sign-in or error page instead of tracker data. Check the /exec URL and deploy the web app with access set to Anyone."}; }
+          });
+        })
         .then(function(res){
           if(res && res.ok) return res;
           var code = (res && res.code) || "unavailable";
           if(code === "bad_key" || code === "not_configured") onKeyRejected(code);
           throw {code: code, message: (res && res.error) || ""};
-        }, function(){ throw {code: "unavailable", message: "Can't reach the tracker."}; });
+        }, function(err){ if(err && err.code) throw err; throw {code: "unavailable", message: "The browser cannot reach the Google backend. Check the deployed /exec URL, Google web app permissions and your network."}; });
     }
 
     function snapDoc(d){ return {id: d.id, data: function(){ return clone(d); }}; }
@@ -4777,10 +4800,15 @@
   }
 
   function connectHosted(){
+    if(hostedConnecting) return;
+    clearTimeout(hostedRetryTimer);
+    hostedConnecting = true;
     if(!sheetBackend) sheetBackend = makeSheetBackend(TRACKER_ENDPOINT, function(code){
       showGate(code === "not_configured" ? "setup" : keyFromForm ? "wrong" : "rejected");
     });
     sheetBackend.db.ping().then(function(){
+      hostedConnecting = false;
+      hostedConnectionError = "";
       keyFromForm = false;
       hideGate();
       db = sheetBackend.db;
@@ -4791,12 +4819,14 @@
       if(!listSubscribed){ listSubscribed = true; subscribeProjectsList(); }
       route();
     }, function(err){
+      hostedConnecting = false;
+      hostedConnectionError = (err && err.message) || "The Google backend connection failed.";
       keyFromForm = false;
       if(err.code === "bad_key" || err.code === "not_configured") return;   // the gate is already showing
       hideGate();
       access = "none";
       refreshView();
-      setTimeout(connectHosted, 15000);
+      hostedRetryTimer = setTimeout(connectHosted, 15000);
     });
   }
 

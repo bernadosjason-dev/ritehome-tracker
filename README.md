@@ -58,3 +58,32 @@ Vehicle profiles are shared through the **Company Vehicles** Sheet tab (or the
 Editing a profile changes the suggestions and default for future purchases; past
 purchases retain the name and fuel type recorded at the time. These records remain
 in the ledger, filters and CSV under their original names.
+
+### Fuel receipts and admin confirmation
+
+Fuel purchases can include a receipt photo (JPG, PNG, WebP or GIF). Choose a file
+to preview it; it uploads when the purchase is saved. **View receipt** opens the
+saved photo. Photos can be replaced or removed when editing a purchase. If an
+upload or save fails, the form and photo stay available for retry.
+
+Without a photo, select **No receipt photo available**. **Confirmed by admin**
+requires the confirming admin's name and stores the confirmation date. Leave it
+unchecked until reviewed; the ledger displays **Awaiting admin confirmation**.
+Confirmation is a recorded attestation under the shared tracker key, not a separate
+admin login. Receipt status, Drive file ID and confirmation details are included
+in the fuel CSV export. Existing purchases remain compatible.
+
+The hosted app uses the existing Google Drive receipts folder, not a storage
+bucket. After updating the Apps Script deployment, use **Check receipt uploads**
+to test an actual image upload, view-by-link sharing and cleanup in that folder.
+The diagnostic creates and trashes only its own temporary test photo. A passing
+local mock test does not establish live Drive readiness. Upload errors report
+folder-access, capacity or sharing problems without saving an incomplete purchase.
+Removed or replaced fuel photos remain in Drive rather than deleting files that
+might be referenced elsewhere.
+
+Backend tests: `node --test tests/fuel.test.cjs`. Browser regression checks:
+start `python3 -m http.server 8000 --bind 127.0.0.1` in the repository, then run
+`node tests/fuel.browser.cjs` with Playwright and `/usr/bin/chromium` installed.
+The browser checks use local simulated Apps Script/Drive services; no production
+records or photos are written.

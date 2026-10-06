@@ -7,6 +7,17 @@ const path = require('node:path');
 function createBackend() {
   const sheets = new Map();
   let locks = 0;
+  const storage = {files:new Map(), failure:null};
+  const properties = new Map([['TRACKER_KEY','test-only-key'], ['RECEIPTS_FOLDER_ID','test-receipts-folder']]);
+  const folder = {
+    getId: () => 'test-receipts-folder',
+    getFilesByName(name){ const file=storage.files.get(name); let read=false; return {hasNext:()=>!!file&&!read,next(){read=true;return file;}}; },
+    createFile(blob){
+      if(storage.failure==='write')throw Error('Drive quota exceeded');
+      const file={id:'receipt_'+(storage.files.size+1),blob,shared:false,trashed:false,setTrashed(value){this.trashed=value;},getId(){return this.id;},setSharing(){if(storage.failure==='share')throw Error('Sharing forbidden');this.shared=true;}};
+      storage.files.set(blob.name,file);return file;
+    }
+  };
   function sheet() {
     const rows = [];
     return {
@@ -23,12 +34,14 @@ function createBackend() {
   }
   const context = vm.createContext({
     SpreadsheetApp: {getActiveSpreadsheet: () => ({getSheetByName:name=>sheets.get(name), insertSheet(name){const s=sheet();sheets.set(name,s);return s;}})},
-    PropertiesService: {getScriptProperties: () => ({getProperty: name => name === 'TRACKER_KEY' ? 'test-only-key' : null})},
+    PropertiesService: {getScriptProperties: () => ({getProperty:name=>properties.get(name)||null,setProperty:(name,value)=>properties.set(name,value)})},
+    Utilities:{getUuid:()=>require('node:crypto').randomUUID(),base64Decode:data=>Array.from(Buffer.from(data,'base64')),newBlob:(bytes,type,name)=>({bytes,type,name})},
+    DriveApp:{Access:{ANYONE_WITH_LINK:'anyone'},Permission:{VIEW:'view'},getFileById(id){return [...storage.files.values()].find(f=>f.id===id);},getFolderById(id){if(storage.failure==='read')throw Error('Folder access denied');assert.equal(id,'test-receipts-folder');return folder;},createFolder:()=>folder},
     LockService: {getScriptLock: () => ({tryLock(){locks++;return true;},releaseLock(){locks--;}})},
     ContentService: {MimeType:{JSON:'application/json'},createTextOutput: text => ({setMimeType:()=>text})}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../backend/Code.gs'),'utf8'),context);
-  return {sheets, context, request(req){const result=JSON.parse(context.doPost({postData:{contents:JSON.stringify({key:'test-only-key',...req})}}));assert.equal(locks,0,'write lock released');return result;}};
+  return {sheets, context, storage, request(req){const result=JSON.parse(context.doPost({postData:{contents:JSON.stringify({key:'test-only-key',...req})}}));assert.equal(locks,0,'write lock released');return result;}};
 }
 const data = {date:'2026-10-06',vehicle:'Truck ABC 123',fuelType:'diesel',liters:20.5,amount:1230,driver:'Juan',odometer:12000,vendor:'Station',notes:''};
 const id = 'fuel-00000000-0000-4000-8000-000000000001';
@@ -98,4 +111,58 @@ test('vehicle profiles reject unauthenticated access, duplicates and invalid fie
   assert.equal(b.request({action:'saveVehicle',id:id+'2',data:{...data,name:'van'},create:true}).code,'invalid_argument');
   assert.equal(b.request({action:'saveVehicle',id:id+'2',data,create:false}).code,'not_found');
   assert.equal(b.request({action:'saveVehicle',id,data:{...data,fuelType:'gasoline'},create:true}).code,'already_exists');
+});
+
+test('fuel receipt upload uses configured Drive folder, shares photos and retries without duplicates', () => {
+  const b=createBackend(),uploadId='fuelphoto-00000000-0000-4000-8000-000000000001';
+  const request={action:'uploadFuelReceipt',uploadId,mimeType:'image/png',data:Buffer.from('test-photo-bytes').toString('base64')};
+  assert.equal(b.request({...request,key:'wrong'}).code,'bad_key');
+  assert.equal(b.storage.files.size,0);
+  const first=b.request(request);
+  assert.equal(first.ok,true);
+  assert.equal(b.request(request).id,first.id);
+  assert.equal(b.storage.files.size,1);
+  assert.equal([...b.storage.files.values()][0].shared,true);
+  assert.equal(b.request({action:'saveFuel',id,data:{...data,receipt:first.id},create:true}).ok,true);
+  assert.equal(b.request({action:'listFuel'}).entries[0].receipt,first.id);
+  assert.equal(b.request({...request,mimeType:'application/pdf'}).code,'unsupported_type');
+  assert.equal(b.request({...request,data:''}).code,'invalid_argument');
+});
+test('receipt storage permission, quota and sharing failures are visible and recoverable', () => {
+  for(const failure of ['read','write','share']){
+    const b=createBackend(),req={action:'uploadFuelReceipt',uploadId:'fuelphoto-00000000-0000-4000-8000-000000000001',mimeType:'image/png',data:Buffer.from('photo').toString('base64')};
+    b.storage.failure=failure;
+    assert.equal(b.request(req).code,'receipt_storage_unavailable',failure);
+    assert.equal(b.request({action:'listFuel'}).entries.length,0);
+    b.storage.failure=null;
+    assert.equal(b.request(req).ok,true);
+    assert.equal(b.storage.files.size,1);
+    assert.equal([...b.storage.files.values()][0].shared,true);
+  }
+});
+test('fuel no-photo admin confirmation records name and server time, with consistent receipt states', () => {
+  const b=createBackend();
+  const missing={...data,noReceipt:true,adminConfirmed:false};
+  assert.equal(b.request({action:'saveFuel',id,data:missing,create:true}).ok,true);
+  assert.equal(b.request({action:'listFuel'}).entries[0].adminConfirmedAt,null);
+  assert.equal(b.request({action:'saveFuel',id,data:{...missing,adminConfirmed:true,adminName:'Jason'},create:false}).ok,true);
+  const confirmed=b.request({action:'listFuel'}).entries[0];
+  assert.equal(confirmed.adminName,'Jason');assert.match(confirmed.adminConfirmedAt,/^\d{4}-/);
+  assert.equal(b.request({action:'saveFuel',id,data:{...data,amount:1500},create:false}).ok,true,'older clients preserve new receipt metadata');
+  assert.equal(b.request({action:'listFuel'}).entries[0].adminConfirmedAt,confirmed.adminConfirmedAt);
+  for(const patch of [{receipt:'file123',noReceipt:true},{noReceipt:false,adminConfirmed:true,adminName:'Admin'},{noReceipt:true,adminConfirmed:true,adminName:''},{receipt:'bad/id'}])assert.equal(b.request({action:'saveFuel',id,data:{...data,...patch},create:false}).code,'invalid_argument');
+  assert.equal(b.request({action:'saveFuel',id,data:{...data,receipt:'photo123',noReceipt:false,adminConfirmed:false,adminName:''},create:false}).ok,true);
+  assert.equal(b.request({action:'listFuel'}).entries[0].adminConfirmedAt,null);
+});
+
+test('live receipt diagnostic exercises upload and sharing and trashes only its own probe', () => {
+  const b=createBackend();
+  assert.equal(b.request({action:'checkFuelReceiptStorage',key:'wrong'}).code,'bad_key');
+  assert.equal(b.storage.files.size,0);
+  const result=b.request({action:'checkFuelReceiptStorage'});
+  assert.equal(result.ok,true);assert.match(result.message,/check passed/);
+  const probe=[...b.storage.files.values()][0];assert.equal(probe.shared,true);assert.equal(probe.trashed,true);
+  b.storage.failure='write';
+  assert.equal(b.request({action:'checkFuelReceiptStorage'}).code,'receipt_storage_unavailable');
+  assert.equal(b.request({action:'listFuel'}).entries.length,0);
 });

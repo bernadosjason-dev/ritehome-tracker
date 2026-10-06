@@ -672,13 +672,29 @@
             <div class="field"><label for="cf-vendor">Station / supplier <span class="muted">(optional)</span></label><input id="cf-vendor" maxlength="150"></div>
             <div class="field"><label for="cf-notes">Notes <span class="muted">(optional)</span></label><input id="cf-notes" maxlength="500"></div>
           </div>
+          <div class="card" id="cf-receipt-card">
+            <h3>Fuel receipt</h3>
+            <button class="btn ghost small" id="cf-check-storage" type="button">Check receipt uploads</button><div class="rc-status" id="cf-storage-status" role="status"></div>
+            <div class="field"><label for="cf-photo">Upload receipt photo</label><input id="cf-photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div class="muted">Choose a photo from your phone or computer. It uploads when you save the purchase.</div></div>
+            <div id="cf-photo-preview" hidden><img id="cf-photo-img" alt="Fuel receipt preview" style="max-width:100%;max-height:220px;object-fit:contain;"><button class="btn ghost small" id="cf-photo-remove" type="button">Remove photo</button></div>
+            <div class="field"><label class="check-row"><input id="cf-no-receipt" type="checkbox"> No receipt photo available</label></div>
+            <div id="cf-admin-options" hidden>
+              <div class="field"><label class="check-row"><input id="cf-admin-confirmed" type="checkbox"> Confirmed by admin</label></div>
+              <div class="field" id="cf-admin-name-field" hidden><label for="cf-admin-name">Admin who confirmed</label><input id="cf-admin-name" maxlength="100" placeholder="Admin name"></div>
+              <div class="muted">Leave confirmation unchecked until an admin has reviewed this purchase.</div>
+            </div>
+          </div>
           <div class="form-actions"><button class="btn" id="cf-submit" type="submit">Save fuel purchase</button><button class="btn ghost" id="cf-cancel" type="button">Clear form</button></div>
         </fieldset>
         <div class="form-error" id="cf-error" role="alert"></div>
       </form>
+      <dialog id="cf-receipt-dialog" style="max-width:min(90vw,700px);border:1px solid var(--border);border-radius:12px;">
+        <h3>Fuel receipt</h3><img id="cf-receipt-image" alt="Fuel purchase receipt" style="max-width:100%;max-height:70vh;object-fit:contain;">
+        <div class="form-actions"><a id="cf-receipt-full" class="btn ghost" target="_blank" rel="noopener">Open full-size photo</a><button id="cf-receipt-close" type="button" class="btn">Close</button></div>
+      </dialog>
       <p id="cf-status" class="rc-status" role="status">Connecting to fuel ledger…</p>
       <div class="form-actions"><button class="btn ghost" id="cf-export" type="button" disabled>Export filtered CSV</button><button class="btn ghost" id="cf-refresh" type="button">Refresh fuel ledger</button></div>
-      <div class="table-wrap"><table class="stack" data-main-col="1"><thead><tr><th>Date</th><th>Vehicle / equipment</th><th>Fuel</th><th>Liters</th><th>Cost</th><th>₱ / liter</th><th>Driver</th><th>Odometer (km)</th><th>Station / notes</th><th class="no-print">Actions</th></tr></thead><tbody id="cf-rows"></tbody></table></div>
+      <div class="table-wrap"><table class="stack" data-main-col="1"><thead><tr><th>Date</th><th>Vehicle / equipment</th><th>Fuel</th><th>Liters</th><th>Cost</th><th>₱ / liter</th><th>Driver</th><th>Odometer (km)</th><th>Station / notes</th><th>Receipt / admin confirmation</th><th class="no-print">Actions</th></tr></thead><tbody id="cf-rows"></tbody></table></div>
     </section>
 
     <footer class="data-foot no-print" id="dataFoot" hidden>
@@ -1237,7 +1253,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-06.2";
+  var PAGE_VERSION = "2026-10-06.3";
 
   // ---------- reference data ----------
 
@@ -1616,7 +1632,7 @@
   };
 
   var companyVehicles = {entries: [], loaded: false, error: null, subscribed: false, editing: null, requestId: null, busy: false};
-  var companyFuel = {entries: [], loaded: false, error: null, editing: null, requestId: null, busy: false, subscribed: false};
+  var companyFuel = {entries: [], loaded: false, error: null, editing: null, requestId: null, busy: false, subscribed: false, receipt: null, photo: null, photoUrl: null, photoUploadId: null};
   var db = null;
   var downloadsApi = null;
   var localProjectsStore = {};   // used only when db is unavailable
@@ -3289,7 +3305,7 @@
   }
 
   function companyFuelDirty(){
-    return !!companyFuel.editing || ["vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].some(function(k){ return $("cf-" + k).value !== ""; });
+    return !!companyFuel.editing || !!companyFuel.photo || !!companyFuel.receipt || $("cf-no-receipt").checked || ["vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].some(function(k){ return $("cf-" + k).value !== ""; });
   }
   function filteredCompanyFuel(){
     var month = $("cf-month").value, vehicle = $("cf-vehicle-filter").value, type = $("cf-type-filter").value;
@@ -3301,6 +3317,7 @@
     if(!$("cf-rows") || !companyFuel) return;
     var selected = $("cf-vehicle-filter").value;
     renderCompanyVehicles();
+    renderFuelReceiptForm();
     var vehicles = Array.from(new Set(companyFuel.entries.map(function(e){ return e.vehicle; }).concat(companyVehicles.entries.map(function(v){ return v.name; })))).sort(function(a,b){ return a.localeCompare(b); });
     $("cf-vehicle-filter").innerHTML = '<option value="">All vehicles / equipment</option>' + vehicles.map(function(v){ return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join("");
     $("cf-vehicle-filter").value = selected;
@@ -3312,8 +3329,8 @@
     var rows = filteredCompanyFuel();
     $("cf-summary").textContent = companyFuel.loaded ? plural(rows.length, "purchase") + " · Gasoline: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "gasoline"; }), function(e){ return e.liters; })) + " L · Diesel: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "diesel"; }), function(e){ return e.liters; })) + " L · Total cost: " + fuelMoney(sum(rows, function(e){ return e.amount; })) : "Totals available after the ledger loads.";
     $("cf-rows").innerHTML = rows.length ? rows.map(function(e){
-      return '<tr><td>' + esc(dateFmt(e.date)) + '</td><td>' + esc(e.vehicle) + '</td><td>' + (e.fuelType === "diesel" ? "Diesel" : "Gasoline") + '</td><td>' + fuelNumber(e.liters) + '</td><td>' + fuelMoney(e.amount) + '</td><td>' + fuelMoney(e.amount / e.liters) + '</td><td>' + esc(e.driver || "—") + '</td><td>' + (e.odometer == null ? "—" : fuelNumber(e.odometer)) + '</td><td>' + esc([e.vendor, e.notes].filter(Boolean).join(" · ") || "—") + '</td><td class="no-print">' + (canWrite() && !companyFuel.error ? '<button class="btn ghost small" data-fuel-edit="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Edit</button> <button class="btn ghost small" data-fuel-delete="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Delete</button>' : '') + '</td></tr>';
-    }).join("") : '<tr><td colspan="10">' + (companyFuel.loaded ? 'No fuel purchases for these filters.' : 'Fuel records have not loaded yet.') + '</td></tr>';
+      return '<tr><td>' + esc(dateFmt(e.date)) + '</td><td>' + esc(e.vehicle) + '</td><td>' + (e.fuelType === "diesel" ? "Diesel" : "Gasoline") + '</td><td>' + fuelNumber(e.liters) + '</td><td>' + fuelMoney(e.amount) + '</td><td>' + fuelMoney(e.amount / e.liters) + '</td><td>' + esc(e.driver || "—") + '</td><td>' + (e.odometer == null ? "—" : fuelNumber(e.odometer)) + '</td><td>' + esc([e.vendor, e.notes].filter(Boolean).join(" · ") || "—") + '</td><td>' + fuelReceiptCell(e) + '</td><td class="no-print">' + (canWrite() && !companyFuel.error ? '<button class="btn ghost small" data-fuel-edit="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Edit</button> <button class="btn ghost small" data-fuel-delete="' + esc(e.id) + '" ' + (companyFuel.busy ? 'disabled' : '') + '>Delete</button>' : '') + '</td></tr>';
+    }).join("") : '<tr><td colspan="11">' + (companyFuel.loaded ? 'No fuel purchases for these filters.' : 'Fuel records have not loaded yet.') + '</td></tr>';
   }
   function subscribeCompanyFuel(){
     if(companyFuel.subscribed || !db) return;
@@ -3326,7 +3343,35 @@
       renderCompanyFuel();
     }, function(err){ companyFuel.error = err; renderCompanyFuel(); });
   }
+  function fuelReceiptCell(e){
+    if(e.receipt) return '<button type="button" class="btn ghost small" data-fuel-receipt="' + esc(e.receipt) + '">View receipt</button>';
+    if(e.noReceipt) return e.adminConfirmed ? 'No photo · Admin confirmed: ' + esc(e.adminName || "Admin") + (e.adminConfirmedAt ? '<br><span class="muted">' + esc(dateFmt(e.adminConfirmedAt.slice(0,10))) + '</span>' : '') : 'No photo · Awaiting admin confirmation';
+    return 'Receipt not provided';
+  }
+  function renderFuelReceiptForm(){
+    var photo = companyFuel.photo || companyFuel.receipt;
+    $("cf-check-storage").hidden = !HOSTED;
+    $("cf-photo-preview").hidden = !photo;
+    $("cf-photo").disabled = !!$("cf-no-receipt").checked || !assetsApi || assetsWrite === false;
+    if(photo) setImgSrc($("cf-photo-img"), companyFuel.photoUrl || receiptSrc(companyFuel.receipt), companyFuel.receipt ? receiptAlt(companyFuel.receipt) : "");
+    else $("cf-photo-img").removeAttribute("src");
+    $("cf-no-receipt").disabled = !!photo;
+    $("cf-admin-options").hidden = !$("cf-no-receipt").checked;
+    $("cf-admin-name-field").hidden = !$("cf-no-receipt").checked || !$("cf-admin-confirmed").checked;
+    $("cf-admin-name").required = $("cf-no-receipt").checked && $("cf-admin-confirmed").checked;
+  }
+  function clearFuelPhoto(){
+    if(companyFuel.photoUrl) URL.revokeObjectURL(companyFuel.photoUrl);
+    companyFuel.photoUrl = null;
+    companyFuel.photo = null;
+    companyFuel.receipt = null;
+    companyFuel.photoUploadId = null;
+    $("cf-photo").value = "";
+    renderFuelReceiptForm();
+  }
+
   function resetCompanyFuel(){
+    clearFuelPhoto();
     $("companyFuelForm").reset();
     $("cf-date").value = todayISO();
     companyFuel.editing = null;
@@ -3334,38 +3379,90 @@
     $("cf-form-title").textContent = "Record fuel purchase";
     $("cf-submit").textContent = "Save fuel purchase";
     $("cf-error").textContent = "";
+    renderFuelReceiptForm();
     renderSaveStatus();
   }
   function wireCompanyFuel(){
     $("cf-month").value = todayISO().slice(0,7);
     $("cf-date").value = todayISO();
+    $("cf-photo").addEventListener("change", function(){
+      var file = this.files && this.files[0];
+      if(!file || companyFuel.busy) return;
+      if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){ $("cf-error").textContent = "Use a JPG, PNG, WebP or GIF receipt photo."; this.value = ""; return; }
+      if(file.size > 25 * 1024 * 1024){ $("cf-error").textContent = "This photo is too large. Choose a photo smaller than 25 MB."; this.value = ""; return; }
+      clearFuelPhoto();
+      companyFuel.photo = file;
+      companyFuel.photoUrl = URL.createObjectURL(file);
+      companyFuel.photoUploadId = "fuelphoto-" + crypto.randomUUID();
+      $("cf-no-receipt").checked = false;
+      $("cf-admin-confirmed").checked = false;
+      $("cf-admin-name").value = "";
+      $("cf-error").textContent = "";
+      renderFuelReceiptForm(); renderSaveStatus();
+    });
+    $("cf-photo-remove").addEventListener("click", function(){ clearFuelPhoto(); renderSaveStatus(); });
+    $("cf-no-receipt").addEventListener("change", function(){
+      if(!this.checked){ $("cf-admin-confirmed").checked = false; $("cf-admin-name").value = ""; }
+      renderFuelReceiptForm();
+    });
+    $("cf-admin-confirmed").addEventListener("change", renderFuelReceiptForm);
+    $("cf-check-storage").addEventListener("click", function(){
+      if(!HOSTED || !canWrite() || !db || companyFuel.busy) return;
+      companyFuel.busy = true; renderCompanyFuel();
+      $("cf-storage-status").className = "rc-status";
+      $("cf-storage-status").textContent = "Testing receipt upload and sharing…";
+      track(function(){ return db.checkFuelReceiptStorage(); }, null, null).then(function(res){
+        $("cf-storage-status").textContent = res.message;
+      }).catch(function(err){
+        $("cf-storage-status").className = "rc-status err";
+        $("cf-storage-status").textContent = err && err.code === "invalid_argument" ? "Update your Apps Script deployment to enable the receipt storage check." : (err && err.message) || uploadErrorText(err);
+      }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
+    });
+    $("cf-receipt-close").addEventListener("click", function(){ $("cf-receipt-dialog").close(); });
     ["cf-month", "cf-vehicle-filter", "cf-type-filter"].forEach(function(id){ $(id).addEventListener("change", renderCompanyFuel); });
     $("cf-cancel").addEventListener("click", function(){ if(!companyFuelDirty() || confirm("Discard this unsaved fuel purchase?")) resetCompanyFuel(); });
     $("cf-refresh").addEventListener("click", function(){ if(db && db.refreshNow) db.refreshNow(); });
     $("companyFuelForm").addEventListener("submit", function(ev){
       ev.preventDefault();
       if(!canWrite() || !db || companyFuel.busy || !companyFuel.loaded || companyFuel.error) return;
-      var data = {date: $("cf-date").value, vehicle: $("cf-vehicle").value.trim(), fuelType: $("cf-type").value, liters: Number($("cf-liters").value), amount: Number($("cf-amount").value), driver: $("cf-driver").value.trim(), odometer: $("cf-odometer").value === "" ? null : Number($("cf-odometer").value), vendor: $("cf-vendor").value.trim(), notes: $("cf-notes").value.trim(), updatedAt: new Date().toISOString()};
+      var data = {date: $("cf-date").value, vehicle: $("cf-vehicle").value.trim(), fuelType: $("cf-type").value, liters: Number($("cf-liters").value), amount: Number($("cf-amount").value), driver: $("cf-driver").value.trim(), odometer: $("cf-odometer").value === "" ? null : Number($("cf-odometer").value), vendor: $("cf-vendor").value.trim(), notes: $("cf-notes").value.trim(), receipt: companyFuel.receipt || null, noReceipt: $("cf-no-receipt").checked, adminConfirmed: $("cf-no-receipt").checked && $("cf-admin-confirmed").checked, adminName: $("cf-no-receipt").checked && $("cf-admin-confirmed").checked ? $("cf-admin-name").value.trim() : "", updatedAt: new Date().toISOString()};
       if(!data.vehicle || !data.date || !isFinite(data.liters) || data.liters <= 0 || !isFinite(data.amount) || data.amount <= 0 || (data.odometer != null && (!isFinite(data.odometer) || data.odometer < 0))){ $("cf-error").textContent = "Enter a vehicle, date, positive liters and cost, and a valid odometer reading."; return; }
+      if(data.adminConfirmed && !data.adminName){ $("cf-error").textContent = "Enter the admin who confirmed this purchase."; return; }
       companyFuel.busy = true;
       $("cf-error").textContent = "";
       renderCompanyFuel();
       var id = companyFuel.editing || companyFuel.requestId || (companyFuel.requestId = "fuel-" + crypto.randomUUID());
       var ref = db.collection("companyFuel").doc(id), editing = !!companyFuel.editing;
+      var photo = companyFuel.photo, uploadId = companyFuel.photoUploadId;
       function savePurchase(){
         companyFuel.busy = true;
         renderCompanyFuel();
-        return track(function(){ return editing ? ref.update(data) : ref.set(data); }, "Fuel purchase", savePurchase).then(function(){
+        return track(function(){
+          var upload = photo && !data.receipt ? (HOSTED ? compressImage(photo).then(function(blob){ return db.uploadFuelReceipt(blob, uploadId); }) : uploadReceipt(photo)) : Promise.resolve(data.receipt);
+          return upload.then(function(receipt){
+            data.receipt = receipt || null;
+            if(companyFuel.editing === id || companyFuel.requestId === id) companyFuel.receipt = data.receipt;
+            return editing ? ref.update(data) : ref.set(data);
+          });
+        }, "Fuel purchase", savePurchase).then(function(){
         saveState.failed = saveState.failed.filter(function(f){ return f.retry !== savePurchase; });
         $("cf-month").value = data.date.slice(0,7);
         $("cf-vehicle-filter").value = "";
         $("cf-type-filter").value = "";
         if(companyFuel.editing === id || companyFuel.requestId === id) resetCompanyFuel();
-      }).catch(function(err){ $("cf-error").textContent = saveErrorText(err); }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
+      }).catch(function(err){ $("cf-error").textContent = (err && err.message) || (photo && !data.receipt ? uploadErrorText(err) : saveErrorText(err)); }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
       }
       savePurchase();
     });
     $("cf-rows").addEventListener("click", function(ev){
+      var receiptButton = ev.target.closest("[data-fuel-receipt]");
+      if(receiptButton){
+        var receiptId = receiptButton.getAttribute("data-fuel-receipt");
+        setImgSrc($("cf-receipt-image"), receiptSrc(receiptId), receiptAlt(receiptId));
+        $("cf-receipt-full").hidden = !HOSTED;
+        $("cf-receipt-full").href = HOSTED ? receiptFull(receiptId) : "#";
+        $("cf-receipt-dialog").showModal(); return;
+      }
       var edit = ev.target.closest("[data-fuel-edit]"), del = ev.target.closest("[data-fuel-delete]");
       if((!edit && !del) || !canWrite() || companyFuel.busy || companyFuel.error) return;
       var entry = companyFuel.entries.find(function(e){ return e.id === (edit || del).getAttribute(edit ? "data-fuel-edit" : "data-fuel-delete"); });
@@ -3376,6 +3473,11 @@
         companyFuel.editing = entry.id;
         ["date", "vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].forEach(function(k){ $("cf-" + k).value = entry[k] == null ? "" : entry[k]; });
         $("cf-type").value = entry.fuelType;
+        companyFuel.receipt = entry.receipt || null;
+        $("cf-no-receipt").checked = !!entry.noReceipt && !entry.receipt;
+        $("cf-admin-confirmed").checked = !!entry.adminConfirmed && !!entry.noReceipt && !entry.receipt;
+        $("cf-admin-name").value = entry.adminName || "";
+        renderFuelReceiptForm();
         $("cf-form-title").textContent = "Edit fuel purchase";
         $("cf-submit").textContent = "Save changes";
         $("cf-vehicle").focus();
@@ -3389,7 +3491,7 @@
     $("cf-export").addEventListener("click", function(){
       if(!companyFuel.loaded || companyFuel.error) return;
       function cell(v){ var t = String(v == null ? "" : v); if(/^[=+@\-\t\r\n]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; }
-      var csv = [["Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "PHP per liter", "Driver", "Odometer km", "Station", "Notes"]].concat(filteredCompanyFuel().map(function(e){ return [e.date, e.vehicle, e.fuelType, e.liters, e.amount, (e.amount/e.liters).toFixed(2), e.driver, e.odometer, e.vendor, e.notes]; })).map(function(row){ return row.map(cell).join(","); }).join("\r\n");
+      var csv = [["Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "PHP per liter", "Driver", "Odometer km", "Station", "Notes", "Receipt status", "Receipt file ID", "Admin confirmed", "Admin name", "Admin confirmed at"]].concat(filteredCompanyFuel().map(function(e){ return [e.date, e.vehicle, e.fuelType, e.liters, e.amount, (e.amount/e.liters).toFixed(2), e.driver, e.odometer, e.vendor, e.notes, e.receipt ? "Photo" : e.noReceipt ? "No photo" : "Missing", e.receipt || "", e.noReceipt && e.adminConfirmed ? "Yes" : "No", e.adminName || "", e.adminConfirmedAt || ""]; })).map(function(row){ return row.map(cell).join(","); }).join("\r\n");
       downloadFile("ritehome-company-fuel-" + ($("cf-month").value || "all") + ".csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
     });
   }
@@ -4617,6 +4719,11 @@
         deleteProjectCascade: function(id){ return projectDoc(id).delete(); },
         refreshNow: refreshNow,
         ping: function(){ return call("ping"); },
+        checkFuelReceiptStorage: function(){ return call("checkFuelReceiptStorage"); },
+        uploadFuelReceipt: function(blob, uploadId){
+          if(blob.size > 12 * 1024 * 1024) return Promise.reject({code:"too_large"});
+          return blobToBase64(blob).then(function(b64){ return call("uploadFuelReceipt", {data:b64, mimeType:blob.type, uploadId:uploadId}); }).then(function(res){ return res.id; });
+        },
         getProject: function(id){ return call("getProject", {id: id}); },
         // Saves the photo as a receipt and asks the backend's AI to read it: {id, fields, aiError}
         scanReceipt: function(blob){

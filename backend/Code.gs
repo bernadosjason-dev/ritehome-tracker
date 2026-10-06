@@ -40,7 +40,7 @@ function doPost(e) {
 
   var reads = { listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -371,6 +371,34 @@ function saveVehicle_(req) {
   return {ok:true, id:id};
 }
 
+function checkFuelReceiptStorage_() {
+  // Exercise the same destination and sharing permission as a real upload, then trash only this probe.
+  var probe = uploadFuelReceipt_({uploadId:"fuelphoto-check-" + Utilities.getUuid(), mimeType:"image/png", data:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWOQAAAAASUVORK5CYII="});
+  try { DriveApp.getFileById(probe.id).setTrashed(true); }
+  catch (err) { throw codeError_("receipt_storage_unavailable", "The receipt test photo uploaded, but cleanup failed. Ask the tracker admin to check Google Drive permissions."); }
+  return {ok:true, message:"Receipt storage check passed: photo upload, sharing and cleanup work."};
+}
+
+function uploadFuelReceipt_(req) {
+  var uploadId = String(req.uploadId || ""), type = String(req.mimeType || "");
+  if (!/^fuelphoto-[A-Za-z0-9-]{10,80}$/.test(uploadId)) throw codeError_("invalid_argument", "A valid fuel photo upload ID is required.");
+  if (!RECEIPT_TYPES[type]) throw codeError_("unsupported_type", "Use a JPG, PNG, WebP or GIF receipt photo.");
+  var bytes = Utilities.base64Decode(String(req.data || ""));
+  if (!bytes.length) throw codeError_("invalid_argument", "The photo is empty.");
+  if (bytes.length > MAX_RECEIPT_BYTES) throw codeError_("too_large", "The photo is too large.");
+  try {
+    // Check the configured destination explicitly; do not silently switch folders on access errors.
+    var folderId = PropertiesService.getScriptProperties().getProperty("RECEIPTS_FOLDER_ID");
+    var folder = folderId ? DriveApp.getFolderById(folderId) : receiptsFolder_();
+    var name = uploadId + "." + RECEIPT_TYPES[type], existing = folder.getFilesByName(name);
+    var file = existing.hasNext() ? existing.next() : folder.createFile(Utilities.newBlob(bytes, type, name));
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return {ok:true, id:file.getId()};
+  } catch (err) {
+    throw codeError_("receipt_storage_unavailable", "Receipt upload failed in Google Drive. Ask the tracker admin to check the receipt folder access, Drive space and photo-sharing permissions, then try again.");
+  }
+}
+
 function fuelSheet_() { return sheet_("Company Fuel", FUEL_HEADERS); }
 function listFuel_() {
   return { ok: true, entries: readRows_(fuelSheet_(), FUEL_HEADERS).map(function(r) { return withId_(r.id, r.data); }) };
@@ -391,20 +419,30 @@ function fuelData_(value) {
   if (odometer !== null && (typeof odometer !== "number" || !isFinite(odometer) || odometer < 0)) throw codeError_("invalid_argument", "Odometer must be a nonnegative number.");
   var vehicle = textValue("vehicle", 100);
   if (!vehicle) throw codeError_("invalid_argument", "A vehicle or equipment name is required.");
-  return {date: date, vehicle: vehicle, fuelType: d.fuelType, liters: d.liters, amount: d.amount, driver: textValue("driver", 100), odometer: odometer, vendor: textValue("vendor", 150), notes: textValue("notes", 500), updatedAt: new Date().toISOString()};
+  var receipt = d.receipt == null || d.receipt === "" ? null : String(d.receipt);
+  if (receipt && !/^[A-Za-z0-9_-]{1,200}$/.test(receipt)) throw codeError_("invalid_argument", "A valid receipt photo ID is required.");
+  var noReceipt = d.noReceipt === true, adminConfirmed = d.adminConfirmed === true;
+  if (receipt && noReceipt) throw codeError_("invalid_argument", "A purchase cannot have a receipt photo and be marked no receipt.");
+  if (adminConfirmed && (!noReceipt || receipt)) throw codeError_("invalid_argument", "Admin confirmation is only for purchases without a receipt photo.");
+  var adminName = adminConfirmed ? textValue("adminName", 100) : "";
+  if (adminConfirmed && !adminName) throw codeError_("invalid_argument", "Enter the admin who confirmed this purchase.");
+  return {receipt:receipt, noReceipt:noReceipt, adminConfirmed:adminConfirmed, adminName:adminName, date: date, vehicle: vehicle, fuelType: d.fuelType, liters: d.liters, amount: d.amount, driver: textValue("driver", 100), odometer: odometer, vendor: textValue("vendor", 150), notes: textValue("notes", 500), updatedAt: new Date().toISOString()};
 }
 function saveFuel_(req) {
   var id = String(req.id || "");
   if (!/^fuel-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "A valid fuel entry ID is required.");
-  var data = fuelData_(req.data);
   var sh = fuelSheet_(), existing = findRow_(sh, FUEL_HEADERS, id);
+  var receiptFields = {};
+  ["receipt", "noReceipt", "adminConfirmed", "adminName"].forEach(function(k) { if (existing) receiptFields[k] = existing.data[k]; });
+  var data = fuelData_(Object.assign(receiptFields, objectOrThrow_(req.data)));
   // A repeated create after a lost response returns the original record, without duplicates.
   if (req.create === true && existing) {
-    var same = Object.keys(data).filter(function(k) { return k !== "updatedAt"; }).every(function(k) { return data[k] === existing.data[k]; });
+    var same = Object.keys(data).filter(function(k) { return k !== "updatedAt"; }).every(function(k) { return (data[k] === existing.data[k] || (existing.data[k] == null && (data[k] === false || data[k] === "" || data[k] === null))); });
     if (!same) throw codeError_("already_exists", "This purchase was already saved with different details. Refresh the ledger, then edit the saved purchase.");
     return {ok: true, id: id};
   }
   if (req.create !== true && !existing) throw codeError_("not_found", "This fuel purchase no longer exists.");
+  data.adminConfirmedAt = data.adminConfirmed ? (existing && existing.data.adminConfirmed && existing.data.adminName === data.adminName ? existing.data.adminConfirmedAt || data.updatedAt : data.updatedAt) : null;
   var row = [id, text_(data.date), text_(data.vehicle), text_(data.fuelType), data.liters, data.amount, text_(data.driver), data.odometer == null ? "" : data.odometer, text_(data.vendor), text_(data.notes), data.updatedAt, JSON.stringify(data)];
   if (existing) writeRow_(sh, existing.row, row); else appendRows_(sh, [row]);
   return {ok: true, id: id};

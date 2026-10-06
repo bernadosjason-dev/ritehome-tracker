@@ -136,3 +136,27 @@ After redeploying, reload the page, open **Manage vehicles & fuel types**, and c
 for **Vehicle list synced**. Add Wigo with Gasoline and Van with Diesel; choosing
 each in a new purchase should fill the matching fuel type. Editing vehicle details
 does not rewrite existing fuel purchases.
+
+### Fuel receipt uploads and storage verification
+
+Redeploy the latest `Code.gs` in the existing Apps Script deployment to enable
+`uploadFuelReceipt` and `checkFuelReceiptStorage`. The page uploads fuel photos
+to the same folder identified by **RECEIPTS_FOLDER_ID** in Script Properties.
+Run `setup()` from the Apps Script editor if Drive permissions have not yet been
+authorized. Preserve the folder property and existing access key.
+
+After redeploying, open the fuel section and press **Check receipt uploads**. It
+tests creating and sharing a small PNG in the configured folder and moves that
+test photo to trash. Expect **Receipt storage check passed** before relying on
+uploads. Then test attaching and viewing a receipt on a test purchase. Folder
+access errors do not silently redirect uploads to a different folder. If the check
+fails, verify the deployment executes as the Sheet owner, that owner can access
+the configured folder, Drive has space, and organizational policy allows link
+sharing. The photo and form stay available after a failed upload.
+
+Fuel receipt and admin-confirmation metadata are stored in the final JSON **Data**
+column without changing the existing Company Fuel column layout. Confirmation
+requires no-photo status and an admin name; the backend records its timestamp.
+Fuel uploads use the existing access key and write lock, with stable upload IDs
+so a retried upload reuses its photo. Removing/replacing a fuel receipt or deleting
+a fuel purchase leaves its Drive file intact.

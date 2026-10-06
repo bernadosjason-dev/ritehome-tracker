@@ -122,3 +122,17 @@ and CSV export on a test Sheet/deployment before using production data. If the p
 asks you to update Apps Script, it is connected to an older backend deployment.
 Company fuel is separate from project expenses and their JSON backups; export it
 with the fuel section's CSV button.
+
+### Enabling editable vehicle profiles
+
+Vehicle management also requires the latest `Code.gs`: paste it into the existing
+Apps Script project, save and redeploy a **New version** using the existing
+deployment. The first authenticated vehicle request creates **Company Vehicles**
+in the same Sheet. It stores vehicle/equipment name, fuel type, optional plate or
+asset number and the complete JSON record. Vehicle profile saves use the existing
+access-key validation and script lock.
+
+After redeploying, reload the page, open **Manage vehicles & fuel types**, and check
+for **Vehicle list synced**. Add Wigo with Gasoline and Van with Diesel; choosing
+each in a new purchase should fill the matching fuel type. Editing vehicle details
+does not rewrite existing fuel purchases.

@@ -70,3 +70,32 @@ test('readable sheet cells neutralize formulas and preserve optional blank odome
   assert.equal(b.request({action:'listFuel'}).entries[0].odometer,null);
 });
 module.exports={createBackend};
+
+test('vehicle profiles persist, retry safely, edit defaults and preserve fuel history', () => {
+  const b=createBackend();
+  const vehicleId='vehicle-00000000-0000-4000-8000-000000000001';
+  const profile={name:'Wigo',fuelType:'gasoline',plate:'ABC 123'};
+  assert.equal(b.request({action:'saveVehicle',id:vehicleId,data:profile,create:true}).ok,true);
+  assert.equal(b.request({action:'saveVehicle',id:vehicleId,data:profile,create:true}).ok,true);
+  assert.equal(b.request({action:'listVehicles'}).vehicles.length,1);
+  assert.equal(b.request({action:'saveFuel',id,data:{...data,vehicle:'Wigo',fuelType:'gasoline'},create:true}).ok,true);
+  assert.equal(b.request({action:'saveVehicle',id:vehicleId,data:{...profile,name:'Wigo ABC 123',fuelType:'diesel'},create:false}).ok,true);
+  const vehicle=b.request({action:'listVehicles'}).vehicles[0];
+  assert.equal(vehicle.name,'Wigo ABC 123');
+  assert.equal(vehicle.fuelType,'diesel');
+  const purchase=b.request({action:'listFuel'}).entries[0];
+  assert.equal(purchase.vehicle,'Wigo');
+  assert.equal(purchase.fuelType,'gasoline','profile edits do not rewrite historical purchases');
+});
+test('vehicle profiles reject unauthenticated access, duplicates and invalid fields', () => {
+  const b=createBackend();
+  const id='vehicle-00000000-0000-4000-8000-000000000001';
+  const data={name:'Van',fuelType:'diesel',plate:''};
+  for(const action of ['saveVehicle','listVehicles'])assert.equal(b.request({action,key:'wrong',id,data,create:true}).code,'bad_key');
+  assert.equal(b.sheets.size,0);
+  for(const patch of [{name:' '},{name:'x'.repeat(101)},{fuelType:'electric'},{plate:'x'.repeat(51)}])assert.equal(b.request({action:'saveVehicle',id,data:{...data,...patch},create:true}).code,'invalid_argument');
+  assert.equal(b.request({action:'saveVehicle',id,data,create:true}).ok,true);
+  assert.equal(b.request({action:'saveVehicle',id:id+'2',data:{...data,name:'van'},create:true}).code,'invalid_argument');
+  assert.equal(b.request({action:'saveVehicle',id:id+'2',data,create:false}).code,'not_found');
+  assert.equal(b.request({action:'saveVehicle',id,data:{...data,fuelType:'gasoline'},create:true}).code,'already_exists');
+});

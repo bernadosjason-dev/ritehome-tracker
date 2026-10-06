@@ -21,6 +21,7 @@
 
 var PROJECT_HEADERS = ["ID", "Name", "Status", "Client", "Contract price", "Budget", "Total spent", "Target date", "Updated", "Data"];
 var EXPENSE_HEADERS = ["ID", "Project ID", "Date", "Item", "Category", "Amount", "Vendor / payee", "Receipt", "Head confirmed", "Updated", "Data"];
+var VEHICLE_HEADERS = ["ID", "Vehicle / equipment", "Fuel type", "Plate / asset number", "Updated", "Data"];
 var FUEL_HEADERS = ["ID", "Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "Driver", "Odometer km", "Station", "Notes", "Updated", "Data"];
 var RECEIPT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 var MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
@@ -37,9 +38,9 @@ function doPost(e) {
   var denied = checkKey_(req.key);
   if (denied) return respond_(denied);
 
-  var reads = { listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
+  var reads = { listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -345,6 +346,30 @@ function trashReceipt_(fileId) {
 }
 
 // ---------- company-wide fuel ----------
+
+function vehiclesSheet_() { return sheet_("Company Vehicles", VEHICLE_HEADERS); }
+function listVehicles_() {
+  return {ok: true, vehicles: readRows_(vehiclesSheet_(), VEHICLE_HEADERS).map(function(r) { return withId_(r.id, r.data); })};
+}
+function saveVehicle_(req) {
+  var id = String(req.id || ""), d = objectOrThrow_(req.data);
+  if (!/^vehicle-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "A valid vehicle ID is required.");
+  var name = String(d.name == null ? "" : d.name).trim(), plate = String(d.plate == null ? "" : d.plate).trim();
+  if (!name || name.length > 100 || plate.length > 50) throw codeError_("invalid_argument", "Enter a vehicle name up to 100 characters and a plate up to 50 characters.");
+  if (d.fuelType !== "gasoline" && d.fuelType !== "diesel") throw codeError_("invalid_argument", "Choose gasoline or diesel.");
+  var sh = vehiclesSheet_(), existing = findRow_(sh, VEHICLE_HEADERS, id);
+  if (req.create === true && existing) {
+    if (existing.data.name !== name || existing.data.fuelType !== d.fuelType || existing.data.plate !== plate) throw codeError_("already_exists", "This vehicle was already saved. Refresh, then edit the saved vehicle.");
+    return {ok: true, id: id};
+  }
+  if (req.create !== true && !existing) throw codeError_("not_found", "This vehicle no longer exists.");
+  var duplicate = readRows_(sh, VEHICLE_HEADERS).some(function(r) { return r.id !== id && String(r.data.name || "").toLowerCase() === name.toLowerCase(); });
+  if (duplicate) throw codeError_("invalid_argument", "That vehicle name already exists. Edit it, or use a distinct name or plate number.");
+  var data = {name:name, fuelType:d.fuelType, plate:plate, updatedAt:new Date().toISOString()};
+  var row = [id, text_(name), text_(data.fuelType), text_(plate), data.updatedAt, JSON.stringify(data)];
+  if (existing) writeRow_(sh, existing.row, row); else appendRows_(sh, [row]);
+  return {ok:true, id:id};
+}
 
 function fuelSheet_() { return sheet_("Company Fuel", FUEL_HEADERS); }
 function listFuel_() {

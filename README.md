@@ -42,3 +42,19 @@ import file.
 Run the fuel backend regression checks with `node --test tests/fuel.test.cjs`.
 These tests emulate Google Sheets and Apps Script services locally; they do not
 contact the production deployment.
+
+### Vehicle names and default fuel types
+
+Open **Manage vehicles & fuel types** in the company fuel section to add or edit
+vehicles, their default fuel type and an optional plate/asset number. For example,
+add **Wigo** with **Gasoline** and **Van** with **Diesel**. Saved vehicles appear in
+the purchase form's vehicle suggestions even before their first fuel purchase.
+Selecting a saved vehicle fills its fuel type for a new purchase. You can still
+enter an equipment name manually and choose a fuel type. Give vehicles distinct
+names (include their plate number when several are the same model).
+
+Vehicle profiles are shared through the **Company Vehicles** Sheet tab (or the
+`companyVehicles` collection in a Claude Artifact), rather than device storage.
+Editing a profile changes the suggestions and default for future purchases; past
+purchases retain the name and fuel type recorded at the time. These records remain
+in the ledger, filters and CSV under their original names.

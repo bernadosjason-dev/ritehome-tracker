@@ -629,8 +629,9 @@
 
     <section class="dash-section card" id="companyFuelCard">
       <div class="card-head"><div><h2>Company fuel tracker</h2><div class="muted section-sub">Gasoline and diesel for all company vehicles and equipment. Separate from project expenses.</div></div></div>
-      <div class="field-row cols-3">
+      <div class="field-row">
         <div class="field"><label for="cf-month">Month</label><input id="cf-month" type="month"></div>
+        <div class="field"><label for="cf-day">Specific date <span class="muted">(optional)</span></label><input id="cf-day" type="date"><span class="field-hint">Choose a day instead of a whole month.</span></div>
         <div class="field"><label for="cf-vehicle-filter">Vehicle / equipment</label><select id="cf-vehicle-filter"><option value="">All vehicles / equipment</option></select></div>
         <div class="field"><label for="cf-type-filter">Fuel type</label><select id="cf-type-filter"><option value="">All fuel</option><option value="gasoline">Gasoline</option><option value="diesel">Diesel</option></select></div>
       </div>
@@ -1253,7 +1254,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbxgeKzn1gvcznWQQ2e_Jvo-z0lKDMx232aWbAlBC-EJCS6MYsGdNfkgmK4P166ITZUPBA/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-06.3";
+  var PAGE_VERSION = "2026-10-06.4";
 
   // ---------- reference data ----------
 
@@ -3308,8 +3309,8 @@
     return !!companyFuel.editing || !!companyFuel.photo || !!companyFuel.receipt || $("cf-no-receipt").checked || ["vehicle", "liters", "amount", "driver", "odometer", "vendor", "notes"].some(function(k){ return $("cf-" + k).value !== ""; });
   }
   function filteredCompanyFuel(){
-    var month = $("cf-month").value, vehicle = $("cf-vehicle-filter").value, type = $("cf-type-filter").value;
-    return companyFuel.entries.filter(function(e){ return (!month || e.date.slice(0,7) === month) && (!vehicle || e.vehicle === vehicle) && (!type || e.fuelType === type); }).sort(function(a,b){ return b.date.localeCompare(a.date) || (b.updatedAt || "").localeCompare(a.updatedAt || ""); });
+    var month = $("cf-month").value, day = $("cf-day").value, vehicle = $("cf-vehicle-filter").value, type = $("cf-type-filter").value;
+    return companyFuel.entries.filter(function(e){ return (day ? e.date === day : !month || e.date.slice(0,7) === month) && (!vehicle || e.vehicle === vehicle) && (!type || e.fuelType === type); }).sort(function(a,b){ return b.date.localeCompare(a.date) || (b.updatedAt || "").localeCompare(a.updatedAt || ""); });
   }
   function fuelNumber(n){ return Number(n).toLocaleString("en-PH", {maximumFractionDigits:3}); }
   function fuelMoney(n){ return Number(n).toLocaleString("en-PH", {style:"currency", currency:"PHP", minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -3419,6 +3420,8 @@
       }).finally(function(){ companyFuel.busy = false; renderCompanyFuel(); });
     });
     $("cf-receipt-close").addEventListener("click", function(){ $("cf-receipt-dialog").close(); });
+    $("cf-day").addEventListener("change", function(){ if(this.value) $("cf-month").value = ""; renderCompanyFuel(); });
+    $("cf-month").addEventListener("change", function(){ $("cf-day").value = ""; });
     ["cf-month", "cf-vehicle-filter", "cf-type-filter"].forEach(function(id){ $(id).addEventListener("change", renderCompanyFuel); });
     $("cf-cancel").addEventListener("click", function(){ if(!companyFuelDirty() || confirm("Discard this unsaved fuel purchase?")) resetCompanyFuel(); });
     $("cf-refresh").addEventListener("click", function(){ if(db && db.refreshNow) db.refreshNow(); });
@@ -3447,6 +3450,7 @@
         }, "Fuel purchase", savePurchase).then(function(){
         saveState.failed = saveState.failed.filter(function(f){ return f.retry !== savePurchase; });
         $("cf-month").value = data.date.slice(0,7);
+        $("cf-day").value = "";
         $("cf-vehicle-filter").value = "";
         $("cf-type-filter").value = "";
         if(companyFuel.editing === id || companyFuel.requestId === id) resetCompanyFuel();
@@ -3492,7 +3496,7 @@
       if(!companyFuel.loaded || companyFuel.error) return;
       function cell(v){ var t = String(v == null ? "" : v); if(/^[=+@\-\t\r\n]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; }
       var csv = [["Date", "Vehicle / equipment", "Fuel type", "Liters", "Cost PHP", "PHP per liter", "Driver", "Odometer km", "Station", "Notes", "Receipt status", "Receipt file ID", "Admin confirmed", "Admin name", "Admin confirmed at"]].concat(filteredCompanyFuel().map(function(e){ return [e.date, e.vehicle, e.fuelType, e.liters, e.amount, (e.amount/e.liters).toFixed(2), e.driver, e.odometer, e.vendor, e.notes, e.receipt ? "Photo" : e.noReceipt ? "No photo" : "Missing", e.receipt || "", e.noReceipt && e.adminConfirmed ? "Yes" : "No", e.adminName || "", e.adminConfirmedAt || ""]; })).map(function(row){ return row.map(cell).join(","); }).join("\r\n");
-      downloadFile("ritehome-company-fuel-" + ($("cf-month").value || "all") + ".csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
+      downloadFile("ritehome-company-fuel-" + ($("cf-day").value || $("cf-month").value || "all") + ".csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
     });
   }
 

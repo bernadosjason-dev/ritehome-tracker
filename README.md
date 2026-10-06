@@ -87,3 +87,7 @@ start `python3 -m http.server 8000 --bind 127.0.0.1` in the repository, then run
 `node tests/fuel.browser.cjs` with Playwright and `/usr/bin/chromium` installed.
 The browser checks use local simulated Apps Script/Drive services; no production
 records or photos are written.
+
+The fuel ledger also has a **Specific date** filter for day/month/year selection.
+Choosing a day clears the month filter; choosing a month clears the day filter.
+Clear both to view all dates. Totals and CSV export follow the selected day.

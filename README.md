@@ -110,3 +110,53 @@ Additional project calculation checks: `node --test tests/tracker-logic.test.cjs
 They cover billing allocations/withheld tax, category totals, receipt counts,
 contract/daily labor totals and date boundaries. Local logic checks do not prove
 that a particular live deployment is reachable or authorized.
+
+## Procurement officer workflow
+
+Open a saved client project and use **Procurement · BOMs & purchase orders**.
+The same project can have several distinct BOM references, such as BOM 01 through
+BOM 05. Enter the draftsman's name, BOM date and material rows: material, exact
+specification/size, unit and required quantity. Type rows or paste four columns
+from Excel in that order, without a header. No spreadsheet/PDF file is uploaded.
+
+Create one PO per supplier, with its own PO reference, date and status. Each PO
+line selects the exact BOM material and the quantity that supplier can provide.
+A PO can cover lines from several BOMs. Start with **PO requested**, then change
+to **Supplier confirmed** once the supplier accepts it. Unit prices are optional
+(default zero). Print the PO from its card when needed. This does not implement
+a separate approval/signature process or automatically add expenses.
+
+For a 24-sheet BOM, a confirmed 16-sheet PO to Supplier A leaves **8 sheets still
+to procure**. A second 8-sheet request to Supplier B reserves that balance but
+does not count as confirmed procurement until the supplier accepts it. The
+summary separates required, requested, confirmed, received, still-to-procure,
+not-yet-allocated and awaiting-delivery quantities. Quantities reserved in active
+POs cannot exceed the BOM requirement; cancelled undelivered orders free their
+allocation. Record cumulative received quantities by editing confirmed POs.
+
+The summary can show one BOM or all BOMs. Identical material/specification/unit
+combinations are consolidated by default; turn that option off to see each BOM
+line. Different specifications and units stay separate. Use consistent wording
+for matching materials. The CSV export follows that summary view.
+
+**Download procurement backup** exports the full BOM/PO data as JSON. Procurement
+is separate from the existing projects/expenses backup and company fuel ledger.
+The JSON is an archival export; a restore/import UI is not included.
+
+Procurement writes use the shared access key and a locked, revision-checked
+Google Sheets record. If another officer saves first, your stale save is rejected
+and your form remains available: refresh procurement, review the latest quantities
+and save again. Replayed saves reuse their change ID. Existing PO material names,
+specifications and units cannot be silently changed by editing a BOM; create a
+new material line for changed specifications. POs with recorded deliveries cannot
+be removed or cancelled.
+
+Redeploy the latest backend/Code.gs in the existing Google Apps Script deployment
+to enable procurement. The first authenticated request creates a **Procurement**
+Sheet tab; no new Drive bucket/folder or API key is required. Procurement currently
+uses the hosted Google backend; the Claude Artifact database path is not supported.
+
+Checks: `node --test tests/procurement.test.cjs tests/tracker-logic.test.cjs`, then
+`node tests/procurement.browser.cjs` with the local HTTP server, Playwright and
+Chromium available. Tests use simulated Sheets services and do not modify live
+company records.

@@ -38,9 +38,9 @@ function doPost(e) {
   var denied = checkKey_(req.key);
   if (denied) return respond_(denied);
 
-  var reads = { listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
+  var reads = { getProcurement: getProcurement_, listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { saveProcurement: saveProcurement_, checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -602,4 +602,111 @@ function codeError_(code, message) {
 
 function respond_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- project procurement ----------
+var ProcurementLogic = (function(){
+  function clean(v,max){var s=String(v==null?'':v).trim();if(s.length>max)throw Error('Text is too long (maximum '+max+' characters).');return s;}
+  function number(v,zero){if(typeof v!=='number'||!Number.isFinite(v)||v<0||(!zero&&v===0))throw Error('Quantities must be valid '+(zero?'nonnegative':'positive')+' numbers.');var n=Math.round(v*1000000)/1000000;if(!Number.isFinite(n)||n>1000000000000||(!zero&&n===0))throw Error('Quantity or price is outside the supported range.');return n;}
+  function date(v){v=clean(v,10);var d=new Date(v+'T00:00:00Z');if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==v)throw Error('Enter a valid date.');return v;}
+  function id(v){v=clean(v,80);if(!/^[A-Za-z0-9_-]{1,80}$/.test(v))throw Error('Invalid record ID.');return v;}
+  function normalize(value){
+    if(!value||!Array.isArray(value.boms)||!Array.isArray(value.orders)||value.boms.length>100||value.orders.length>500)throw Error('Invalid procurement data or too many BOMs/POs.');
+    var ids={},items={},refs={},bomNames={};
+    function unique(v){v=id(v);if(ids[v])throw Error('Duplicate record ID.');ids[v]=true;return v;}
+    var boms=value.boms.map(function(b){
+      var name=clean(b.name,100);if(!name)throw Error('BOM name is required.');if(bomNames[name.toLowerCase()])throw Error('Use a distinct reference for each BOM.');bomNames[name.toLowerCase()]=true;
+      if(!Array.isArray(b.items)||!b.items.length||b.items.length>300)throw Error('Each BOM needs 1–300 material rows.');
+      return {id:unique(b.id),name:name,draftsman:clean(b.draftsman,100),date:date(b.date),items:b.items.map(function(i){
+        var result={id:unique(i.id),material:clean(i.material,150),spec:clean(i.spec,200),unit:clean(i.unit,30),quantity:number(i.quantity,false)};
+        if(!result.material||!result.unit)throw Error('Material name and unit are required.');items[result.id]=result;return result;
+      })};
+    });
+    var allocated={},orders=value.orders.map(function(o){
+      var ref=clean(o.reference,100),supplier=clean(o.supplier,150);if(!ref||!supplier)throw Error('PO reference and supplier are required.');
+      var key=ref.toLowerCase();if(refs[key])throw Error('PO reference already exists.');refs[key]=true;
+      if(['requested','confirmed','cancelled'].indexOf(o.status)<0)throw Error('Choose a valid PO status.');
+      if(!Array.isArray(o.lines)||!o.lines.length||o.lines.length>300)throw Error('Each PO needs at least one material.');
+      var seen={};
+      var lines=o.lines.map(function(l){
+        var itemId=id(l.itemId);if(!items[itemId])throw Error('A PO references a missing BOM material.');if(seen[itemId])throw Error('Use one row per BOM material in a PO.');seen[itemId]=true;
+        var quantity=number(l.quantity,false),received=number(l.received==null?0:l.received,true),unitPrice=number(l.unitPrice==null?0:l.unitPrice,true);
+        if(received>quantity)throw Error('Received quantity cannot exceed the ordered quantity.');
+        if(o.status!=='confirmed'&&received>0)throw Error('Only supplier-confirmed POs can have deliveries.');
+        if(o.status!=='cancelled')allocated[itemId]=(allocated[itemId]||0)+quantity;
+        return {itemId:itemId,quantity:quantity,received:received,unitPrice:unitPrice};
+      });
+      return {id:unique(o.id),reference:ref,supplier:supplier,date:date(o.date),status:o.status,notes:clean(o.notes,500),lines:lines};
+    });
+    Object.keys(allocated).forEach(function(k){if(allocated[k]-items[k].quantity>0.000001)throw Error('PO requests exceed the BOM quantity for '+items[k].material+'. Reduce/cancel another request first.');});
+    return {boms:boms,orders:orders};
+  }
+  function summary(value,bomId){
+    var rows=[];
+    value.boms.forEach(function(b){if(bomId&&b.id!==bomId)return;b.items.forEach(function(i){
+      var requested=0,ordered=0,received=0;
+      value.orders.forEach(function(o){if(o.status==='cancelled')return;o.lines.forEach(function(l){if(l.itemId!==i.id)return;if(o.status==='requested')requested+=l.quantity;else{ordered+=l.quantity;received+=l.received;}});});
+      function n(v){return Math.round(Math.max(0,v)*1000000)/1000000;}
+      rows.push({bomId:b.id,bom:b.name,id:i.id,material:i.material,spec:i.spec,unit:i.unit,required:i.quantity,requested:n(requested),ordered:n(ordered),received:n(received),remaining:n(i.quantity-ordered),unallocated:n(i.quantity-ordered-requested),awaitingDelivery:n(ordered-received)});
+    });});return rows;
+  }
+  function consolidate(rows){
+    var groups={};rows.forEach(function(r){
+      var key=JSON.stringify([r.material.trim().toLowerCase(),r.spec.trim().toLowerCase(),r.unit.trim().toLowerCase()]);
+      if(!groups[key])groups[key]={material:r.material,spec:r.spec,unit:r.unit,boms:[],required:0,requested:0,ordered:0,received:0,remaining:0,unallocated:0,awaitingDelivery:0};
+      var g=groups[key];if(g.boms.indexOf(r.bom)<0)g.boms.push(r.bom);
+      ['required','requested','ordered','received','remaining','unallocated','awaitingDelivery'].forEach(function(k){g[k]=Math.round((g[k]+r[k])*1000000)/1000000;});
+    });return Object.keys(groups).map(function(k){var g=groups[k];g.bom=g.boms.join(' / ');return g;});
+  }
+return {normalize:normalize,summary:summary,consolidate:consolidate};
+})();
+
+var PROCUREMENT_HEADERS = ["Project ID", "Revision", "Last mutation", "Updated", "Data 1", "Data 2", "Data 3", "Data 4"];
+function procurementRecord_(projectId) {
+  if (!findRow_(projectsSheet_(), PROJECT_HEADERS, projectId)) throw codeError_("not_found", "That project no longer exists.");
+  var sh = sheet_("Procurement", PROCUREMENT_HEADERS), last = sh.getLastRow();
+  if (last > 1) {
+    var values = sh.getRange(2, 1, last - 1, PROCUREMENT_HEADERS.length).getValues();
+    for (var i=0; i<values.length; i++) if (String(values[i][0]) === projectId) {
+      try {
+        var revision=Number(values[i][1]);
+        if (!Number.isInteger(revision) || revision<1) throw Error("Invalid procurement revision.");
+        var chunks=values[i].slice(4).map(function(chunk){chunk=String(chunk);if(chunk.indexOf("json:")!==0)throw Error("Invalid procurement data chunk.");return chunk.slice(5);});
+        return {sh:sh,row:i+2,revision:revision,mutationId:String(values[i][2]),data:ProcurementLogic.normalize(JSON.parse(chunks.join("")))};
+      }
+      catch (err) { throw codeError_("data_loss", "Procurement records could not be read. Ask the admin to restore this project's procurement data before editing."); }
+    }
+  }
+  return {sh:sh,row:null,revision:0,mutationId:"",data:{boms:[],orders:[]}};
+}
+function getProcurement_(req) {
+  var record=procurementRecord_(String(req.projectId || ""));
+  return {ok:true,revision:record.revision,data:record.data};
+}
+function saveProcurement_(req) {
+  var projectId=String(req.projectId || ""), record=procurementRecord_(projectId);
+  var mutationId=String(req.mutationId || "");
+  if (!/^pr-[A-Za-z0-9_-]{10,80}$/.test(mutationId)) throw codeError_("invalid_argument", "A valid procurement change ID is required.");
+  var data;
+  try { data=ProcurementLogic.normalize(req.data); }
+  catch (err) { throw codeError_("invalid_argument", err.message); }
+  if (record.mutationId===mutationId) {
+    if (JSON.stringify(record.data)!==JSON.stringify(data)) throw codeError_("invalid_argument", "This change ID was already used for different data.");
+    return {ok:true,revision:record.revision,data:record.data};
+  }
+  if (!Number.isInteger(req.revision) || req.revision!==record.revision) throw codeError_("conflict", "Procurement was changed by another officer. Refresh before saving.");
+  var oldItems={},newItems={};record.data.boms.forEach(function(b){b.items.forEach(function(i){oldItems[i.id]=i;});});data.boms.forEach(function(b){b.items.forEach(function(i){newItems[i.id]=i;});});
+  record.data.orders.forEach(function(oldPO){
+    var nextPO=data.orders.filter(function(o){return o.id===oldPO.id;})[0];
+    oldPO.lines.forEach(function(line){
+      if (newItems[line.itemId] && oldItems[line.itemId] && ["material","spec","unit"].some(function(k){return oldItems[line.itemId][k]!==newItems[line.itemId][k];})) throw codeError_("invalid_argument", "A material already used in a PO cannot change its name, specification or unit. Add a new BOM line for changed materials.");
+      if (line.received>0 && (!nextPO || nextPO.status!=="confirmed" || !nextPO.lines.some(function(l){return l.itemId===line.itemId;}))) throw codeError_("invalid_argument", "A PO with recorded deliveries cannot be removed or cancelled. Preserve delivered material rows.");
+    });
+  });
+  var serialized=JSON.stringify(data);
+  if (serialized.length>180000) throw codeError_("resource_exhausted", "This project's procurement record is too large. Ask the admin to archive older procurement before adding more.");
+  var revision=record.revision+1,row=[projectId,revision,mutationId,new Date().toISOString()];
+  for(var i=0;i<4;i++)row.push("json:"+serialized.slice(i*45000,(i+1)*45000));
+  record.sh.getRange(record.row || record.sh.getLastRow()+1,1,1,row.length).setValues([row]);
+  return {ok:true,revision:revision,data:data};
 }

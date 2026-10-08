@@ -160,3 +160,30 @@ requires no-photo status and an admin name; the backend records its timestamp.
 Fuel uploads use the existing access key and write lock, with stable upload IDs
 so a retried upload reuses its photo. Removing/replacing a fuel receipt or deleting
 a fuel purchase leaves its Drive file intact.
+
+## Enabling BOM and procurement tracking
+
+Replace the existing script with the latest **complete Code.gs**, save and edit
+the existing web app deployment to publish a **New version**. Keep the existing
+`/exec` URL, Sheet and Script Properties. The browser also serves the repository's
+new `procurement.js`; GitHub Pages includes it automatically.
+
+Open a saved project. Its **Procurement · BOMs & purchase orders** card should
+say **Procurement synced**. The authenticated `getProcurement` and locked
+`saveProcurement` actions store one project record in a new **Procurement** tab.
+The data uses four prefixed JSON chunks to stay below individual Sheet cell limits
+and avoid formula interpretation. Do not edit those columns manually.
+
+Supplier-confirmed orders reduce the remaining-to-procure quantity; PO requests
+reserve quantities but stay unconfirmed. Received quantities are tracked separately.
+The backend rejects over-allocation, invalid quantities, deliveries exceeding the
+PO, duplicate references, stale revisions and changes to material identity used in
+POs. Confirmed orders with recorded deliveries cannot be removed or cancelled.
+
+This is a shared-key workflow, without a distinct procurement-officer login or
+formal PO approval/signature step. It does not write procurement totals into the
+expense ledger. Download the procurement JSON backup from the project card; the
+existing projects backup does not contain this separate tab.
+
+Live Google deployment and authentication must be checked from your browser.
+Local tests emulate the backend; they do not prove the deployed script is updated.

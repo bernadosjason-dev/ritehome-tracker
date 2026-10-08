@@ -774,6 +774,33 @@
       </div>
     </header>
 
+    <section class="card" id="procurementCard">
+      <div class="card-head"><div><h2>Procurement · BOMs &amp; purchase orders</h2><div class="muted">One project, multiple BOMs. Split quantities across suppliers without losing what remains.</div></div><button class="btn ghost" type="button" id="pr-refresh">Refresh procurement</button></div>
+      <p id="pr-status" class="rc-status" role="status"></p><p id="pr-totals" class="muted" role="status"></p>
+      <div class="field"><label for="pr-filter">Summary scope</label><select id="pr-filter"><option value="">All BOMs</option></select></div>
+      <label class="check-row no-print"><input id="pr-group" type="checkbox" checked> Consolidate identical materials across BOMs</label>
+      <p class="muted">“Still to procure” = required minus supplier-confirmed orders. Requested POs reserve quantities but are not yet confirmed. “No supplier allocated” shows what needs another PO.</p>
+      <div class="form-actions no-print"><button class="btn ghost" id="pr-export" type="button">Export procurement summary</button><button class="btn ghost" id="pr-backup" type="button">Download procurement backup</button></div>
+      <div class="table-wrap"><table class="stack"><thead><tr><th>BOM</th><th>Material / specification</th><th>Unit</th><th>Required</th><th>PO requested</th><th>Supplier confirmed</th><th>Received</th><th>Still to procure</th><th>No supplier allocated</th><th>Awaiting delivery</th></tr></thead><tbody id="pr-summary"></tbody></table></div>
+      <details id="pr-bom-details" class="no-print"><summary class="btn ghost" id="pr-bom-title">Add BOM</summary>
+        <form id="pr-bom-form"><fieldset id="pr-fields-bom" style="border:0;padding:0;min-width:0;" disabled>
+          <div class="field-row cols-3"><div class="field"><label for="pr-bom-name">BOM name / reference</label><input id="pr-bom-name" required maxlength="100" placeholder="e.g. BOM 01 — Kitchen cabinets"></div><div class="field"><label for="pr-bom-draftsman">Technical draftsman</label><input id="pr-bom-draftsman" maxlength="100"></div><div class="field"><label for="pr-bom-date">BOM date</label><input id="pr-bom-date" required type="date"></div></div>
+          <div class="field"><label for="pr-paste">Paste material rows from Excel (optional)</label><textarea id="pr-paste" rows="3" placeholder="Four columns, no header: Material [tab] Specification [tab] Unit [tab] Quantity"></textarea><span class="muted">Paste cell values directly. No document is uploaded or stored.</span></div><button class="btn ghost" type="button" id="pr-paste-add">Add pasted rows</button>
+          <div class="table-wrap"><table><thead><tr><th>Material</th><th>Specification / size</th><th>Unit</th><th>Required quantity</th><th></th></tr></thead><tbody id="pr-bom-items"></tbody></table></div>
+          <div class="form-actions"><button class="btn ghost" type="button" id="pr-bom-add-row">+ Material row</button><button class="btn" type="submit">Save BOM</button><button class="btn ghost" type="button" id="pr-bom-clear">Cancel / clear</button></div>
+        </fieldset></form>
+      </details><div id="pr-boms"></div>
+      <details id="pr-po-details" class="no-print"><summary class="btn ghost" id="pr-po-title">Create PO request</summary>
+        <form id="pr-po-form"><fieldset id="pr-fields-po" style="border:0;padding:0;min-width:0;" disabled>
+          <div class="field-row cols-3"><div class="field"><label for="pr-po-ref">PO reference</label><input id="pr-po-ref" required maxlength="100" placeholder="e.g. PO-001"></div><div class="field"><label for="pr-po-supplier">Supplier</label><input id="pr-po-supplier" required maxlength="150"></div><div class="field"><label for="pr-po-date">PO date</label><input id="pr-po-date" required type="date"></div></div>
+          <div class="field-row"><div class="field"><label for="pr-po-state">Status</label><select id="pr-po-state"><option value="requested">PO requested — awaiting confirmation</option><option value="confirmed">Supplier confirmed</option><option value="cancelled">Cancelled</option></select></div><div class="field"><label for="pr-po-notes">Notes</label><input id="pr-po-notes" maxlength="500" placeholder="Delivery details or supplier availability"></div></div>
+          <div class="table-wrap"><table><thead><tr><th>BOM material</th><th>PO quantity</th><th>Received to date</th><th>Unit price (₱)</th><th></th></tr></thead><tbody id="pr-po-items"></tbody></table></div>
+          <p class="muted">Use only the quantity this supplier can provide. Record cumulative received quantities after supplier confirmation.</p>
+          <div class="form-actions"><button class="btn ghost" type="button" id="pr-po-add-row">+ PO material</button><button class="btn" type="submit">Save PO</button><button class="btn ghost" type="button" id="pr-po-clear">Cancel / clear</button></div>
+        </fieldset></form>
+      </details><div id="pr-orders"></div>
+    </section>
+
     <!-- 1. Project & client -->
     <div class="card">
       <div class="card-head">
@@ -1244,6 +1271,7 @@
   <div id="remindDialog" class="modal-backdrop no-print" hidden></div>
 </div>
 
+<script src="procurement.js?v=2026-10-08.1"></script>
 <script>
 (function(){
   "use strict";
@@ -1254,7 +1282,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-06.5";
+  var PAGE_VERSION = "2026-10-08.1";
 
   // ---------- reference data ----------
 
@@ -1726,6 +1754,7 @@
     var list = [];
     function add(what, el){ list.push({what: what, el: el}); }
     if(companyVehicles.editing || $("cv-name").value.trim() || $("cv-plate").value.trim()) add("Vehicle details", $("companyVehiclesPanel"));
+    if(window.ProcurementTracker && window.ProcurementTracker.dirty()) add("Procurement forms", $("procurementCard"));
     if(companyFuelDirty()) add("Fuel purchase", $("companyFuelCard"));
     if(!$("dashboardScreen").hidden){
       if(!$("newProjectCard").hidden && $("np-name").value.trim()) add("New project", $("newProjectCard"));
@@ -3096,6 +3125,14 @@
   }
 
   function renderProjectScreen(){
+    if(window.ProcurementTracker) window.ProcurementTracker.open(state.currentProjectId, {
+      canRead: function(){ return HOSTED && !!db && state.currentProjectId !== "sample"; },
+      canWrite: function(){ return HOSTED && !!db && canWrite() && state.currentProjectId !== "sample"; },
+      get: function(id){ return db.getProcurement(id); },
+      save: function(id,data,revision,mutationId){ return db.saveProcurement(id,data,revision,mutationId); },
+      track: track,
+      projectName: function(){ return state.name; }
+    });
     refreshLaborOptions();
     syncExpenseFormFields();
     fillDatalists();
@@ -3536,7 +3573,7 @@
     return m ? decodeURIComponent(m[1]) : null;
   }
 
-  function showDashboardEl(){ $("dashboardScreen").hidden = false; $("projectScreen").hidden = true; }
+  function showDashboardEl(){ if(window.ProcurementTracker) window.ProcurementTracker.close(); $("dashboardScreen").hidden = false; $("projectScreen").hidden = true; }
   function showProjectEl(){ $("dashboardScreen").hidden = true; $("projectScreen").hidden = false; }
 
   function clearProjectSubscriptions(){
@@ -4746,6 +4783,8 @@
         deleteProjectCascade: function(id){ return projectDoc(id).delete(); },
         refreshNow: refreshNow,
         ping: function(){ return call("ping"); },
+        getProcurement: function(id){ return call("getProcurement", {projectId:id}); },
+        saveProcurement: function(id,data,revision,mutationId){ return call("saveProcurement", {projectId:id,data:data,revision:revision,mutationId:mutationId}); },
         checkFuelReceiptStorage: function(){ return call("checkFuelReceiptStorage"); },
         uploadFuelReceipt: function(blob, uploadId){
           if(blob.size > 12 * 1024 * 1024) return Promise.reject({code:"too_large"});

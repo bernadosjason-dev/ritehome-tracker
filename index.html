@@ -479,6 +479,7 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
+<link rel="stylesheet" href="ui.css?v=2026-10-12.1">
 </head>
 <body>
 
@@ -487,6 +488,19 @@
 <datalist id="leadsList"></datalist>
 
 <div class="wrap">
+  <nav class="workspace-bar no-print" aria-label="Workspace sections">
+    <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
+    <div class="workspace-actions" data-ui-view="dashboard">
+      <button type="button" class="btn ghost" data-ui-target="dashboardScreen" data-ui-icon="grid">Projects</button>
+      <button type="button" class="btn ghost" data-ui-target="arSection" data-ui-icon="money">Receivables</button>
+      <button type="button" class="btn ghost" data-ui-target="companyFuelCard" data-ui-icon="fuel">Company fuel</button>
+    </div>
+    <div class="workspace-actions" data-ui-view="project" hidden>
+      <button type="button" class="btn ghost" data-ui-target="projectScreen" data-ui-icon="grid">Overview</button>
+      <button type="button" class="btn ghost" data-ui-target="procurementCard" data-ui-icon="truck">Procurement</button>
+      <button type="button" class="btn ghost" data-ui-target="expenseCard" data-ui-icon="file">Expenses</button>
+    </div>
+  </nav>
   <div id="saveBar" class="save-bar no-print" role="alert" hidden></div>
   <div id="updateBar" class="save-bar warn static no-print" role="status" hidden>
     <div class="sb-text"><strong>A newer version of the tracker is out</strong>Reload to get it — your saved data isn't affected.</div>
@@ -1282,7 +1296,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-08.1";
+  var PAGE_VERSION = "2026-10-12.1";
 
   // ---------- reference data ----------
 
@@ -5038,5 +5052,6 @@
   renderSaveStatus();
 })();
 </script>
+<script src="ui.js?v=2026-10-12.1"></script>
 </body>
 </html>

@@ -1,0 +1,36 @@
+/* Shared workspace presentation; data operations remain in the tracker. */
+:root{--ink-muted:#526371;--border:#dce4e9;--surface-2:#f3f6f8;--bg:#f1f5f7;--accent:#215e71;--ring:rgba(33,94,113,.3)}
+body{margin:0;line-height:1.5;background:radial-gradient(ellipse at top left,color-mix(in srgb,var(--accent) 8%,transparent),transparent 55%),var(--bg);padding-top:20px}
+.workspace-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 3px 12px rgba(20,45,60,.04)}
+.workspace-brand{display:flex;align-items:center;gap:12px;color:var(--ink)}
+.brand-mark{display:grid;place-items:center;width:40px;height:40px;background:var(--accent);color:var(--accent-ink);border-radius:12px;font-weight:700;font-size:18px}
+.workspace-brand strong{display:block;font-size:15px;letter-spacing:.02em}.workspace-brand small{display:block;color:var(--ink-muted);font-size:12px}
+.workspace-actions{display:flex;gap:6px;flex-wrap:wrap}.workspace-actions .btn{min-height:40px}
+body.gated .workspace-actions{display:none}.hero{border-radius:20px;box-shadow:0 4px 16px rgba(20,45,60,.04)}
+.hero-inner{padding:28px}.hero h1{font-size:clamp(26px,3.5vw,38px);line-height:1.15}.hero .sub{max-width:65ch;line-height:1.6}
+.card,.kpi{border-radius:16px;box-shadow:0 2px 8px rgba(20,45,60,.035)}.card{padding:22px}.kpi{border-top:3px solid color-mix(in srgb,var(--accent) 45%,var(--border))}.kpi .val{font-variant-numeric:tabular-nums}
+h2{font-size:21px;line-height:1.3}h3{line-height:1.35}.card-head{margin-bottom:18px}.section-sub{line-height:1.6}
+.btn{min-height:44px;gap:8px;border:1px solid transparent;border-radius:10px;padding:10px 16px;line-height:1.3;transition:background .15s,border-color .15s,box-shadow .15s;text-decoration:none;box-shadow:0 2px 4px rgba(15,50,65,.09)}
+.btn.ghost,.btn.secondary{min-height:40px;background:var(--surface);color:var(--accent);border-color:var(--border);padding:9px 12px;box-shadow:none}
+.btn.small{min-height:38px;padding:8px 11px}.btn:hover:not(:disabled){filter:none;box-shadow:0 3px 9px rgba(15,50,65,.16)}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2);border-color:var(--accent)}.btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}.btn.danger{box-shadow:none}
+.btn:focus-visible,.icon-btn:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.action-icon{width:17px;height:17px;flex-shrink:0;pointer-events:none}.btn.danger .action-icon{color:inherit}
+.form-actions{flex-wrap:wrap;margin-top:12px}.form-actions .btn{flex:1 1 150px}.field label{font-size:12.5px;color:var(--ink);line-height:1.5}.field{gap:6px;margin-bottom:15px}
+input,select,textarea{min-height:44px;border-radius:10px;background:var(--surface);border-color:var(--border);padding:10px 12px}input:disabled,select:disabled,textarea:disabled{background:var(--surface-2);color:var(--ink-muted)}
+.check-row input{min-height:0}.check-row{line-height:1.5}.field-hint{line-height:1.5;margin:0}.form-error,.rc-status{line-height:1.5;font-size:13px}
+.table-wrap{margin-top:12px;border-radius:12px}thead th{background:var(--surface-2);padding:12px 10px}tbody td{padding:12px 10px;vertical-align:middle}tbody tr:hover td{background:color-mix(in srgb,var(--accent) 3%,var(--surface))}
+#pr-summary td:nth-child(8){font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}#pr-orders>.card,#pr-boms>.card{margin-top:12px}
+summary.btn{list-style:none;width:fit-content}summary.btn::-webkit-details-marker{display:none}details[open]>summary.btn{border-color:var(--accent);background:var(--surface-2)}details>form{margin-top:18px}
+#companyFuelCard>.card-head h2,#procurementCard>.card-head h2{border-left:4px solid var(--accent);padding-left:12px}#cf-receipt-card{background:var(--surface-2);box-shadow:none}
+#cf-photo-preview{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;padding:12px;background:var(--surface);border-radius:12px;margin:12px 0}.status-pill,.sync{border-radius:999px}.project-card{border-radius:16px;transition:border-color .15s,box-shadow .15s}.project-card:hover{border-color:var(--accent);box-shadow:0 5px 18px rgba(20,45,60,.09)}
+[data-ui-target]{scroll-margin-top:24px}#companyFuelCard,#arSection,#procurementCard,#expenseCard{scroll-margin-top:24px}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141b22;--surface:#1c2630;--surface-2:#24313c;--ink-muted:#b3c1cc;--border:#354652;--accent:#7bc4d4;--accent-ink:#10232b}}
+:root[data-theme="dark"]{--bg:#141b22;--surface:#1c2630;--surface-2:#24313c;--ink-muted:#b3c1cc;--border:#354652;--accent:#7bc4d4;--accent-ink:#10232b}
+@media(max-width:640px){body{padding-inline:12px;padding-block:12px 40px}.wrap,#dashboardScreen,#projectScreen{gap:16px}.workspace-bar{padding:12px;gap:12px}.workspace-actions{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.workspace-actions .btn{font-size:12px;padding:8px 6px;gap:5px}.workspace-actions .action-icon{width:15px;height:15px}.hero-inner{padding:20px}.card{padding:16px}.btn,.btn.ghost,.btn.small{min-height:44px}.form-actions .btn{flex-basis:140px}input,select,textarea{font-size:16px}table.stack tr{padding:16px 12px;gap:12px}table.stack td[data-label]::before{font-size:11px;letter-spacing:.03em}.table-wrap:has(table.stack){border:1px solid var(--border)}#pr-summary td:nth-child(8){border-radius:6px;padding:6px}h2{font-size:20px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+@media print{.workspace-bar{display:none!important}body{background:white}.card,.hero,.kpi{box-shadow:none}.action-icon{display:none}.btn{box-shadow:none}#pr-summary td:nth-child(8){color:inherit;background:none}}
+
+.btn.ghost.ui-destructive{color:var(--bad)}.icon-btn,.budget-edit-btn{min-width:40px;min-height:40px}.is-working .action-icon{animation:action-turn 1.2s linear infinite}@keyframes action-turn{to{transform:rotate(360deg)}}
+@media(max-width:640px){.icon-btn,.budget-edit-btn{min-width:44px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){.is-working .action-icon{animation:none}}

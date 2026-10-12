@@ -195,3 +195,21 @@ Google web app deployment URL changes. Keep the Apps Script `SHARE_URL` at the s
 root: old private share links are redirected into the project portal and retain
 their key. The directory and separate portal views use the existing API, so this
 frontend-only update does not require another backend deployment.
+
+## Independent procurement jobs
+
+Publish a **New version** of the latest complete Code.gs in the existing deployment
+to enable `listProcurementJobs`, `getProcurementJob` and `saveProcurementJob`. These
+authenticated actions use a new **Procurement Jobs** Sheet tab and the same script
+lock/key. Job IDs begin with `pj-`; their BOM/PO snapshots remain in **Procurement**.
+The new tab is created on first authenticated use, without any new Drive storage
+or permission scope.
+
+The Procurement portal does not request the general `listProjects` data. General
+projects remain in **Projects**, with their budgets/billing/profit unchanged.
+Existing project-linked procurement snapshots are preserved for compatibility;
+there is no automatic migration or duplication into the independent job list.
+
+After deployment, open Procurement and expect **Procurement jobs synced**. Press
+**Start procurement**, create a job, add its first BOM and request a supplier PO.
+The job is absent from the Project portal.

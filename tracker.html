@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-10-12.3"></script>
+<script src="portal.js?v=2026-10-12.4"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -480,8 +480,8 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-10-12.3">
-<link rel="stylesheet" href="portals.css?v=2026-10-12.3">
+<link rel="stylesheet" href="ui.css?v=2026-10-12.4">
+<link rel="stylesheet" href="portals.css?v=2026-10-12.4">
 </head>
 <body>
 
@@ -539,6 +539,21 @@
         </div>
       </div>
     </header>
+
+    <section class="card" id="procurementJobsSection">
+      <div class="card-head"><div><h2>Procurement jobs</h2><p class="muted">Create a separate job for a client, site or purchasing requirement.</p></div><button class="btn small" id="pj-start" type="button" data-start-procurement data-ui-icon="plus" disabled>Start procurement</button></div>
+      <div class="procurement-steps" id="pj-steps"><div><span>1</span><strong>Create a job</strong><small>Name the client, site or requirement.</small></div><div><span>2</span><strong>Add a BOM</strong><small>Enter the draftsman's material quantities.</small></div><div><span>3</span><strong>Create supplier POs</strong><small>Split orders and track the remaining balance.</small></div></div>
+      <p id="pj-status" class="rc-status" role="status">Connecting to procurement jobs…</p>
+      <div id="pj-form-card" hidden>
+        <h3 id="pj-form-title">Start a procurement job</h3>
+        <form id="pj-form"><fieldset id="pj-fields" disabled style="border:0;padding:0;margin:12px 0;min-width:0;">
+          <div class="field-row"><div class="field"><label for="pj-name">Procurement job name</label><input id="pj-name" required maxlength="100" placeholder="e.g. Banisilan — kitchen materials"></div><div class="field"><label for="pj-client">Client / site <span class="muted">(optional)</span></label><input id="pj-client" maxlength="150" placeholder="Client, site or internal department"></div></div>
+          <div class="field"><label for="pj-state">Job status</label><select id="pj-state"><option value="active">Open</option><option value="completed">Closed</option></select></div>
+          <div class="form-actions"><button class="btn" id="pj-submit" type="submit">Create job &amp; add BOM</button><button class="btn ghost" id="pj-cancel" type="button">Cancel</button></div>
+        </fieldset><div class="form-error" id="pj-error" role="alert"></div></form>
+      </div>
+      <div id="pj-list"></div>
+    </section>
 
     <div class="kpis">
       <div class="kpi">
@@ -796,7 +811,8 @@
     </header>
 
     <section class="card" id="procurementCard">
-      <div class="card-head"><div><h2>Procurement · BOMs &amp; purchase orders</h2><div class="muted">One project, multiple BOMs. Split quantities across suppliers without losing what remains.</div></div><button class="btn ghost" type="button" id="pr-refresh">Refresh procurement</button></div>
+      <div class="card-head"><div><h2>Procurement · BOMs &amp; purchase orders</h2><div class="muted">One procurement job, multiple BOMs. Split quantities across suppliers without losing what remains.</div></div><button class="btn ghost" type="button" id="pr-refresh">Refresh procurement</button></div>
+      <div id="pr-next-step" class="procurement-next-step no-print"></div>
       <p id="pr-status" class="rc-status" role="status"></p><p id="pr-totals" class="muted" role="status"></p>
       <div class="field"><label for="pr-filter">Summary scope</label><select id="pr-filter"><option value="">All BOMs</option></select></div>
       <label class="check-row no-print"><input id="pr-group" type="checkbox" checked> Consolidate identical materials across BOMs</label>
@@ -1304,7 +1320,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-12.3";
+  var PAGE_VERSION = "2026-10-12.4";
 
   // ---------- reference data ----------
 
@@ -1682,6 +1698,7 @@
     confirmDeletePkId: null
   };
 
+  var procurementJobs = {entries:[],loaded:false,error:null,busy:false,subscribed:false,editing:null,requestId:null};
   var companyVehicles = {entries: [], loaded: false, error: null, subscribed: false, editing: null, requestId: null, busy: false};
   var companyFuel = {entries: [], loaded: false, error: null, editing: null, requestId: null, busy: false, subscribed: false, receipt: null, photo: null, photoUrl: null, photoUploadId: null};
   var db = null;
@@ -1763,10 +1780,12 @@
 
   function discardFailed(){
     var resetFuel = saveState.failed.some(function(f){ return f.operationKey && f.operationKey.indexOf("fuel:") === 0; });
+    var resetProcJob = saveState.failed.some(function(f){ return f.operationKey && f.operationKey.indexOf("procurement-job:") === 0; });
     var resetVehicle = saveState.failed.some(function(f){ return f.operationKey && f.operationKey.indexOf("vehicle:") === 0; });
     saveState.failed = [];
     if(resetFuel) resetCompanyFuel();
     if(resetVehicle) resetCompanyVehicle();
+    if(resetProcJob) resetProcurementJob();
     renderSaveStatus();
     if(state.currentProjectId && !isSample()) loadProject(state.currentProjectId);   // reload what is really saved
   }
@@ -1777,6 +1796,7 @@
     function add(what, el){ list.push({what: what, el: el}); }
     if(companyVehicles.editing || $("cv-name").value.trim() || $("cv-plate").value.trim()) add("Vehicle details", $("companyVehiclesPanel"));
     if(window.ProcurementTracker && window.ProcurementTracker.dirty()) add("Procurement forms", $("procurementCard"));
+    if(PORTAL === "procurement" && !$("pj-form-card").hidden && ($("pj-name").value.trim() || $("pj-client").value.trim() || procurementJobs.editing)) add("Procurement job", $("pj-form-card"));
     if(companyFuelDirty()) add("Fuel purchase", $("companyFuelCard"));
     if(!$("dashboardScreen").hidden){
       if(!$("newProjectCard").hidden && $("np-name").value.trim()) add("New project", $("newProjectCard"));
@@ -3243,6 +3263,7 @@
   }
 
   function renderDashboard(){
+    if(PORTAL === "procurement"){ renderProcurementJobs(); return; }
     renderCompanyFuel();
     var today = todayISO();
     fillDatalists();
@@ -3299,6 +3320,56 @@
     $("completedGrid").innerHTML = completed.length
       ? completed.map(renderProjectCard).join("")
       : '<div class="empty-note">Nothing completed yet. Open a project and tap “Mark as complete” when the job’s done.</div>';
+  }
+
+  // ---------- independent procurement jobs ----------
+  function renderProcurementJobs(){
+    var disabled = !canWrite() || !procurementJobs.loaded || !!procurementJobs.error || procurementJobs.busy;
+    $("pj-start").disabled = disabled; $("pj-fields").disabled = disabled;
+    $("pj-steps").hidden = procurementJobs.loaded && procurementJobs.entries.length > 0;
+    $("pj-status").className = "rc-status" + (procurementJobs.error ? " err" : "");
+    $("pj-status").textContent = access === "none" ? "Procurement jobs unlock when the tracker reconnects." : procurementJobs.error ? (procurementJobs.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable independent procurement jobs. General projects are kept separate." : procurementJobs.error.message || "Could not load procurement jobs.") : procurementJobs.loaded ? "Procurement jobs synced · " + procurementJobs.entries.length + " jobs" : "Connecting to procurement jobs…";
+    $("pj-list").innerHTML = procurementJobs.entries.length ? procurementJobs.entries.slice().sort(function(a,b){ return (a.status === "completed") - (b.status === "completed") || (b.updatedAt || "").localeCompare(a.updatedAt || ""); }).map(function(job){
+      return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + '</p></div><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
+    }).join("") : '<div class="procurement-empty"><h3>' + (procurementJobs.loaded ? 'Start your first procurement job' : 'Your procurement jobs will appear here') + '</h3><p class="muted">This workspace has its own jobs. Start with a name, then add the first BOM and split materials into supplier POs.</p><button class="btn small" type="button" data-start-procurement data-ui-icon="plus" ' + (disabled ? 'disabled' : '') + '>Start procurement</button></div>';
+  }
+  function subscribeProcurementJobs(){
+    if(procurementJobs.subscribed || !db) return; procurementJobs.subscribed = true;
+    db.collection("procurementJobs").onSnapshot(function(snap){ procurementJobs.entries = snap.docs.map(function(d){ return Object.assign({}, d.data(), {id:d.id}); }); procurementJobs.loaded = true; procurementJobs.error = null; renderProcurementJobs(); }, function(err){ procurementJobs.error = err; renderProcurementJobs(); });
+  }
+  function resetProcurementJob(){
+    var key = "procurement-job:" + (procurementJobs.editing || procurementJobs.requestId);
+    saveState.failed = saveState.failed.filter(function(f){ return f.operationKey !== key; });
+    $("pj-form").reset(); procurementJobs.editing = null; procurementJobs.requestId = null;
+    $("pj-form-card").hidden = true; $("pj-error").textContent = ""; $("pj-form-title").textContent = "Start a procurement job"; $("pj-submit").textContent = "Create job & add BOM"; renderSaveStatus();
+  }
+  function wireProcurementJobs(){
+    $("procurementJobsSection").addEventListener("click", function(ev){
+      var start = ev.target.closest("[data-start-procurement]"), edit = ev.target.closest("[data-pj-edit]"), open = ev.target.closest("[data-pj-open]");
+      if((!start && !edit && !open) || !db || !canWrite() || !procurementJobs.loaded || procurementJobs.error || procurementJobs.busy) return;
+      if(open){ guardLeave(function(){ openProject(open.getAttribute("data-pj-open")); }); return; }
+      if(edit){
+        if(!$("pj-form-card").hidden && ($("pj-name").value.trim() || procurementJobs.editing) && !confirm("Discard unsaved job details?")) return;
+        var job = procurementJobs.entries.find(function(job){ return job.id === edit.getAttribute("data-pj-edit"); }); if(!job) return;
+        resetProcurementJob(); procurementJobs.editing = job.id; $("pj-name").value = job.name; $("pj-client").value = job.clientName || ""; $("pj-state").value = job.status;
+        $("pj-form-title").textContent = "Edit procurement job"; $("pj-submit").textContent = "Save job details";
+      } else if(procurementJobs.editing){ if(!confirm("Discard this job edit and start a new job?")) return; resetProcurementJob(); }
+      $("pj-form-card").hidden = false; $("pj-name").focus(); renderSaveStatus();
+    });
+    $("pj-cancel").addEventListener("click", function(){ if((!$("pj-name").value.trim() && !$("pj-client").value.trim() && !procurementJobs.editing) || confirm("Discard unsaved procurement job details?")) resetProcurementJob(); });
+    $("pj-form").addEventListener("submit", function(ev){
+      ev.preventDefault(); if(!db || !canWrite() || !procurementJobs.loaded || procurementJobs.error || procurementJobs.busy) return;
+      var data = {name:$("pj-name").value.trim(),clientName:$("pj-client").value.trim(),status:$("pj-state").value};
+      if(!data.name){ $("pj-error").textContent = "Enter a procurement job name."; return; }
+      var editing = !!procurementJobs.editing, id = procurementJobs.editing || procurementJobs.requestId || (procurementJobs.requestId = "pj-" + crypto.randomUUID()), ref = db.collection("procurementJobs").doc(id);
+      function run(){
+        procurementJobs.busy = true; $("pj-error").textContent = ""; renderProcurementJobs();
+        return track(function(){ return editing ? ref.update(data) : ref.set(data); }, "Procurement job", run, "procurement-job:" + id).then(function(){
+          resetProcurementJob(); if(!editing) openProject(id);
+        }).catch(function(err){ $("pj-error").textContent = err.message || saveErrorText(err); }).finally(function(){ procurementJobs.busy = false; renderProcurementJobs(); });
+      }
+      run();
+    });
   }
 
   // ---------- company-wide fuel ledger ----------
@@ -3601,7 +3672,10 @@
   function currentHashProjectId(){
     if(PORTAL === "fuel") return null;
     var m = /^#p=(.+)$/.exec(location.hash);
-    return m ? decodeURIComponent(m[1]) : null;
+    var id = m ? decodeURIComponent(m[1]) : null;
+    if(PORTAL === "procurement" && id && !/^pj-/.test(id)) return null;
+    if(PORTAL === "projects" && id && /^pj-/.test(id)) return null;
+    return id;
   }
 
   function showDashboardEl(){ if(window.ProcurementTracker) window.ProcurementTracker.close(); $("dashboardScreen").hidden = false; $("projectScreen").hidden = true; }
@@ -3663,7 +3737,7 @@
   }
 
   function syncProjectStats(){
-    if(!isPersisted() || !canWrite()) return;
+    if(PORTAL === "procurement" || /^pj-/.test(state.currentProjectId || "") || !isPersisted() || !canWrite()) return;
     var stats = expenseStats(state.expenses);
     var cached = state.projects.find(function(p){ return p.id === state.currentProjectId; });
     if(cached && Object.keys(stats).every(function(k){ return cached[k] === stats[k]; })) return;
@@ -3676,6 +3750,7 @@
     state.currentProjectId = id;
     resetProjectUiState();
     showProjectEl();
+    if(PORTAL === "procurement") window.scrollTo({top:0,behavior:"auto"});
 
     if(id === "sample"){
       applyProjectData(SAMPLE_PROJECT);
@@ -3696,6 +3771,7 @@
         renderProjectScreen();
       }, onReadError);
 
+      if(PORTAL === "procurement"){ currentUnsubs = [u1]; return; }
       var u2 = pRef.collection("expenses").orderBy("date", "desc").limit(500).onSnapshot(function(snap){
         state.expenses = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
         syncProjectStats();
@@ -3741,6 +3817,7 @@
     if(!db) return;
     if(PORTAL === "all" || PORTAL === "fuel") subscribeCompanyFuel();
     if(PORTAL === "fuel") return;
+    if(PORTAL === "procurement"){ subscribeProcurementJobs(); return; }
     db.collection("projects").orderBy("updatedAt", "desc").limit(200).onSnapshot(function(snap){
       state.projects = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
       onReadOk();
@@ -4600,7 +4677,7 @@
         var go = leavePrompt && leavePrompt.proceed;
         leavePrompt = null;
         if(state.currentProjectId) resetProjectUiState();
-        if(!$("dashboardScreen").hidden){ $("newProjectForm").reset(); state.showNewProjectForm = false; }
+        if(!$("dashboardScreen").hidden){ $("newProjectForm").reset(); state.showNewProjectForm = false; if(PORTAL === "procurement") resetProcurementJob(); }
         renderSaveStatus();
         if(go) go();
       }
@@ -4664,7 +4741,7 @@
 
   function makeSheetBackend(endpoint, onKeyRejected){
     var subs = [];         // {kind: "list"|"project"|"expenses", key, pid, cb, err}
-    var cache = {list: null, fuel: null, vehicles: null, projects: {}};
+    var cache = {list: null, jobs: null, fuel: null, vehicles: null, projects: {}};
     var lastSig = {};      // key -> last delivered result, so an unchanged poll doesn't re-render
     var failed = {};       // key -> the last read failed (deliver the next success even if unchanged)
     var inflight = {};
@@ -4695,6 +4772,7 @@
       if(s.kind === "list"){ if(cache.list) s.cb({docs: cache.list.map(snapDoc)}); return; }
       if(s.kind === "fuel"){ if(cache.fuel) s.cb({docs: cache.fuel.map(snapDoc)}); return; }
       if(s.kind === "vehicles"){ if(cache.vehicles) s.cb({docs: cache.vehicles.map(snapDoc)}); return; }
+      if(s.kind === "jobs"){ if(cache.jobs) s.cb({docs: cache.jobs.map(snapDoc)}); return; }
       var entry = cache.projects[s.pid];
       if(!entry) return;
       if(s.kind === "project") s.cb({exists: !!entry.project, id: s.pid, data: function(){ return entry.project ? clone(entry.project) : undefined; }});
@@ -4703,10 +4781,10 @@
 
     function refresh(key, pid){
       if(inflight[key]) return inflight[key];
-      var p = (key === "vehicles" ? call("listVehicles") : key === "fuel" ? call("listFuel") : key === "list" ? call("listProjects") : call("getProject", {id: pid})).then(function(res){
+      var p = (key === "jobs" ? call("listProcurementJobs") : key === "vehicles" ? call("listVehicles") : key === "fuel" ? call("listFuel") : key === "list" ? call("listProjects") : call(/^pj-/.test(pid || "") ? "getProcurementJob" : "getProject", {id: pid})).then(function(res){
         inflight[key] = null;
-        var sig = JSON.stringify(key === "vehicles" ? res.vehicles : key === "fuel" ? res.entries : key === "list" ? res.projects : [res.project, res.expenses]);
-        if(key === "vehicles") cache.vehicles = res.vehicles; else if(key === "fuel") cache.fuel = res.entries; else if(key === "list") cache.list = res.projects; else cache.projects[pid] = {project: res.project, expenses: res.expenses};
+        var sig = JSON.stringify(key === "jobs" ? res.jobs : key === "vehicles" ? res.vehicles : key === "fuel" ? res.entries : key === "list" ? res.projects : [res.project, res.expenses]);
+        if(key === "jobs") cache.jobs = res.jobs; else if(key === "vehicles") cache.vehicles = res.vehicles; else if(key === "fuel") cache.fuel = res.entries; else if(key === "list") cache.list = res.projects; else cache.projects[pid] = {project: res.project, expenses: res.expenses};
         if(sig === lastSig[key] && !failed[key]) return;
         lastSig[key] = sig;
         failed[key] = false;
@@ -4721,7 +4799,7 @@
     }
 
     function subscribe(kind, pid, cb, err){
-      var key = kind === "vehicles" ? "vehicles" : kind === "fuel" ? "fuel" : kind === "list" ? "list" : "p:" + pid;
+      var key = kind === "jobs" ? "jobs" : kind === "vehicles" ? "vehicles" : kind === "fuel" ? "fuel" : kind === "list" ? "list" : "p:" + pid;
       var s = {kind: kind, key: key, pid: pid, cb: cb, err: err};
       subs.push(s);
       setTimeout(function(){ if(subs.indexOf(s) >= 0) deliverTo(s); }, 0);   // cached copy first, if any
@@ -4796,6 +4874,14 @@
       }; }
     };
 
+    var procurementJobsCol = {
+      onSnapshot: function(cb, err){ return subscribe("jobs", null, cb, err); },
+      doc: function(id){ return {
+        set: function(data){ return call("saveProcurementJob", {id:id,data:data,create:true}).then(function(){ refresh("jobs"); }); },
+        update: function(data){ return call("saveProcurementJob", {id:id,data:data,create:false}).then(function(){ refresh("jobs"); refresh("p:" + id, id); }); }
+      }; }
+    };
+
     function awake(){ return document.visibilityState === "visible" && !document.body.classList.contains("gated"); }
     setInterval(function(){ if(awake()) refreshNow(); }, 30000);
     document.addEventListener("visibilitychange", function(){ if(awake()) refreshNow(); });
@@ -4811,7 +4897,7 @@
 
     return {
       db: {
-        collection: function(name){ return name === "companyVehicles" ? vehiclesCol : name === "companyFuel" ? fuelCol : projectsCol; },
+        collection: function(name){ return name === "procurementJobs" ? procurementJobsCol : name === "companyVehicles" ? vehiclesCol : name === "companyFuel" ? fuelCol : projectsCol; },
         deleteProjectCascade: function(id){ return projectDoc(id).delete(); },
         refreshNow: refreshNow,
         ping: function(){ return call("ping"); },
@@ -5026,6 +5112,7 @@
   wireEvents();
   wireCompanyFuel();
   wireCompanyVehicles();
+  wireProcurementJobs();
   route();
   window.addEventListener("hashchange", route);
 
@@ -5070,6 +5157,6 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-10-12.3"></script>
+<script src="ui.js?v=2026-10-12.4"></script>
 </body>
 </html>

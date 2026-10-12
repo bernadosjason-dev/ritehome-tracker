@@ -71,7 +71,9 @@
   function dirty(){return !!model.editingBom||!!model.editingPO||!!$('pr-bom-name').value.trim()||!!$('pr-po-ref').value.trim()||!!$('pr-paste').value.trim()||!!$('pr-bom-items').children.length||!!$('pr-po-items').children.length;}
   function render(){
     $('pr-fields-bom').disabled=!model.ready||model.busy||!model.api||!model.api.canWrite();$('pr-fields-po').disabled=$('pr-fields-bom').disabled;
-    $('pr-status').textContent=model.error||(model.ready?'Procurement synced.':'Open a saved project and connect to load procurement.');$('pr-status').className='rc-status'+(model.error?' err':'');
+    $('pr-status').textContent=model.error||(model.ready?'Procurement synced.':'Open a procurement job to load its BOMs and purchase orders.');$('pr-status').className='rc-status'+(model.error?' err':'');
+    var firstBom=model.data.boms.length===0,firstPO=!firstBom&&model.data.orders.length===0;
+    $('pr-next-step').innerHTML='<div><strong>'+(firstBom?'Step 2 · Add your first BOM':firstPO?'Step 3 · Create the first supplier PO':'Review what still needs to be procured')+'</strong><p>'+(firstBom?'Enter the draftsman’s material list and required quantities.':firstPO?'Select BOM materials and allocate only what each supplier can provide.':'Confirm supplier orders, record deliveries and check remaining quantities below.')+'</p></div><button type="button" class="btn small" data-pr-start="'+(firstBom?'bom':firstPO?'po':'summary')+'" '+(!model.ready||model.busy||!model.api.canWrite()?'disabled':'')+'>'+(firstBom?'Add first BOM':firstPO?'Create supplier PO':'View remaining materials')+'</button>';
     $('pr-export').disabled=!model.ready;$('pr-backup').disabled=!model.ready;var selected=$('pr-filter').value;
     $('pr-filter').innerHTML='<option value="">All BOMs</option>'+model.data.boms.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>';}).join('');$('pr-filter').value=selected;
     var rows=summary(model.data,$('pr-filter').value);if($('pr-group').checked)rows=consolidate(rows);var pending=rows.filter(function(r){return r.remaining>0;}).length;
@@ -121,7 +123,7 @@
   function printPO(id){
     var o=model.data.orders.find(function(o){return o.id===id;}),rows=summary(model.data);if(!o)return;
     var win=window.open('','_blank');if(!win){model.error='Allow pop-ups to print this PO.';render();return;}
-    var title='PO '+o.reference,html='<!doctype html><html><head><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}</style></head><body><h1>'+esc(title)+'</h1><p>Project: '+esc(model.api.projectName())+'<br>Supplier: '+esc(o.supplier)+'<br>Date: '+esc(o.date)+'<br>Status: '+esc(o.status)+'</p><table><tr><th>BOM</th><th>Material / specification</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr>';
+    var title='PO '+o.reference,html='<!doctype html><html><head><title>'+esc(title)+'</title><style>body{font:14px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:8px;text-align:left}</style></head><body><h1>'+esc(title)+'</h1><p>'+(/^pj-/.test(model.projectId)?'Procurement job':'Project')+': '+esc(model.api.projectName())+'<br>Supplier: '+esc(o.supplier)+'<br>Date: '+esc(o.date)+'<br>Status: '+esc(o.status)+'</p><table><tr><th>BOM</th><th>Material / specification</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr>';
     o.lines.forEach(function(l){var r=rows.find(function(r){return r.id===l.itemId;});html+='<tr><td>'+esc(r.bom)+'</td><td>'+esc(r.material+' '+r.spec)+'</td><td>'+qty(l.quantity)+' '+esc(r.unit)+'</td><td>'+peso(l.unitPrice)+'</td><td>'+peso(l.quantity*l.unitPrice)+'</td></tr>';});html+='</table><p>Total: '+peso(o.lines.reduce(function(s,l){return s+l.quantity*l.unitPrice;},0))+'</p><p>'+esc(o.notes)+'</p></body></html>';win.document.write(html);win.document.close();win.focus();win.print();
   }
   function init(){
@@ -129,6 +131,11 @@
     $('pr-refresh').addEventListener('click',refresh);$('pr-filter').addEventListener('change',render);$('pr-group').addEventListener('change',render);
     $('pr-bom-add-row').addEventListener('click',function(){bomRow();});$('pr-po-add-row').addEventListener('click',function(){poRow();});
     card.addEventListener('click',function(e){
+      var start=e.target.closest('[data-pr-start]');if(start){
+        if(!model.ready||model.busy)return;var type=start.dataset.prStart;
+        if(type==='summary'){$('pr-summary').scrollIntoView({behavior:'smooth',block:'center'});return;}
+        if(!model.api.canWrite())return;$('pr-'+type+'-details').open=true;$(type==='bom'?'pr-bom-name':'pr-po-ref').focus();return;
+      }
       var remove=e.target.closest('[data-pr-remove]');if(remove){remove.closest('tr').remove();return;}
       var b=e.target.closest('[data-pr-bom]'),o=e.target.closest('[data-pr-po]'),print=e.target.closest('[data-pr-print]');if(print){printPO(print.dataset.prPrint);return;}
       if((b||o)&&model.ready&&!model.busy&&model.api.canWrite()){

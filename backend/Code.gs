@@ -38,9 +38,9 @@ function doPost(e) {
   var denied = checkKey_(req.key);
   if (denied) return respond_(denied);
 
-  var reads = { getProcurement: getProcurement_, listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
+  var reads = { listProcurementJobs:listProcurementJobs_, getProcurementJob:getProcurementJob_, getProcurement: getProcurement_, listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { saveProcurement: saveProcurement_, checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { saveProcurementJob:saveProcurementJob_, saveProcurement: saveProcurement_, checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -663,7 +663,8 @@ return {normalize:normalize,summary:summary,consolidate:consolidate};
 
 var PROCUREMENT_HEADERS = ["Project ID", "Revision", "Last mutation", "Updated", "Data 1", "Data 2", "Data 3", "Data 4"];
 function procurementRecord_(projectId) {
-  if (!findRow_(projectsSheet_(), PROJECT_HEADERS, projectId)) throw codeError_("not_found", "That project no longer exists.");
+  if (/^pj-/.test(projectId)) { if (!findRow_(procurementJobsSheet_(), PROCUREMENT_JOB_HEADERS, projectId)) throw codeError_("not_found", "That procurement job no longer exists."); }
+  else if (!findRow_(projectsSheet_(), PROJECT_HEADERS, projectId)) throw codeError_("not_found", "That project no longer exists.");
   var sh = sheet_("Procurement", PROCUREMENT_HEADERS), last = sh.getLastRow();
   if (last > 1) {
     var values = sh.getRange(2, 1, last - 1, PROCUREMENT_HEADERS.length).getValues();
@@ -709,4 +710,36 @@ function saveProcurement_(req) {
   for(var i=0;i<4;i++)row.push("json:"+serialized.slice(i*45000,(i+1)*45000));
   record.sh.getRange(record.row || record.sh.getLastRow()+1,1,1,row.length).setValues([row]);
   return {ok:true,revision:revision,data:data};
+}
+
+// Independent procurement jobs deliberately use a different tab from general Projects.
+var PROCUREMENT_JOB_HEADERS = ["ID", "Job name", "Client / site", "Status", "Created", "Updated", "Data"];
+function procurementJobsSheet_() { return sheet_("Procurement Jobs", PROCUREMENT_JOB_HEADERS); }
+function listProcurementJobs_() {
+  var jobs=readRows_(procurementJobsSheet_(), PROCUREMENT_JOB_HEADERS).map(function(r){return withId_(r.id,r.data);});
+  jobs.sort(function(a,b){return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));});
+  return {ok:true,jobs:jobs};
+}
+function getProcurementJob_(req) {
+  var id=String(req.id || "");
+  if (!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "Choose an independent procurement job.");
+  var found=findRow_(procurementJobsSheet_(), PROCUREMENT_JOB_HEADERS, id);
+  return {ok:true,project:found ? withId_(id,found.data) : null,expenses:[]};
+}
+function saveProcurementJob_(req) {
+  var id=String(req.id || "");
+  if (!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "A valid procurement job ID is required.");
+  var sh=procurementJobsSheet_(),existing=findRow_(sh,PROCUREMENT_JOB_HEADERS,id);
+  var input=Object.assign({},existing ? existing.data : {},objectOrThrow_(req.data));
+  var name=String(input.name || "").trim(),client=String(input.clientName || "").trim(),status=input.status || "active";
+  if (!name || name.length>100 || client.length>150 || ["active","completed"].indexOf(status)<0) throw codeError_("invalid_argument", "Enter a job name, valid client/site and Open or Closed status.");
+  if (req.create===true && existing) {
+    if (existing.data.name!==name || existing.data.clientName!==client || existing.data.status!==status) throw codeError_("already_exists", "This job was already created. Open it from the job list to edit its details.");
+    return {ok:true,id:id};
+  }
+  if (req.create!==true && !existing) throw codeError_("not_found", "That procurement job no longer exists.");
+  var data={name:name,clientName:client,status:status,createdAt:existing ? existing.data.createdAt : new Date().toISOString(),updatedAt:new Date().toISOString()};
+  var row=[id,text_(name),text_(client),text_(status),data.createdAt,data.updatedAt,JSON.stringify(data)];
+  if (existing) writeRow_(sh,existing.row,row); else appendRows_(sh,[row]);
+  return {ok:true,id:id};
 }

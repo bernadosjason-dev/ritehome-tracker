@@ -24,3 +24,8 @@ Keep portal URLs and version reloads compatible with the shared access key.
 Fuel/project/procurement views share tracker.html; do not duplicate business logic
 per portal. Preserve root #key share links through landing.js and test the
 three portals with tests/portals.browser.cjs after navigation changes.
+
+Procurement uses independently created jobs in the Procurement Jobs tab; never
+automatically list or clone general Projects in that portal. Preserve legacy
+project-linked BOM/PO records. Test separation plus Start procurement → first BOM
+→ supplier PO using tests/procurement-jobs.browser.cjs after changes.

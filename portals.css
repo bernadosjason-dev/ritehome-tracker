@@ -21,3 +21,5 @@
 :root[data-portal="procurement"] #dataStatus{display:none!important}
 .portal-directory{margin-left:auto}
 @media(max-width:640px){:root[data-portal="fuel"] .workspace-actions,:root[data-portal="procurement"] .workspace-actions{display:flex;flex-wrap:wrap;width:auto}.portal-directory{margin-left:0}}
+
+#procurementJobsSection{display:none}:root[data-portal="procurement"] #procurementJobsSection{display:block}:root[data-portal="procurement"] #dashboardScreen>:not(.hero):not(#procurementJobsSection):not(#dataFoot){display:none!important}

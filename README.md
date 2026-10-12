@@ -113,8 +113,10 @@ that a particular live deployment is reachable or authorized.
 
 ## Procurement officer workflow
 
-Open a saved client project and use **Procurement · BOMs & purchase orders**.
-The same project can have several distinct BOM references, such as BOM 01 through
+Open the **Procurement portal** and press **Start procurement** to create an
+independent procurement job. Name the client, site or requirement; it is not
+a general project and has no billing/profit card. Then open **Procurement · BOMs
+& purchase orders**. The same job can have several distinct BOM references, such as BOM 01 through
 BOM 05. Enter the draftsman's name, BOM date and material rows: material, exact
 specification/size, unit and required quantity. Type rows or paste four columns
 from Excel in that order, without a header. No spreadsheet/PDF file is uploaded.
@@ -182,7 +184,7 @@ The site home page now lists three focused portals: **Fuel**, **Projects** and
 **Procurement**. They share the existing Google backend and stored access key.
 The fuel portal opens directly to vehicles, purchase records and receipt photos.
 Projects contains client jobs, schedules, billing, labor and expenses. Procurement
-starts with the client-project list and opens each project's BOM/PO workspace.
+has its own independently created jobs and opens each job's BOM/PO workspace.
 Use **All portals** in the header to return to the directory. The separate views
 do not add new user roles or change the shared-key permissions.
 
@@ -202,3 +204,28 @@ Run the local server from this repository. The root URL serves the directory;
 `/tracker.html` serves the compatibility workspace used by the existing browser
 suites. `node tests/portals.browser.cjs` verifies the directory, focused views,
 shared key, legacy links and portal-preserving version reload.
+
+### Starting independent procurement
+
+General projects and their budget, profit, billing and completed-project cards
+do not appear in Procurement. Its job metadata lives in a separate **Procurement
+Jobs** Sheet tab. Creating, editing or closing a procurement job does not create
+or update a general project. Each job keeps its own BOM/PO snapshot in the existing
+Procurement tab, under an independent `pj-...` ID.
+
+To begin: **Start procurement → name the job/client/site → Create job & add BOM**.
+Inside the job, **Add first BOM** opens the BOM form. After saving it, **Create
+supplier PO** opens the next step. Then use the remaining-material summary and
+record confirmations/deliveries. First-time guidance collapses once jobs exist so
+the job list stays easy to reach. **Edit job** changes its name/client or Open/Closed
+status; the job list contains procurement details rather than project finances.
+
+This change requires publishing a new version of the latest backend/Code.gs in the
+existing Apps Script deployment. Existing general projects and legacy project-linked
+BOM/PO data are preserved; they are not automatically imported into independent
+jobs. The compatibility workspace at `tracker.html#p=...` can still open legacy
+project-linked procurement data when needed.
+
+`node tests/procurement-jobs.browser.cjs` checks independent job creation, no general
+project reads/cards, the first BOM/PO steps, retries, remaining quantities, closing
+and reload persistence.

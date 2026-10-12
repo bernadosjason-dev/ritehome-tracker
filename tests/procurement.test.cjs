@@ -73,3 +73,29 @@ test('large multi-BOM records round-trip through safe Sheet chunks without trunc
  assert.equal(b.request(req).ok,true);const record=b.sheets.get('Procurement').rows[1];assert(record[5].length>5,'second JSON chunk used');record.slice(4).forEach(chunk=>assert(chunk.length<=45005));
  assert.equal(JSON.stringify(b.request({action:'getProcurement',projectId:project}).data),JSON.stringify(data));
 });
+
+test('independent procurement jobs stay out of general projects and preserve legacy procurement',()=>{
+ const b=createBackend(),general=b.request({action:'addProject',data:{name:'Banisilan general project',price:100000,status:'completed'}}).id;
+ const id='pj-00000000-0000-4000-8000-000000000001';const data={name:'Kitchen material purchasing',clientName:'Client A',status:'active'};
+ assert.equal(b.request({action:'saveProcurementJob',id,data,create:true,key:'wrong'}).code,'bad_key');
+ assert.equal(b.request({action:'saveProcurementJob',id,data,create:true}).ok,true);
+ assert.equal(b.request({action:'saveProcurementJob',id,data,create:true}).ok,true);
+ assert.equal(b.request({action:'listProcurementJobs'}).jobs.length,1);
+ assert.equal(b.request({action:'listProjects'}).projects.length,1);assert.equal(b.request({action:'listProjects'}).projects[0].id,general);
+ assert.equal(b.request({action:'getProcurementJob',id:general}).code,'invalid_argument');
+ assert.equal(b.request({action:'getProject',id}).project,null);
+ const saved=b.request({action:'saveProcurement',projectId:id,revision:0,mutationId:'pr-00000000-0000-4000-8000-000000000009',data:state([order('a','A',16)])});assert.equal(saved.ok,true);
+ assert.equal(summary(b.request({action:'getProcurement',projectId:id}).data)[0].remaining,8);
+ assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,status:'completed'},create:false}).ok,true);
+ assert.equal(b.request({action:'getProcurementJob',id}).project.status,'completed');
+ assert.equal(b.request({action:'getProject',id:general}).project.price,100000);
+ assert.equal(b.request({action:'saveProcurement',projectId:general,revision:0,mutationId:'pr-00000000-0000-4000-8000-000000000008',data:state([])}).ok,true,'legacy records remain supported without appearing in independent job list');
+ assert.equal(b.request({action:'listProcurementJobs'}).jobs.length,1);
+});
+test('independent job metadata validation and changed create retries protect saved records',()=>{
+ const b=createBackend(),id='pj-00000000-0000-4000-8000-000000000001',data={name:'New job',clientName:'',status:'active'};
+ for(const patch of [{name:' '},{name:'a'.repeat(101)},{clientName:'a'.repeat(151)},{status:'invalid'}])assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,...patch},create:true}).code,'invalid_argument');
+ assert.equal(b.request({action:'saveProcurementJob',id,data,create:true}).ok,true);
+ assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,name:'Edited after lost response'},create:true}).code,'already_exists');
+ assert.equal(b.request({action:'saveProcurementJob',id:'pj-00000000-0000-4000-8000-000000000002',data,create:false}).code,'not_found');
+});

@@ -1,0 +1,23 @@
+/* Portals share the same application and backend, with distinct workspaces. */
+:root[data-portal="fuel"] #dashboardScreen>:not(.hero):not(#companyFuelCard):not(#dataFoot),
+:root[data-portal="fuel"] #projectScreen,
+:root[data-portal="fuel"] #exportBtn,
+:root[data-portal="fuel"] #dataFoot .file-btn,
+:root[data-portal="fuel"] #dataStatus{display:none!important}
+:root[data-portal="projects"] #companyFuelCard,
+:root[data-portal="projects"] #procurementCard{display:none!important}
+:root[data-portal="procurement"] #dashboardScreen>.kpis,
+:root[data-portal="procurement"] #arSection,
+:root[data-portal="procurement"] #companyFuelCard,
+:root[data-portal="procurement"] #dashSampleBanner,
+:root[data-portal="procurement"] #projectScreen>:not(.hero):not(#procurementCard):not(:first-child),
+:root[data-portal="procurement"] #projectScreen .hero-inner>:not(.hero-top),
+:root[data-portal="procurement"] #nameEditBtn,
+:root[data-portal="procurement"] #completeBtn,
+:root[data-portal="procurement"] #printBtn,
+:root[data-portal="procurement"] #printStatus,
+:root[data-portal="procurement"] #exportBtn,
+:root[data-portal="procurement"] #dataFoot .file-btn,
+:root[data-portal="procurement"] #dataStatus{display:none!important}
+.portal-directory{margin-left:auto}
+@media(max-width:640px){:root[data-portal="fuel"] .workspace-actions,:root[data-portal="procurement"] .workspace-actions{display:flex;flex-wrap:wrap;width:auto}.portal-directory{margin-left:0}}

@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever index.html changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. index.html is the portal directory; keep versioned asset URLs current for UI and directory changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -19,3 +19,8 @@ supplier quantities, five BOMs, over-allocation, deliveries, cancellation, revis
 conflicts and replayed writes when changing procurement. Procurement uses Google
 Sheets, with no raw BOM document storage; do not describe pasted Excel values as
 file uploads or a document-scanning capability.
+
+Keep portal URLs and version reloads compatible with the shared access key.
+Fuel/project/procurement views share tracker.html; do not duplicate business logic
+per portal. Preserve root #key share links through landing.js and test the
+three portals with tests/portals.browser.cjs after navigation changes.

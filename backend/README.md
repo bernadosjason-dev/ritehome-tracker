@@ -1,6 +1,6 @@
 # Ritehome Project Tracker — backend setup
 
-The tracker page lives at `https://bernadosjason-dev.github.io/ritehome-tracker/` (`index.html`).
+The tracker page lives at `https://bernadosjason-dev.github.io/ritehome-tracker/` (`tracker.html`).
 GitHub Pages can only serve files, so the data lives in a **Google Sheet you own**,
 reached through a Google Apps Script web app (`Code.gs` in this folder). Receipt
 photos go into a Drive folder the script creates.
@@ -28,7 +28,7 @@ must never be committed here.
    - Who has access: **Anyone**
 
    Press **Deploy** and copy the **Web app URL** (ends in `/exec`).
-5. **Put the URL in the page.** In `index.html`, set
+5. **Put the URL in the page.** In `tracker.html`, set
    `var TRACKER_ENDPOINT = "…/exec";` near the top of the `<script>`, then commit
    to `main`. GitHub Pages publishes it within a minute or two.
 6. **Open the share link** on your phone. You should land on the dashboard with a
@@ -107,7 +107,7 @@ a backup `.json` file. Importing the same project twice is skipped, not duplicat
 For an existing tracker, paste the updated `Code.gs` into its existing Apps Script
 project, save, then **Deploy → Manage deployments → pencil → Version: New version
 → Deploy**. Keep the existing `/exec` URL and Script Properties. Deploy this backend
-update before publishing the new `index.html` to GitHub Pages. No key rotation or
+update before publishing the new `tracker.html` to GitHub Pages. No key rotation or
 new Google Sheet is required.
 
 The first authenticated fuel-ledger request creates a **Company Fuel** tab in the
@@ -187,3 +187,11 @@ existing projects backup does not contain this separate tab.
 
 Live Google deployment and authentication must be checked from your browser.
 Local tests emulate the backend; they do not prove the deployed script is updated.
+
+## Frontend portal paths
+
+`index.html` is the directory. Set `TRACKER_ENDPOINT` in **tracker.html** if the
+Google web app deployment URL changes. Keep the Apps Script `SHARE_URL` at the site
+root: old private share links are redirected into the project portal and retain
+their key. The directory and separate portal views use the existing API, so this
+frontend-only update does not require another backend deployment.

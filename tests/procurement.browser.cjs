@@ -8,7 +8,7 @@ const {createBackend}=require('./fuel.test.cjs');
   const page=await browser.newPage();const errors=[];let loseSave=false;let loseSaveCount=0;page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());
   await page.route('https://script.google.com/**',async r=>{const req=r.request().postDataJSON();const result=b.request(req);if(req.action==='saveProcurement'&&loseSaveCount>0){loseSaveCount--;return r.abort();}if(req.action==='saveProcurement'&&loseSave){loseSave=false;return r.abort();}await r.fulfill({json:result});});
-  await page.goto('http://127.0.0.1:8000/#p='+project,{waitUntil:'domcontentloaded'});
+  await page.goto('http://127.0.0.1:8000/tracker.html#p='+project,{waitUntil:'domcontentloaded'});
   await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());
   await page.waitForFunction(()=>!document.getElementById('pr-fields-bom').disabled);
   async function addBom(name,text){await page.locator('#pr-bom-details').evaluate(e=>e.open=true);await page.locator('#pr-bom-name').fill(name);await page.locator('#pr-bom-draftsman').fill('Draftsman');await page.locator('#pr-paste').fill(text);await page.locator('#pr-paste-add').click();await page.locator('#pr-bom-form').evaluate(f=>f.requestSubmit());await page.waitForFunction(name=>document.getElementById('pr-boms').textContent.includes(name)&&!document.getElementById('pr-fields-bom').disabled,name);}

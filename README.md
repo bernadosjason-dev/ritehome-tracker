@@ -2,7 +2,7 @@
 
 An internal tool for running Ritehome Modular Systems jobs. It covers projects and clients, 50/40/10 progress billing, pakyawan and daily-rate labor, who owes us (with reminder messages), and receipt photos with a "confirmed by head" flag for expenses that have no receipt. **Scan receipt** reads a receipt photo with Gemini and fills in the expense form.
 
-- **Page:** `index.html`, served by GitHub Pages at `https://bernadosjason-dev.github.io/ritehome-tracker/`
+- **Directory:** `index.html`; tracker workspaces use `tracker.html?portal=fuel`, `tracker.html?portal=projects` and `tracker.html?portal=procurement`, served by GitHub Pages at `https://bernadosjason-dev.github.io/ritehome-tracker/`
 - **Data:** a Google Sheet you own, reached through the Apps Script web app in `backend/Code.gs`. Receipt photos live in a Drive folder that script creates. Setup and day-to-day operations are in [`backend/README.md`](backend/README.md).
 
 ## Access
@@ -14,7 +14,7 @@ The key lives in the Apps Script's Script Properties. It is never stored in this
 ## Rules for changing the page
 
 - Every save goes through `track()`. A failed save shows a red "not saved" bar with **Save again**, and edits that haven't been submitted warn before you leave the page. Don't add a write path that bypasses `track()`, and never bring back a silent local fallback: a real project was lost that way.
-- The same `index.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them.
+- The same `tracker.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them.
 - The page is `noindex`. Keep the link private.
 - **Bump `PAGE_VERSION`** near the top of the script on every change. Open tabs compare it with the published page and show a "newer version — Reload now" bar. Without the bump, phones can keep running the old page for days.
 
@@ -175,3 +175,30 @@ available to check contextual shortcuts, access-gate behavior, static/dynamic
 icons, fuel saving, phone overflow/touch sizes and dark mode. Receipt/Drive failure
 handling is also exercised by tests/fuel.browser.cjs; those local simulations do
 not prove live storage readiness.
+
+## Portal directory
+
+The site home page now lists three focused portals: **Fuel**, **Projects** and
+**Procurement**. They share the existing Google backend and stored access key.
+The fuel portal opens directly to vehicles, purchase records and receipt photos.
+Projects contains client jobs, schedules, billing, labor and expenses. Procurement
+starts with the client-project list and opens each project's BOM/PO workspace.
+Use **All portals** in the header to return to the directory. The separate views
+do not add new user roles or change the shared-key permissions.
+
+Existing `#key=...` share links and `#p=...` project bookmarks at the site root
+redirect to the project portal. The tracker removes keys from the address bar as
+before. Key storage remains on the same origin, so signed-in devices need no new
+key. Version reloads preserve the selected portal. Direct `tracker.html` access
+without a portal parameter retains the combined workspace for compatibility.
+
+The fuel receipt chooser now has a styled photo card, a keyboard-accessible
+**Choose receipt photo** button, selected filename and a **Change photo** action.
+It uses the existing Drive upload, photo validation, save/retry and admin-confirmation
+logic. Local failure-path tests pass; live Drive readiness must still be checked
+using **Check receipt uploads** in the fuel portal.
+
+Run the local server from this repository. The root URL serves the directory;
+`/tracker.html` serves the compatibility workspace used by the existing browser
+suites. `node tests/portals.browser.cjs` verifies the directory, focused views,
+shared key, legacy links and portal-preserving version reload.

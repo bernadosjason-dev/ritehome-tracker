@@ -17,7 +17,7 @@ const {createBackend}=require('./fuel.test.cjs');
   if(req.action==='saveFuel' && loseResponse){loseResponse=false;return r.abort();}
   await r.fulfill({json:result});
  });
- await page.goto('http://127.0.0.1:8000/',{waitUntil:'domcontentloaded'});
+ await page.goto('http://127.0.0.1:8000/tracker.html',{waitUntil:'domcontentloaded'});
  assert(await page.locator('#gateKey').isVisible());
  await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());
  await page.locator('#cf-fields').waitFor();
@@ -68,7 +68,7 @@ const {createBackend}=require('./fuel.test.cjs');
  await page.locator('[data-fuel-edit="'+receiptEntry.id+'"]').click();assert.equal(await page.locator('#cf-admin-name').inputValue(),'Jason');await page.locator('#cf-admin-confirmed').uncheck();await page.locator('#cf-submit').click();await page.waitForFunction(()=>document.getElementById('cf-rows').textContent.includes('Awaiting admin confirmation'));
  await page.locator('#cf-date').fill('2026-10-06');await page.locator('#cf-vehicle').fill('Van receipt');await page.locator('#cf-liters').fill('10');await page.locator('#cf-amount').fill('650');
  const photo={name:'receipt.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWOQAAAAASUVORK5CYII=','base64')};
- await page.locator('#cf-photo').setInputFiles(photo);assert(await page.locator('#cf-photo-preview').isVisible());assert(await page.locator('#cf-no-receipt').isDisabled());
+ const fuelChooserPromise=page.waitForEvent('filechooser');await page.locator('#cf-photo-choose').click();await (await fuelChooserPromise).setFiles(photo);assert.equal(await page.locator('#cf-photo-name').innerText(),'receipt.png');assert(await page.locator('#cf-photo-preview').isVisible());assert(await page.locator('#cf-no-receipt').isDisabled());
  b.storage.failure='write';await page.locator('#cf-submit').click();await page.waitForFunction(()=>document.getElementById('cf-error').textContent.includes('Google Drive'));
  assert.equal(await page.locator('#cf-vehicle').inputValue(),'Van receipt');assert(await page.locator('#cf-photo-preview').isVisible());
  assert(!b.request({action:'listFuel'}).entries.some(e=>e.vehicle==='Van receipt'),'failed upload must not save purchase');
@@ -107,7 +107,7 @@ const {createBackend}=require('./fuel.test.cjs');
    }
    return r.fulfill({json:req.action==='listProjects'?{ok:true,projects:[]}:b.request(req)});
   });
-  await failedPage.goto('http://127.0.0.1:8000/',{waitUntil:'domcontentloaded'});
+  await failedPage.goto('http://127.0.0.1:8000/tracker.html',{waitUntil:'domcontentloaded'});
   await failedPage.locator('#gateKey').fill('test-only-key');await failedPage.locator('#gateForm').evaluate(f=>f.requestSubmit());
   await failedPage.locator('[data-sb="connect"]').waitFor();
   assert(await failedPage.locator('#cf-vehicle').isDisabled());assert(await failedPage.locator('#cv-name').isDisabled());

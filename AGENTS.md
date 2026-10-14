@@ -17,8 +17,10 @@ so the complete Apps Script remains deployable by copying one file. Keep the cor
 validation functions identical; the procurement tests detect drift. Test split
 supplier quantities, five BOMs, over-allocation, deliveries, cancellation, revision
 conflicts and replayed writes when changing procurement. Procurement uses Google
-Sheets, with no raw BOM document storage; do not describe pasted Excel values as
-file uploads or a document-scanning capability.
+Sheets. XLSX selection/drop is decoded locally by bom-import.js with vendored
+fflate; only reviewed material rows are saved. There is no raw BOM document
+storage or PDF/image OCR. Preserve this distinction and test workbook import with
+tests/bom-import.browser.cjs. Never commit customer workbooks as public fixtures.
 
 Keep portal URLs and version reloads compatible with the shared access key.
 Fuel/project/procurement views share tracker.html; do not duplicate business logic

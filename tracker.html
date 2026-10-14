@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-10-12.4"></script>
+<script src="portal.js?v=2026-10-14.1"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -480,8 +480,8 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-10-12.4">
-<link rel="stylesheet" href="portals.css?v=2026-10-12.4">
+<link rel="stylesheet" href="ui.css?v=2026-10-14.1">
+<link rel="stylesheet" href="portals.css?v=2026-10-14.1">
 </head>
 <body>
 
@@ -822,7 +822,17 @@
       <details id="pr-bom-details" class="no-print"><summary class="btn ghost" id="pr-bom-title">Add BOM</summary>
         <form id="pr-bom-form"><fieldset id="pr-fields-bom" style="border:0;padding:0;min-width:0;" disabled>
           <div class="field-row cols-3"><div class="field"><label for="pr-bom-name">BOM name / reference</label><input id="pr-bom-name" required maxlength="100" placeholder="e.g. BOM 01 — Kitchen cabinets"></div><div class="field"><label for="pr-bom-draftsman">Technical draftsman</label><input id="pr-bom-draftsman" maxlength="100"></div><div class="field"><label for="pr-bom-date">BOM date</label><input id="pr-bom-date" required type="date"></div></div>
-          <div class="field"><label for="pr-paste">Paste material rows from Excel (optional)</label><textarea id="pr-paste" rows="3" placeholder="Four columns, no header: Material [tab] Specification [tab] Unit [tab] Quantity"></textarea><span class="muted">Paste cell values directly. No document is uploaded or stored.</span></div><button class="btn ghost" type="button" id="pr-paste-add">Add pasted rows</button>
+          <section class="bom-import" aria-labelledby="pr-import-heading">
+            <div class="bom-import-zone" id="pr-import-zone">
+              <span class="receipt-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-7m-3 3 3-3 3 3"/></svg></span>
+              <div class="receipt-picker-copy"><strong id="pr-import-heading">Upload a BOM from Excel</strong><p>Drop your workbook here or choose a file. Materials appear in the editable table below.</p><span class="receipt-picker-format">.xlsx · Up to 5 MB · One worksheet per BOM</span></div>
+              <button class="btn" id="pr-import-choose" type="button">Choose Excel file</button>
+              <input id="pr-import-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden aria-label="Choose Excel BOM">
+            </div>
+            <div id="pr-import-selection" class="field" hidden><label for="pr-import-sheet">Worksheet to import</label><select id="pr-import-sheet"></select></div>
+            <p id="pr-import-status" class="rc-status" role="status" aria-live="polite">The file is read on this device. Review the rows, then Save BOM to store them in the tracker. The original file is not stored.</p>
+          </section>
+          <div class="field"><label for="pr-paste">Paste material rows from Excel (optional)</label><textarea id="pr-paste" rows="3" placeholder="Four columns, no header: Material [tab] Specification [tab] Unit [tab] Quantity"></textarea><span class="muted">Or paste four columns instead of choosing a file.</span></div><button class="btn ghost" type="button" id="pr-paste-add">Add pasted rows</button>
           <div class="table-wrap"><table><thead><tr><th>Material</th><th>Specification / size</th><th>Unit</th><th>Required quantity</th><th></th></tr></thead><tbody id="pr-bom-items"></tbody></table></div>
           <div class="form-actions"><button class="btn ghost" type="button" id="pr-bom-add-row">+ Material row</button><button class="btn" type="submit">Save BOM</button><button class="btn ghost" type="button" id="pr-bom-clear">Cancel / clear</button></div>
         </fieldset></form>
@@ -1308,7 +1318,9 @@
   <div id="remindDialog" class="modal-backdrop no-print" hidden></div>
 </div>
 
-<script src="procurement.js?v=2026-10-08.1"></script>
+<script src="vendor/fflate-0.8.2.js"></script>
+<script src="bom-import.js?v=2026-10-14.1"></script>
+<script src="procurement.js?v=2026-10-14.1"></script>
 <script>
 (function(){
   "use strict";
@@ -1320,7 +1332,7 @@
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-12.4";
+  var PAGE_VERSION = "2026-10-14.1";
 
   // ---------- reference data ----------
 
@@ -5157,6 +5169,6 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-10-12.4"></script>
+<script src="ui.js?v=2026-10-14.1"></script>
 </body>
 </html>

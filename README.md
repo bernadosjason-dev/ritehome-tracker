@@ -118,8 +118,41 @@ independent procurement job. Name the client, site or requirement; it is not
 a general project and has no billing/profit card. Then open **Procurement · BOMs
 & purchase orders**. The same job can have several distinct BOM references, such as BOM 01 through
 BOM 05. Enter the draftsman's name, BOM date and material rows: material, exact
-specification/size, unit and required quantity. Type rows or paste four columns
-from Excel in that order, without a header. No spreadsheet/PDF file is uploaded.
+specification/size, unit and required quantity. Choose **Upload a BOM from Excel**
+to select or drop an `.xlsx` workbook (up to 5 MB). The selected worksheet's
+positive-quantity materials fill the editable table immediately. Review the rows
+and click **Save BOM** to persist them; choosing a file alone does not save.
+Alternatively, type rows or paste four columns from Excel in that order, without
+a header.
+
+The reader handles Ritehome's sectioned BOM layout and simple tables with
+Material, Specification, Quantity and Unit headers. Thickness, item codes, brand,
+dimensions and category are preserved in the specification. Zero/empty quantities,
+subtotals, prices and totals do not become purchase quantities. Hidden sheets are
+excluded; visible worksheets stay separate so unrelated clients' materials do not
+mix. Switching worksheets replaces only the current imported rows, retaining
+manual rows and asking before replacing edited imported rows. Name each saved
+BOM distinctly. The workbook filename suggests the BOM reference; an explicit
+MM/DD/YYYY date near the sheet heading fills the date field when it is still at
+its default. Review both before saving.
+
+Files are decoded locally with the vendored ZIP reader in `vendor/`. No original
+workbook is sent to Google Drive or committed to GitHub, and no new upload bucket
+or sharing permission is required. Only the reviewed material rows and BOM fields
+go through the existing authenticated, revision-checked Google Sheet save. The
+importer adds no backend actions or deployment requirement beyond the existing
+independent-procurement backend. It supports `.xlsx`, not PDF/image OCR or legacy
+`.xls`; save those as `.xlsx` first. It reads saved formula results without
+executing formulas; missing/error results require recalculation in Excel. Invalid
+or oversized files keep the existing form intact (300 materials/BOM, 10,000
+worksheet rows, 100 columns and 20 MB expanded XML limits).
+
+Run `node tests/bom-import.browser.cjs` for Excel decoding, worksheet separation,
+import/replacement protection, drag/drop and simulated Google Sheets permission/
+capacity failures and recovery. These local checks do not prove production Google
+Sheet permissions. On the live portal, open a job, import a workbook and select
+**Save BOM**, then refresh to verify the saved materials. Failed saves retain the
+rows for retry.
 
 Create one PO per supplier, with its own PO reference, date and status. Each PO
 line selects the exact BOM material and the quantity that supplier can provide.

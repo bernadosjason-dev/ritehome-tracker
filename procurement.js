@@ -63,14 +63,60 @@
   var uid=function(){return 'pr-'+crypto.randomUUID();};
   var qty=function(n){return Number(n).toLocaleString('en-PH',{maximumFractionDigits:6});};
   var peso=function(n){return Number(n).toLocaleString('en-PH',{style:'currency',currency:'PHP'});};
+  var importState={sequence:0,loading:false,book:null,name:'',ids:[],signature:'',autoName:'',autoDate:'',sheet:''};
+  function importMessage(message,error){$('pr-import-status').textContent=message;$('pr-import-status').className='rc-status'+(error?' err':'');}
+  function resetImport(){
+    importState.sequence++;importState.loading=false;importState.book=null;importState.ids=[];importState.signature='';importState.autoName='';importState.autoDate='';importState.sheet='';importState.name='';
+    $('pr-import-file').value='';$('pr-import-sheet').innerHTML='';$('pr-import-selection').hidden=true;
+    importMessage('The file is read on this device. Review the rows, then Save BOM to store them in the tracker. The original file is not stored.',false);
+  }
+  function importedRows(){return Array.from($('pr-bom-items').children).filter(function(tr){return importState.ids.indexOf(tr.dataset.id)>=0;});}
+  function importedSignature(){return JSON.stringify(importedRows().map(function(tr){return Array.from(tr.querySelectorAll('input')).map(function(input){return input.value;});}));}
+  function importOptions(book,selected){
+    $('pr-import-sheet').innerHTML='<option value="" disabled>Choose a worksheet</option>'+book.sheets.map(function(sheet,i){return '<option value="'+i+'">'+esc(sheet.name)+'</option>';}).join('');
+    $('pr-import-sheet').value=selected;$('pr-import-selection').hidden=book.sheets.length<2;
+  }
+  function applySheet(book,index,name){
+    var result=book.parse(index);if(result.issues.length)throw Error(result.issues.join(' '));
+    var old=importedRows(),otherCount=$('pr-bom-items').children.length-old.length;
+    if(otherCount+result.items.length>300)throw Error('These materials plus your existing rows exceed the 300-row BOM limit. Start a separate BOM.');
+    if(old.length&&importedSignature()!==importState.signature&&!confirm('Replace the imported rows you edited with this worksheet? Other material rows will be kept.'))return false;
+    old.forEach(function(tr){tr.remove();});importState.ids=[];
+    result.items.forEach(function(item){item.id=uid();bomRow(item);importState.ids.push(item.id);});
+    importState.signature=importedSignature();importState.book=book;importState.name=name;importState.sheet=String(index);
+    var autoName=name.replace(/\.xlsx$/i,'').replace(/^BOM[_\s-]*/i,'').trim();if(index>0)autoName+=' — '+book.sheets[index].name.trim();
+    if(!$('pr-bom-name').value.trim()||$('pr-bom-name').value===importState.autoName){$('pr-bom-name').value=autoName.slice(0,100);importState.autoName=$('pr-bom-name').value;}
+    if(result.date&&($('pr-bom-date').value===today()||$('pr-bom-date').value===importState.autoDate)){$('pr-bom-date').value=result.date;importState.autoDate=result.date;}
+    importOptions(book,String(index));
+    importMessage(name+' · '+book.sheets[index].name+' · '+result.items.length+' materials added below. '+result.skipped+' empty/zero-quantity rows skipped. '+(book.sheets.length>1?'Other worksheets are kept separate. Changing the worksheet replaces these imported rows. ':'')+'Review and Save BOM to finish.',false);
+    return true;
+  }
+  async function importFile(file){
+    if(!file||!model.ready||model.busy||importState.loading||!model.api.canWrite())return;
+    if(!/\.xlsx$/i.test(file.name)){importMessage('Choose an .xlsx workbook. For .xls, PDF or photos, save an Excel .xlsx copy first. Existing rows are kept.',true);return;}
+    if(!root.BomImport){importMessage('The Excel reader could not load. Reload the page and try again. Existing rows are kept.',true);return;}
+    if(file.size>root.BomImport.maxFileSize){importMessage('Choose an Excel file of 5 MB or less. Existing rows are kept.',true);return;}
+    var priorMessage=$('pr-import-status').textContent,priorError=$('pr-import-status').classList.contains('err');
+    var sequence=++importState.sequence;importState.loading=true;render();importMessage('Reading '+file.name+'…',false);
+    try{
+      var buffer=await file.arrayBuffer();if(sequence!==importState.sequence)return;
+      var book=root.BomImport.read(buffer);
+      try{if(!applySheet(book,0,file.name))importMessage(priorMessage,priorError);}catch(e){
+        // Keep other visible sheets available even when the first is empty or unsupported.
+        importState.book=book;importState.name=file.name;importState.sheet='';importOptions(book,'');throw e;
+      }
+    }catch(e){if(sequence===importState.sequence)importMessage((e.message||'This workbook could not be read.')+' Existing rows are kept.',true);}
+    finally{if(sequence===importState.sequence){importState.loading=false;$('pr-import-file').value='';render();}}
+  }
   function blankForms(){
-    $('pr-bom-form').reset();$('pr-po-form').reset();$('pr-bom-date').value=today();$('pr-po-date').value=today();
+    resetImport();$('pr-bom-form').reset();$('pr-po-form').reset();$('pr-bom-date').value=today();$('pr-po-date').value=today();
     $('pr-bom-items').innerHTML='';$('pr-po-items').innerHTML='';$('pr-paste').value='';model.editingBom=null;model.editingPO=null;model.bomRequestId=null;model.poRequestId=null;model.pending=null;model.error='';
     $('pr-bom-title').textContent='Add BOM';$('pr-po-title').textContent='Create PO request';$('pr-bom-details').open=false;$('pr-po-details').open=false;
   }
-  function dirty(){return !!model.editingBom||!!model.editingPO||!!$('pr-bom-name').value.trim()||!!$('pr-po-ref').value.trim()||!!$('pr-paste').value.trim()||!!$('pr-bom-items').children.length||!!$('pr-po-items').children.length;}
+  function dirty(){return importState.loading||!!model.editingBom||!!model.editingPO||!!$('pr-bom-name').value.trim()||!!$('pr-po-ref').value.trim()||!!$('pr-paste').value.trim()||!!$('pr-bom-items').children.length||!!$('pr-po-items').children.length;}
   function render(){
-    $('pr-fields-bom').disabled=!model.ready||model.busy||!model.api||!model.api.canWrite();$('pr-fields-po').disabled=$('pr-fields-bom').disabled;
+    $('pr-import-zone').setAttribute('aria-busy',String(importState.loading));
+    $('pr-fields-bom').disabled=!model.ready||model.busy||importState.loading||!model.api||!model.api.canWrite();$('pr-fields-po').disabled=$('pr-fields-bom').disabled;
     $('pr-status').textContent=model.error||(model.ready?'Procurement synced.':'Open a procurement job to load its BOMs and purchase orders.');$('pr-status').className='rc-status'+(model.error?' err':'');
     var firstBom=model.data.boms.length===0,firstPO=!firstBom&&model.data.orders.length===0;
     $('pr-next-step').innerHTML='<div><strong>'+(firstBom?'Step 2 · Add your first BOM':firstPO?'Step 3 · Create the first supplier PO':'Review what still needs to be procured')+'</strong><p>'+(firstBom?'Enter the draftsman’s material list and required quantities.':firstPO?'Select BOM materials and allocate only what each supplier can provide.':'Confirm supplier orders, record deliveries and check remaining quantities below.')+'</p></div><button type="button" class="btn small" data-pr-start="'+(firstBom?'bom':firstPO?'po':'summary')+'" '+(!model.ready||model.busy||!model.api.canWrite()?'disabled':'')+'>'+(firstBom?'Add first BOM':firstPO?'Create supplier PO':'View remaining materials')+'</button>';
@@ -99,7 +145,7 @@
     catch(e){if(pid!==model.projectId)return;model.ready=false;model.error=e.code==='invalid_argument'?'Update the Apps Script deployment to enable procurement tracking.':e.message||'Procurement could not load.';render();}
   }
   async function save(next,done){
-    if(model.busy||!model.ready||!model.api.canWrite())return;
+    if(model.busy||importState.loading||!model.ready||!model.api.canWrite())return;
     try{next=normalize(next);}catch(e){model.error=e.message;render();return;}
     model.busy=true;model.error='';render();var pid=model.projectId,revision=model.revision,signature=JSON.stringify(next);
     var mutationId=model.pending&&model.pending.pid===pid&&model.pending.revision===revision&&model.pending.signature===signature?model.pending.id:uid();
@@ -128,6 +174,13 @@
   }
   function init(){
     var card=$('procurementCard');if(!card)return;
+    $('pr-import-choose').addEventListener('click',function(){$('pr-import-file').click();});
+    $('pr-import-file').addEventListener('change',function(){importFile(this.files[0]);});
+    $('pr-import-sheet').addEventListener('change',function(){try{if(!applySheet(importState.book,Number(this.value),importState.name))this.value=importState.sheet;}catch(e){this.value=importState.sheet;importMessage(e.message+' Existing rows are kept.',true);}});
+    var zone=$('pr-import-zone');
+    ['dragenter','dragover'].forEach(function(event){zone.addEventListener(event,function(e){e.preventDefault();if(!$('pr-fields-bom').disabled)zone.classList.add('is-dragging');});});
+    zone.addEventListener('dragleave',function(e){if(!zone.contains(e.relatedTarget))zone.classList.remove('is-dragging');});
+    zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('is-dragging');if($('pr-fields-bom').disabled)return;if(e.dataTransfer.files.length!==1){importMessage('Drop one Excel workbook at a time. Existing rows are kept.',true);return;}importFile(e.dataTransfer.files[0]);});
     $('pr-refresh').addEventListener('click',refresh);$('pr-filter').addEventListener('change',render);$('pr-group').addEventListener('change',render);
     $('pr-bom-add-row').addEventListener('click',function(){bomRow();});$('pr-po-add-row').addEventListener('click',function(){poRow();});
     card.addEventListener('click',function(e){

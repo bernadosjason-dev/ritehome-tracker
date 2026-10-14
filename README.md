@@ -158,7 +158,9 @@ Create one PO per supplier, with its own PO reference, date and status. Each PO
 line selects the exact BOM material and the quantity that supplier can provide.
 A PO can cover lines from several BOMs. Start with **PO requested**, then change
 to **Supplier confirmed** once the supplier accepts it. Unit prices are optional
-(default zero). Print the PO from its card when needed. This does not implement
+(default zero). Use **Print PO** on its saved card or **Print saved PO** in the editor. Save
+changes first; printing uses the saved details. The preview also provides
+**Print / Save as PDF** through the browser printer options. This does not implement
 a separate approval/signature process or automatically add expenses.
 
 For a 24-sheet BOM, a confirmed 16-sheet PO to Supplier A leaves **8 sheets still

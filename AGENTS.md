@@ -31,3 +31,9 @@ Procurement uses independently created jobs in the Procurement Jobs tab; never
 automatically list or clone general Projects in that portal. Preserve legacy
 project-linked BOM/PO records. Test separation plus Start procurement → first BOM
 → supplier PO using tests/procurement-jobs.browser.cjs after changes.
+
+Receipt scanning (Scan receipt in the project expense form) saves the photo through
+`uploadReceipt_` and reads it with Gemini via `scanReceipt_`; the GEMINI_API_KEY stays in
+Script Properties and goes to Google in a header, never to the page. After changing the
+expense form, receipt uploads or the scan backend, run `node --test tests/receipt-scan.test.cjs`
+and `node tests/receipt-scan.browser.cjs`. Scanning must never save an expense by itself.

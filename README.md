@@ -18,6 +18,17 @@ The key lives in the Apps Script's Script Properties. It is never stored in this
 - The page is `noindex`. Keep the link private.
 - **Bump `PAGE_VERSION`** near the top of the script on every change. Open tabs compare it with the published page and show a "newer version — Reload now" bar. Without the bump, phones can keep running the old page for days.
 
+## Receipt scanning checks
+
+**Scan receipt** in a project's expense form uploads the photo, asks Gemini to read it and
+fills the form for review. Setup is in backend/README.md. Run
+`node --test tests/receipt-scan.test.cjs` for the backend (key handling, model fallback,
+quota/outage codes, output checks, refused requests) and `node tests/receipt-scan.browser.cjs`
+with the local HTTP server for the page (filled and highlighted fields, save only on
+**Add to ledger**, failure messages, phone layout). Both use a fake Gemini and the local
+Apps Script emulator. They do not prove a live key works: run `testReceiptAi()` in the
+Apps Script editor for that.
+
 ## Company fuel tracker
 
 The dashboard has a separate company-wide gasoline/diesel ledger for vehicles and

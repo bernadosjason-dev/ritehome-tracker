@@ -33,6 +33,18 @@ similarity score. This flags likely mismatches. It is not tamper-proof: someone
 holding up a photo can fool it. That's why every punch keeps its selfie for the
 admin to check.
 
+## Live project
+
+- Project: **Ritehome** (`laxavfldivkhufeubgmb`), region Southeast Asia (Singapore),
+  free plan, in the `bernadoscecel-design` organization.
+- Migrations applied: `portal_core`, `portal_storage`, `portal_harden`
+  (2026-11-05). Verified live: row-level security on every table, signed-out
+  visitors get nothing, both buckets private, and a rolled-back probe account
+  came up inactive and saw only its own profile.
+- Supabase's security advisor still lists eight signed-in-callable SECURITY
+  DEFINER functions. That's intended: see the comment at the top of
+  `20261105000003_portal_harden.sql`.
+
 ## One-time setup
 
 1. **Create the account.** Sign up at [supabase.com](https://supabase.com) with

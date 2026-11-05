@@ -269,6 +269,16 @@ test("selfie storage: write once into your own folder, admin reads all", () => {
   assert.equal(must("designer", "update storage.objects set name = 'x' where bucket_id = 'attendance-selfies' returning name"), "", "staff can't overwrite selfies");
 });
 
+test("internal trigger functions can't be called through the API, yet still fire", () => {
+  for (const fn of ["handle_new_user", "guard_stage_update", "seed_project_stages", "prepare_punch", "guard_punch_update", "touch_tracker_doc"]) {
+    assert.equal(must("super", `select has_function_privilege('authenticated', 'public.${fn}()', 'execute')`), "f", fn);
+  }
+  // Triggers fired above as signed-in users (stage seeding, punch preparation, the
+  // stage guard) after the revoke; check the definer helpers are pinned too.
+  assert.equal(must("super", `select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proconfig is null and p.prokind = 'f'`), "0", "every public function pins search_path");
+});
+
 test("deleting a project removes its pipeline, files rows, events and assignments", () => {
   must("admin", "delete from public.tracker_docs where collection = 'projects' and id = 'P1'");
   for (const t of ["project_stages", "project_files", "project_events", "project_assignments"]) {

@@ -37,3 +37,11 @@ Receipt scanning (Scan receipt in the project expense form) saves the photo thro
 Script Properties and goes to Google in a header, never to the page. After changing the
 expense form, receipt uploads or the scan backend, run `node --test tests/receipt-scan.test.cjs`
 and `node tests/receipt-scan.browser.cjs`. Scanning must never save an expense by itself.
+
+Supabase portal (in progress): the move off Apps Script lives in `supabase/`. Roles
+and visibility are enforced only by row-level security in `supabase/migrations/`;
+never rely on the page to hide money or other people's data. After changing any
+migration, run `node --test tests/supabase-rls.test.cjs` (throwaway local
+PostgreSQL, Supabase auth/storage stubbed by `tests/fixtures/supabase-stub.sql`),
+and add a refused-side test for every new rule. Never edit a migration that has
+been applied to the live project: add a new, later-numbered one.

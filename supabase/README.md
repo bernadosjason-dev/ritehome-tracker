@@ -1,0 +1,81 @@
+# Ritehome portal — Supabase backend
+
+The tracker is moving off Google Apps Script onto Supabase: real per-person
+logins, roles enforced by the database, and private file storage. This folder
+holds the database schema; the page changes land next.
+
+## Who can see what
+
+| Role | Sees | Can change |
+|---|---|---|
+| **admin** | Everything: every project's money (budget, price, billing, expenses, labor), fuel, procurement, all files, everyone's attendance | Everything; plans stage dates and assigns people |
+| **designer** | Assigned projects only: name, system, client name and phone, address, status, target date | Design, cutlist and BOM stages; uploads into those stages |
+| **fabrication** | Same as designer | The fabrication stage |
+| **installer** | Same as designer | The installation and handover stages |
+
+Nobody but an admin ever sees budget, price, billing, expenses or a client's
+email. A new account sees nothing until an admin activates it and sets its role.
+Staff can update a stage's status, actual dates and notes; only an admin can
+change planned dates or who a stage is assigned to.
+
+**Attendance** is four punches a day: 8:00 in, 12:00 out, 1:00 in, 5:00 out
+(Manila time). Each punch saves a selfie and the phone's location *at that
+moment*. Nothing is tracked between punches. The punch time comes from the
+server clock, so a phone can't backdate it. Punches are flagged automatically
+(`late`, `early_out`, `face_mismatch`, `no_face_check`, `low_gps_accuracy`) for
+the admin to review. A punch can't be edited afterwards, by anyone; the admin
+adds a review note instead. Each person must accept the attendance notice
+before their first punch.
+
+Face data: each person's face is enrolled once, in the admin's presence, as a
+128-number descriptor. The phone compares each selfie against it and records a
+similarity score. This flags likely mismatches. It is not tamper-proof: someone
+holding up a photo can fool it. That's why every punch keeps its selfie for the
+admin to check.
+
+## One-time setup
+
+1. **Create the account.** Sign up at [supabase.com](https://supabase.com) with
+   the business Google account (not the one that holds the Athlos projects:
+   its free plan is full).
+2. **Create the project.** Name: `Ritehome`. Region: **Southeast Asia
+   (Singapore)**. Save the database password in a password manager; you won't
+   need to type it anywhere for this setup.
+3. **Turn off public sign-ups.** Authentication → Sign In / Providers → **Allow
+   new users to sign up: off**. Staff accounts are created by invitation only
+   (Authentication → Users → **Invite user**).
+4. **Load the schema.** Either:
+   - **Let Claude do it:** in claude.ai, Settings → Connectors → Supabase,
+     reconnect it signed in to the *new* account. Claude then applies the
+     migrations directly; or
+   - **Do it by hand:** SQL Editor → paste and run
+     `migrations/20261105000001_portal_core.sql`, then
+     `migrations/20261105000002_portal_storage.sql`, in that order.
+5. **Make yourself admin.** Invite yourself (step 3), accept the email, then in
+   the SQL Editor run, with your own email:
+
+   ```sql
+   update public.profiles set role = 'admin', active = true, full_name = 'Jason Bernados'
+   where id = (select id from auth.users where email = 'you@example.com');
+   ```
+
+   This is the only time SQL is needed: every later account is activated from
+   the portal by an admin.
+
+## Testing the rules
+
+```
+node --test tests/supabase-rls.test.cjs
+```
+
+Starts a throwaway local PostgreSQL (needs the server binaries: `initdb`,
+`pg_ctl`), loads `tests/fixtures/supabase-stub.sql` in place of Supabase's auth
+and storage schemas, applies every migration, then tries each rule from the
+side that should be refused: signed-out visitors, inactive accounts, each staff
+role reaching for money, other roles' stages, unassigned projects, other
+people's selfies, backdated or edited punches. This proves the SQL; it does
+not prove the live project's settings (sign-ups off, buckets created). Check
+those in the dashboard after step 4.
+
+Never change a migration that has been applied to the live project. Add a new,
+later-numbered file instead.

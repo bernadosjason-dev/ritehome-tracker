@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-10-14.2"></script>
+<script src="portal.js?v=2026-11-08.1"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -286,6 +286,7 @@
   .gate-card{max-width:460px;width:100%;display:flex;flex-direction:column;gap:12px;padding:26px 24px;}
   .gate-card p{margin:0;color:var(--ink-muted);font-size:14px;line-height:1.55;}
   .gate-card form{display:flex;flex-direction:column;gap:10px;}
+  .gate-account{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink-muted);}
   body.gated #dashboardScreen, body.gated #projectScreen, body.gated #saveBar{display:none !important;}
   .data-foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:16px;margin-top:8px;}
   .data-foot .rc-status{flex-basis:100%;}
@@ -480,8 +481,8 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-10-14.2">
-<link rel="stylesheet" href="portals.css?v=2026-10-14.2">
+<link rel="stylesheet" href="ui.css?v=2026-11-08.1">
+<link rel="stylesheet" href="portals.css?v=2026-11-08.1">
 </head>
 <body>
 
@@ -521,6 +522,18 @@
         </div>
         <button class="btn" type="submit">Open tracker</button>
       </form>
+      <form id="gateLogin" hidden>
+        <div class="field" style="margin:0;">
+          <label for="gateEmail">Email</label>
+          <input id="gateEmail" type="email" autocomplete="username" spellcheck="false" required>
+        </div>
+        <div class="field" style="margin:0;">
+          <label for="gatePassword">Password</label>
+          <input id="gatePassword" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn" type="submit" id="gateLoginBtn">Sign in</button>
+      </form>
+      <div id="gateAccount" class="gate-account" hidden><span id="gateWho"></span><button class="btn ghost small" id="gateSignOut" type="button">Sign out</button></div>
       <div class="form-error" id="gateError" role="alert"></div>
     </div>
   </div>
@@ -1319,8 +1332,10 @@
 </div>
 
 <script src="vendor/fflate-0.8.2.js"></script>
-<script src="bom-import.js?v=2026-10-14.2"></script>
-<script src="procurement.js?v=2026-10-14.2"></script>
+<script src="bom-import.js?v=2026-11-08.1"></script>
+<script src="procurement.js?v=2026-11-08.1"></script>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="supabase-backend.js?v=2026-11-08.1"></script>
 <script>
 (function(){
   "use strict";
@@ -1331,8 +1346,17 @@
   // Inside claude.ai the page uses the artifact's own database instead and ignores this.
   var TRACKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbzevMtyjIIJUvfQMeHPE0lTvAZLGY_UmvMuk6FpAm9wfSe4jGiYZSddBb0b_wjzeGsvUg/exec";
   var HOSTED = !(window.claude && typeof window.claude.use === "function");
+  // Where the hosted copy keeps its data. "supabase": per-person email/password logins, admin-only data,
+  // receipts in the Supabase "receipts" bucket (supabase-backend.js, supabase/README.md). "sheet": the
+  // Apps Script + Google Sheet backend above, with the shared access key. Changing this line switches back.
+  var BACKEND = "supabase";
+  var SUPABASE_URL = "https://laxavfldivkhufeubgmb.supabase.co";
+  // The publishable key is meant to be public: it only identifies the project. What a signed-in person can
+  // read or change is decided by the database's row-level security, not by this key.
+  var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
+  var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-10-14.2";
+  var PAGE_VERSION = "2026-11-08.1";
 
   // ---------- reference data ----------
 
@@ -1892,8 +1916,8 @@
       actions += '<button class="btn ghost" data-sb="discard" type="button">' + (access === "write" ? "Undo unsaved changes" : "Dismiss") + '</button>';
     } else if(access === "none" && HOSTED){
       title = "Can’t reach the tracker right now";
-      text = (hostedConnectionError || "The Google backend connection is unavailable. Check the deployment URL, web app permissions and your network.") + " Editing is disabled until the connection succeeds.";
-      actions = '<button class="btn small" data-sb="connect" type="button">Retry connection</button>' + '<a class="btn ghost" href="' + esc(TRACKER_ENDPOINT) + '" target="_blank" rel="noopener">Check backend link</a>';
+      text = (hostedConnectionError || "The tracker’s database can’t be reached. Check your internet connection.") + " Editing is disabled until the connection succeeds.";
+      actions = '<button class="btn small" data-sb="connect" type="button">Retry connection</button>' + (USE_SUPABASE ? "" : '<a class="btn ghost" href="' + esc(TRACKER_ENDPOINT) + '" target="_blank" rel="noopener">Check backend link</a>');
     } else if(access === "none"){
       title = "Nothing you do here is saved";
       text = "This view isn’t connected to the tracker’s database, so new projects and expenses disappear when you refresh. " +
@@ -1913,13 +1937,16 @@
 
   var blobUrls = {};   // asset id -> url returned by upload (this view only)
 
+  // Receipts saved through Supabase have ids starting "sb_"; older ones are Google Drive file ids and keep
+  // loading from Drive, whichever backend is active.
+  function supabaseReceipt(id){ return /^sb_/.test(String(id || "")) ? SUPABASE_URL + "/storage/v1/object/public/receipts/" + encodeURIComponent(id) : ""; }
   function receiptSrc(id){
     if(id === "sample") return SAMPLE_RECEIPT_SRC;
-    return blobUrls[id] || (HOSTED ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(id) + "&sz=w1600" : "/_blob/" + id);
+    return blobUrls[id] || supabaseReceipt(id) || (HOSTED ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(id) + "&sz=w1600" : "/_blob/" + id);
   }
   // second address tried when the first fails (a Drive thumbnail can lag a few seconds behind an upload)
-  function receiptAlt(id){ return HOSTED && id && id !== "sample" ? "https://lh3.googleusercontent.com/d/" + encodeURIComponent(id) + "=w1600" : ""; }
-  function receiptFull(id){ return HOSTED && id && id !== "sample" ? "https://drive.google.com/file/d/" + encodeURIComponent(id) + "/view" : ""; }
+  function receiptAlt(id){ return HOSTED && id && id !== "sample" && !supabaseReceipt(id) ? "https://lh3.googleusercontent.com/d/" + encodeURIComponent(id) + "=w1600" : ""; }
+  function receiptFull(id){ return HOSTED && id && id !== "sample" ? supabaseReceipt(id) || "https://drive.google.com/file/d/" + encodeURIComponent(id) + "/view" : ""; }
 
   function canUploadReceipts(){ return canWrite() && isPersisted() && !!assetsApi && assetsWrite !== false; }
 
@@ -2073,7 +2100,7 @@
 
   function aiErrorText(code){
     return code === "ai_not_configured"
-      ? "Photo attached. Receipt reading isn't switched on yet (it needs a Google AI key in the tracker's Apps Script) — fill in the details yourself."
+      ? "Photo attached. Receipt reading isn't switched on yet — fill in the details yourself."
       : code === "ai_busy" || code === "ai_unavailable"
       ? "Photo attached. The AI is busy right now — fill in the details, or scan again in a minute."
       : "Photo attached, but the AI couldn't read it — fill in the details yourself.";
@@ -3389,7 +3416,7 @@
   function renderCompanyVehicles(){
     $("cv-fields").disabled = !canWrite() || !companyVehicles.loaded || !!companyVehicles.error || companyVehicles.busy;
     $("cv-status").className = "rc-status" + (companyVehicles.error ? " err" : "");
-    $("cv-status").textContent = HOSTED && access === "none" ? "Vehicle editing is disabled until the tracker reconnects to Google." : companyVehicles.error ? "Vehicles could not load. Update the Apps Script deployment if vehicle management is not enabled, then refresh the fuel ledger." : companyVehicles.loaded ? "Vehicle list synced." : "Loading vehicles…";
+    $("cv-status").textContent = HOSTED && access === "none" ? "Vehicle editing is disabled until the tracker reconnects." : companyVehicles.error ? "Vehicles could not load. Update the Apps Script deployment if vehicle management is not enabled, then refresh the fuel ledger." : companyVehicles.loaded ? "Vehicle list synced." : "Loading vehicles…";
     $("cv-rows").innerHTML = companyVehicles.entries.length ? companyVehicles.entries.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(v){
       return '<tr><td>' + esc(v.name) + '</td><td>' + esc(v.plate || "—") + '</td><td>' + (v.fuelType === "diesel" ? "Diesel" : "Gasoline") + '</td><td><button type="button" class="btn ghost small" data-vehicle-edit="' + esc(v.id) + '" ' + (!canWrite() || companyVehicles.busy || companyVehicles.error ? 'disabled' : '') + '>Edit</button></td></tr>';
     }).join("") : '<tr><td colspan="4">' + (companyVehicles.loaded ? 'No saved vehicles yet. Add Wigo with Gasoline, or Van with Diesel, above.' : 'Vehicle records have not loaded yet.') + '</td></tr>';
@@ -3482,7 +3509,7 @@
     $("cf-fields").disabled = !canWrite() || !companyFuel.loaded || !!companyFuel.error || companyFuel.busy;
     $("cf-export").disabled = !companyFuel.loaded || !!companyFuel.error;
     $("cf-status").className = "rc-status" + (companyFuel.error ? " err" : "");
-    $("cf-status").textContent = HOSTED && access === "none" ? "Fuel editing is disabled until the tracker reconnects to Google." : companyFuel.error ? "Fuel ledger could not refresh. Displayed records may be out of date. " + (companyFuel.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable company fuel tracking." : saveErrorText(companyFuel.error)) : companyFuel.loaded ? "Fuel ledger synced." : "Connecting to fuel ledger…";
+    $("cf-status").textContent = HOSTED && access === "none" ? "Fuel editing is disabled until the tracker reconnects." : companyFuel.error ? "Fuel ledger could not refresh. Displayed records may be out of date. " + (companyFuel.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable company fuel tracking." : saveErrorText(companyFuel.error)) : companyFuel.loaded ? "Fuel ledger synced." : "Connecting to fuel ledger…";
     var rows = filteredCompanyFuel();
     $("cf-summary").textContent = companyFuel.loaded ? plural(rows.length, "purchase") + " · Gasoline: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "gasoline"; }), function(e){ return e.liters; })) + " L · Diesel: " + fuelNumber(sum(rows.filter(function(e){ return e.fuelType === "diesel"; }), function(e){ return e.liters; })) + " L · Total cost: " + fuelMoney(sum(rows, function(e){ return e.amount; })) : "Totals available after the ledger loads.";
     $("cf-rows").innerHTML = rows.length ? rows.map(function(e){
@@ -4751,7 +4778,9 @@
     try{ if(k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch(e){}
   }
 
-  function makeSheetBackend(endpoint, onKeyRejected){
+  // `transport`, when given, replaces the HTTP call to Apps Script: a function (action, payload) that resolves
+  // to the same {ok, ...} / {ok:false, code, error} replies (RitehomeSupabaseBackend.makeActions).
+  function makeSheetBackend(endpoint, onKeyRejected, transport){
     var subs = [];         // {kind: "list"|"project"|"expenses", key, pid, cb, err}
     var cache = {list: null, jobs: null, fuel: null, vehicles: null, projects: {}};
     var lastSig = {};      // key -> last delivered result, so an unchanged poll doesn't re-render
@@ -4761,6 +4790,12 @@
     function clone(v){ return JSON.parse(JSON.stringify(v)); }
 
     function call(action, payload){
+      if(transport) return transport(action, clone(payload || {})).then(function(res){
+        if(res && res.ok) return res;
+        var code = (res && res.code) || "unavailable";
+        if(code === "session_expired" || code === "permission_denied") onKeyRejected(code);
+        throw {code: code, message: (res && res.error) || ""};
+      }, function(){ throw {code: "unavailable", message: "The browser cannot reach the tracker database. Check your internet connection."}; });
       var body = JSON.stringify(Object.assign({action: action, key: readKey()}, payload || {}));
       return fetch(endpoint, {method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"}, body: body})
         .then(function(r){
@@ -4948,11 +4983,32 @@
   var listSubscribed = false;
   var keyFromForm = false;   // the key being tried was just typed (vs. remembered or from a link)
 
+  var GATE_SUPABASE = {
+    login: "Sign in with the email and password the admin gave you.",
+    expired: "Your sign-in expired. Sign in again to keep working.",
+    staff: "You’re signed in. Staff screens — your assigned projects, their stages and attendance — aren’t built yet, so for now this tracker opens for the admin only.",
+    inactive: "Your account exists but hasn’t been activated yet. Ask the admin to turn it on and set your role.",
+    denied: "This account isn’t allowed to open the tracker’s records. Ask the admin to check your role.",
+    noclient: "The sign-in component didn’t load. Check your internet connection and reload the page.",
+    connecting: "Connecting to the tracker…"
+  };
+  var signedInEmail = "";
+
   function showGate(mode){
     document.body.classList.add("gated");
     $("gateScreen").hidden = false;
-    $("gateForm").hidden = mode === "setup" || mode === "connecting";
     $("gateError").textContent = "";
+    if(USE_SUPABASE){
+      $("gateForm").hidden = true;
+      $("gateLogin").hidden = mode !== "login" && mode !== "expired";
+      $("gateAccount").hidden = !(mode === "staff" || mode === "inactive" || mode === "denied");
+      $("gateWho").textContent = signedInEmail ? "Signed in as " + signedInEmail : "";
+      $("gateLoginBtn").disabled = false;
+      $("gateMsg").textContent = GATE_SUPABASE[mode] || GATE_SUPABASE.login;
+      if(!$("gateLogin").hidden) ($("gateEmail").value ? $("gatePassword") : $("gateEmail")).focus();
+      return;
+    }
+    $("gateForm").hidden = mode === "setup" || mode === "connecting";
     $("gateMsg").textContent =
       mode === "setup" ? "This tracker isn’t connected to its Google Sheet yet — finish the steps in backend/README.md."
       : mode === "connecting" ? "Connecting to the tracker…"
@@ -4968,14 +5024,52 @@
     $("gateScreen").hidden = true;
   }
 
+  var supabaseClient = null;
+  function supabaseApi(){
+    if(!supabaseClient) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}
+    });
+    return supabaseClient;
+  }
+
+  // Signed in, active and an admin? Otherwise shows the right gate and resolves false.
+  function checkSignIn(){
+    var client = supabaseApi();
+    return client.auth.getSession().then(function(r){
+      var session = r && r.data && r.data.session;
+      if(!session){ showGate("login"); return false; }
+      signedInEmail = session.user && session.user.email || "";
+      return client.rpc("my_role").then(function(r2){
+        if(r2.error) throw {code: "unavailable", message: "Couldn’t check your account (" + (r2.error.message || "network error") + ")."};
+        if(r2.data === "admin") return true;
+        showGate(r2.data ? "staff" : "inactive");
+        return false;
+      });
+    });
+  }
+
+  function makeHostedBackend(){
+    if(!USE_SUPABASE) return makeSheetBackend(TRACKER_ENDPOINT, function(code){
+      showGate(code === "not_configured" ? "setup" : keyFromForm ? "wrong" : "rejected");
+    });
+    var B = window.RitehomeSupabaseBackend;
+    var call = B.makeActions(B.makeSupabaseStore(supabaseApi()), window.ProcurementLogic);
+    return makeSheetBackend(null, function(code){ showGate(code === "session_expired" ? "expired" : "denied"); }, call);
+  }
+
   function connectHosted(){
     if(hostedConnecting) return;
     clearTimeout(hostedRetryTimer);
     hostedConnecting = true;
-    if(!sheetBackend) sheetBackend = makeSheetBackend(TRACKER_ENDPOINT, function(code){
-      showGate(code === "not_configured" ? "setup" : keyFromForm ? "wrong" : "rejected");
-    });
-    sheetBackend.db.ping().then(function(){
+    var ready = USE_SUPABASE ? checkSignIn() : Promise.resolve(true);
+    ready.then(function(ok){
+      if(!ok){ hostedConnecting = false; return; }
+      if(!sheetBackend) sheetBackend = makeHostedBackend();
+      return sheetBackend.db.ping().then(connected, connectFailed);
+    }).catch(connectFailed);
+  }
+
+  function connected(){
       hostedConnecting = false;
       hostedConnectionError = "";
       keyFromForm = false;
@@ -4987,16 +5081,17 @@
       access = "write";
       if(!listSubscribed){ listSubscribed = true; subscribeProjectsList(); }
       route();
-    }, function(err){
+  }
+
+  function connectFailed(err){
       hostedConnecting = false;
-      hostedConnectionError = (err && err.message) || "The Google backend connection failed.";
+      hostedConnectionError = (err && err.message) || "The tracker connection failed.";
       keyFromForm = false;
-      if(err.code === "bad_key" || err.code === "not_configured") return;   // the gate is already showing
+      if(err && /^(bad_key|not_configured|session_expired|permission_denied)$/.test(err.code)) return;   // the gate is already showing
       hideGate();
       access = "none";
       refreshView();
       hostedRetryTimer = setTimeout(connectHosted, 15000);
-    });
   }
 
   // A shared link carries the key as #key=…: keep it on this device, then take it out of the address bar.
@@ -5035,6 +5130,17 @@
 
   function bootHosted(){
     watchForUpdates();
+    if(USE_SUPABASE){
+      if(takeKeyFromLink()) storeKey("");   // an old #key= share link: the key opens nothing now, so drop it from the address bar
+      if(!window.supabase || !window.RitehomeSupabaseBackend){ showGate("noclient"); return; }
+      // Signed out in another tab, or the session couldn't be refreshed: back to the sign-in form.
+      supabaseApi().auth.onAuthStateChange(function(event){
+        if(event === "SIGNED_OUT"){ signedInEmail = ""; db = null; access = "none"; showGate("login"); }
+      });
+      showGate("connecting");
+      connectHosted();
+      return;
+    }
     takeKeyFromLink();
     window.addEventListener("hashchange", function(){
       if(TRACKER_ENDPOINT && takeKeyFromLink()){ showGate("connecting"); connectHosted(); }
@@ -5092,7 +5198,40 @@
     });
   }
 
+  function signOut(){
+    var done = function(){ location.hash = ""; location.reload(); };
+    if(supabaseClient) supabaseClient.auth.signOut().then(done, done); else done();
+  }
+
   function wireHosted(){
+    $("gateLogin").addEventListener("submit", function(e){
+      e.preventDefault();
+      var email = $("gateEmail").value.trim(), password = $("gatePassword").value;
+      if(!email || !password){ $("gateError").textContent = "Enter your email and password."; return; }
+      $("gateLoginBtn").disabled = true;
+      $("gateError").textContent = "";
+      $("gateMsg").textContent = "Signing in…";
+      supabaseApi().auth.signInWithPassword({email: email, password: password}).then(function(r){
+        $("gatePassword").value = "";
+        if(r.error){
+          $("gateLoginBtn").disabled = false;
+          $("gateMsg").textContent = GATE_SUPABASE.login;
+          var status = Number(r.error.status);
+          $("gateError").textContent = status === 400 || r.error.code === "invalid_credentials" ? "Wrong email or password."
+            : status === 429 ? "Too many attempts. Wait a few minutes, then try again."
+            : "Couldn’t reach the sign-in server. Check your internet connection.";
+          return;
+        }
+        showGate("connecting");
+        connectHosted();
+      }, function(){
+        $("gateLoginBtn").disabled = false;
+        $("gateMsg").textContent = GATE_SUPABASE.login;
+        $("gateError").textContent = "Couldn’t reach the sign-in server. Check your internet connection.";
+      });
+    });
+    $("gateSignOut").addEventListener("click", signOut);
+    if(USE_SUPABASE) $("forgetKeyBtn").textContent = "Sign out";
     $("gateForm").addEventListener("submit", function(e){
       e.preventDefault();
       var k = $("gateKey").value.trim();
@@ -5110,6 +5249,7 @@
       if(f) importBackup(f);
     });
     $("forgetKeyBtn").addEventListener("click", function(){
+      if(USE_SUPABASE){ signOut(); return; }
       storeKey("");
       location.hash = "";
       location.reload();
@@ -5169,6 +5309,6 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-10-14.2"></script>
+<script src="ui.js?v=2026-11-08.1"></script>
 </body>
 </html>

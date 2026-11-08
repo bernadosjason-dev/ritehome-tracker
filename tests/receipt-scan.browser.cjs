@@ -12,6 +12,7 @@ const {createScanBackend,geminiReply,PHOTO}=require('./receipt-scan.test.cjs');
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
  try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());
   await page.route('https://drive.google.com/**',async r=>{const id=new URL(r.request().url()).searchParams.get('id');const f=b.fileById(id);await r.fulfill(f?{contentType:f.blob.type,body:Buffer.from(f.blob.bytes)}:{status:404});});
   await page.route('https://script.google.com/**',async r=>{

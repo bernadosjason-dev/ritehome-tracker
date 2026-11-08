@@ -38,6 +38,15 @@ Script Properties and goes to Google in a header, never to the page. After chang
 expense form, receipt uploads or the scan backend, run `node --test tests/receipt-scan.test.cjs`
 and `node tests/receipt-scan.browser.cjs`. Scanning must never save an expense by itself.
 
+Supabase backend: `tracker.html` (BACKEND = "supabase") signs people in with Supabase
+Auth and runs every Code.gs action through `supabase-backend.js`. Keep the two in step:
+`node --test tests/supabase-backend.test.cjs` sends the same requests to Code.gs (emulated)
+and to the port and fails on any difference in the reply; the only deliberate difference is
+documented in that file. `node tests/supabase-login.browser.cjs` covers the sign-in gate,
+role routing and real saves against `tests/fixtures/fake-supabase.cjs`. The other browser
+suites run the page in "sheet" mode (`tests/fixtures/sheet-mode.cjs`). Never commit the
+output of `supabase/import-from-sheet.cjs`: it is business data and this repo is public.
+
 Supabase portal (in progress): the move off Apps Script lives in `supabase/`. Roles
 and visibility are enforced only by row-level security in `supabase/migrations/`;
 never rely on the page to hide money or other people's data. After changing any

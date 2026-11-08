@@ -1,8 +1,8 @@
 # Ritehome portal — Supabase backend
 
-The tracker is moving off Google Apps Script onto Supabase: real per-person
-logins, roles enforced by the database, and private file storage. This folder
-holds the database schema; the page changes land next.
+The tracker runs on Supabase: real per-person logins, roles enforced by the
+database, and private file storage. This folder holds the database schema and
+the Sheet importer; the page talks to it through `../supabase-backend.js`.
 
 ## Who can see what
 
@@ -38,7 +38,13 @@ admin to check.
 - Project: **Ritehome** (`laxavfldivkhufeubgmb`), region Southeast Asia (Singapore),
   free plan, in the `bernadoscecel-design` organization.
 - Migrations applied: `portal_core`, `portal_storage`, `portal_harden`
-  (2026-11-05). Verified live: row-level security on every table, signed-out
+  (2026-11-05), `tracker_backend` (2026-11-08: row order, longer ids, the
+  public-by-unguessable-name `receipts` bucket).
+- Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
+  `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
+  2 procurement jobs, 1 procurement record). Totals checked against the Sheet.
+  **Re-run the import at cutover**: anything entered through the old Apps Script
+  link after 2026-11-08 is only in the Sheet until then. Verified live: row-level security on every table, signed-out
   visitors get nothing, both buckets private, and a rolled-back probe account
   came up inactive and saw only its own profile.
 - Supabase's security advisor still lists eight signed-in-callable SECURITY
@@ -73,6 +79,19 @@ admin to check.
 
    This is the only time SQL is needed: every later account is activated from
    the portal by an admin.
+
+## Moving the data from the Google Sheet
+
+1. Export each tab's values (Sheets API `values.get`, or have Claude read them
+   with the Google Sheets connector) into one JSON file:
+   `{"Projects": [[header...], [row...]], "Expenses": ..., "Company Vehicles": ...,
+   "Company Fuel": ..., "Procurement Jobs": ..., "Procurement": ...}`.
+2. `node supabase/import-from-sheet.cjs sheet-values.json > import.sql`. It
+   prints per-collection counts and any row it had to skip.
+3. Run `import.sql` in the SQL Editor (or through the Supabase connector). It
+   keeps every id and the sheet order, and overwrites records already imported,
+   so it is safe to run again. Delete `import.sql` afterwards: it is business
+   data, and this repository is public.
 
 ## Testing the rules
 

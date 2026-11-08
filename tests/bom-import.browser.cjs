@@ -18,6 +18,7 @@ function workbook(sheets,extra={}){
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
  try{
   const page=await browser.newPage(),errors=[],actions=[];let failure='';page.on('pageerror',e=>errors.push(e.message));
+  await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());
   await page.route('https://script.google.com/**',async r=>{const req=r.request().postDataJSON();actions.push(req);await r.fulfill({json:req.action==='saveProcurement'&&failure?{ok:false,code:'storage_error',error:failure}:b.request(req)});});
   await page.goto('http://127.0.0.1:8000/tracker.html?portal=procurement#p='+job,{waitUntil:'domcontentloaded'});await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());await page.waitForFunction(()=>!document.getElementById('pr-fields-bom').disabled);

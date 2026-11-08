@@ -269,6 +269,26 @@ test("selfie storage: write once into your own folder, admin reads all", () => {
   assert.equal(must("designer", "update storage.objects set name = 'x' where bucket_id = 'attendance-selfies' returning name"), "", "staff can't overwrite selfies");
 });
 
+test("tracker backend: insertion order, optimistic revisions, admin-only receipts bucket", () => {
+  must("admin", "insert into public.tracker_docs (collection, id, data) values ('companyVehicles', 'vehicle-b', '{}'), ('companyVehicles', 'vehicle-a', '{}')");
+  assert.equal(must("admin", "select string_agg(id, ',' order by seq) from public.tracker_docs where collection = 'companyVehicles'"), "vehicle-b,vehicle-a");
+  // The backend's compare-and-swap: an update aimed at a stale revision changes nothing.
+  assert.equal(must("admin", "update public.tracker_docs set data = '{\"n\":1}' where collection = 'companyVehicles' and id = 'vehicle-a' and revision = 1 returning revision"), "2");
+  assert.equal(must("admin", "update public.tracker_docs set data = '{\"n\":2}' where collection = 'companyVehicles' and id = 'vehicle-a' and revision = 1 returning revision"), "");
+  must("admin", `insert into public.tracker_docs (collection, id, data) values ('companyFuel', 'fuel-${"x".repeat(90)}', '{}')`);
+  refused("admin", `insert into public.tracker_docs (collection, id, data) values ('companyFuel', '${"x".repeat(101)}', '{}')`, /check constraint/);
+  refused("designer", "insert into public.tracker_docs (collection, id, data) values ('companyVehicles', 'vehicle-c', '{}')", /row-level security/);
+
+  must("admin", "insert into storage.objects (bucket_id, name) values ('receipts', 'sb_0123456789abcdef0123456789abcdef')");
+  refused("admin", "insert into storage.objects (bucket_id, name) values ('receipts', 'P1/design/x.jpg')", /row-level security/);
+  for (const who of ["designer", "fab", "installer", "inactive", "anon"]) {
+    refused(who, "insert into storage.objects (bucket_id, name) values ('receipts', 'sb_ffffffffffffffffffffffffffffffff')", /row-level security/);
+    assert.equal(must(who, "select count(*) from storage.objects where bucket_id = 'receipts'"), "0", who + " can't list receipts");
+    assert.equal(must(who, "delete from storage.objects where bucket_id = 'receipts' returning name"), "", who + " can't delete receipts");
+  }
+  assert.equal(must("admin", "delete from storage.objects where bucket_id = 'receipts' returning name"), "sb_0123456789abcdef0123456789abcdef");
+});
+
 test("internal trigger functions can't be called through the API, yet still fire", () => {
   for (const fn of ["handle_new_user", "guard_stage_update", "seed_project_stages", "prepare_punch", "guard_punch_update", "touch_tracker_doc"]) {
     assert.equal(must("super", `select has_function_privilege('authenticated', 'public.${fn}()', 'execute')`), "f", fn);

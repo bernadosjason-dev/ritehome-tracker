@@ -6,6 +6,7 @@ const {createBackend}=require('./fuel.test.cjs');
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());
   await page.route('https://script.google.com/**',r=>r.fulfill({json:backend.request(r.request().postDataJSON())}));
   await page.goto('http://127.0.0.1:8000/tracker.html',{waitUntil:'domcontentloaded'});

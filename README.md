@@ -3,18 +3,22 @@
 An internal tool for running Ritehome Modular Systems jobs. It covers projects and clients, 50/40/10 progress billing, pakyawan and daily-rate labor, who owes us (with reminder messages), and receipt photos with a "confirmed by head" flag for expenses that have no receipt. **Scan receipt** reads a receipt photo with Gemini and fills in the expense form.
 
 - **Directory:** `index.html`; tracker workspaces use `tracker.html?portal=fuel`, `tracker.html?portal=projects` and `tracker.html?portal=procurement`, served by GitHub Pages at `https://bernadosjason-dev.github.io/ritehome-tracker/`
-- **Data:** a Google Sheet you own, reached through the Apps Script web app in `backend/Code.gs`. Receipt photos live in a Drive folder that script creates. Setup and day-to-day operations are in [`backend/README.md`](backend/README.md).
+- **Data:** Supabase (project `laxavfldivkhufeubgmb`): records in the `tracker_docs` table, new receipt photos in the `receipts` bucket. `supabase-backend.js` carries out every action `backend/Code.gs` did, with the same rules and replies, so the screens didn't change. Schema, roles and setup: [`supabase/README.md`](supabase/README.md).
+- **Previous backend:** the Google Sheet + Apps Script web app in `backend/Code.gs` ([`backend/README.md`](backend/README.md)). Setting `var BACKEND = "sheet";` near the top of `tracker.html` switches back to it. Receipts saved before the move stay in Google Drive and still show.
 
 ## Access
 
-Only the share link opens the tracker: `https://bernadosjason-dev.github.io/ritehome-tracker/#key=…`. **Anyone with that link can view and update every project.** Without the key, the page shows only a key prompt.
+Each person signs in with their own email and password. Accounts are created by the admin in the Supabase dashboard (Authentication → Users → Add user); a new account can't see anything until the admin activates it and gives it a role. The database enforces this with row-level security: the page hiding something is never the protection. Today only the **admin** role opens the tracker; staff screens (assigned projects, stages, attendance) come next.
 
-The key lives in the Apps Script's Script Properties. It is never stored in this repo, and this repo is public, so it must never be committed here. Each device remembers the key after its first visit, and the page removes it from the address bar. Running `rotateKey()` in the Apps Script editor cuts off every old link at once.
+The page carries the project's *publishable* key. That key is public by design and only identifies the project. Never put the `service_role` key or a database password in this repo: it is public.
+
+The old `#key=…` share links no longer open anything while `BACKEND` is `"supabase"`.
 
 ## Rules for changing the page
 
 - Every save goes through `track()`. A failed save shows a red "not saved" bar with **Save again**, and edits that haven't been submitted warn before you leave the page. Don't add a write path that bypasses `track()`, and never bring back a silent local fallback: a real project was lost that way.
-- The same `tracker.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them.
+- The same `tracker.html` also runs as a claude.ai Artifact. There it uses the platform's `db`/`assets` capabilities instead of the Sheet. `makeSheetBackend()` mimics those call shapes, so new data access should go through them. On the hosted copy, `makeSheetBackend()` sends each action either to Apps Script or, with Supabase, to `supabase-backend.js` (its `transport` argument).
+- A new backend action goes into **both** `backend/Code.gs` and `supabase-backend.js` while the Sheet is still the fallback, and into `tests/supabase-backend.test.cjs`, which sends every request to both and fails on any difference in the reply.
 - The page is `noindex`. Keep the link private.
 - **Bump `PAGE_VERSION`** near the top of the script on every change. Open tabs compare it with the published page and show a "newer version — Reload now" bar. Without the bump, phones can keep running the old page for days.
 

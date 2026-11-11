@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-13.3">
+<link rel="stylesheet" href="shell.css?v=2026-11-14.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-13.2"></script>
+<script src="shell.js?v=2026-11-14.1"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -553,6 +553,17 @@
           <div class="gate-pw"><input id="gatePassword" type="password" autocomplete="current-password" required><button type="button" id="gatePwToggle" aria-controls="gatePassword" aria-pressed="false">Show</button></div>
         </div>
         <button class="btn" type="submit" id="gateLoginBtn">Sign in</button>
+      </form>
+      <form id="gateNewPw" hidden>
+        <div class="field" style="margin:0;">
+          <label for="gateNewPw1">New password</label>
+          <input id="gateNewPw1" type="password" autocomplete="new-password" minlength="10" required>
+        </div>
+        <div class="field" style="margin:0;">
+          <label for="gateNewPw2">Type it again</label>
+          <input id="gateNewPw2" type="password" autocomplete="new-password" minlength="10" required>
+        </div>
+        <button class="btn" type="submit" id="gateNewPwBtn">Save my password</button>
       </form>
       <p class="gate-help">Forgot your password? Ask the admin to reset it.<br>Work hours: Monday to Saturday, 8 AM to 5 PM.</p>
       <div id="gateAccount" class="gate-account" hidden><span id="gateWho"></span><a class="btn small" id="gateSchedule" href="schedule.html" hidden>Open my schedule</a><button class="btn ghost small" id="gateSignOut" type="button">Sign out</button></div>
@@ -1432,7 +1443,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-13.4";
+  var PAGE_VERSION = "2026-11-14.1";
 
   // ---------- reference data ----------
 
@@ -5198,7 +5209,8 @@
     inactive: "Your account exists but hasn’t been activated yet. Ask the admin to turn it on and set your role.",
     denied: "This account isn’t allowed to open the tracker’s records. Ask the admin to check your role.",
     noclient: "The sign-in component didn’t load. Check your internet connection and reload the page.",
-    connecting: "Connecting to the tracker…"
+    connecting: "Connecting to the tracker…",
+    newpassword: "Welcome. Choose your own password: the one the admin gave you was only for your first sign-in. At least 10 characters."
   };
   var signedInEmail = "";
 
@@ -5211,13 +5223,15 @@
     if(USE_SUPABASE){
       $("gateForm").hidden = true;
       $("gateLogin").hidden = mode !== "login" && mode !== "expired";
-      $("gateAccount").hidden = !(mode === "staff" || mode === "inactive" || mode === "denied");
+      $("gateNewPw").hidden = mode !== "newpassword";
+      $("gateAccount").hidden = !(mode === "staff" || mode === "inactive" || mode === "denied" || mode === "newpassword");
       $("gateSchedule").hidden = mode !== "staff";
       if(window.RitehomeLinks) $("gateSchedule").href = window.RitehomeLinks.href("schedule");
       $("gateWho").textContent = signedInEmail ? "Signed in as " + signedInEmail : "";
       $("gateLoginBtn").disabled = false;
       $("gateMsg").textContent = GATE_SUPABASE[mode] || GATE_SUPABASE.login;
       if(!$("gateLogin").hidden) ($("gateEmail").value ? $("gatePassword") : $("gateEmail")).focus();
+      if(!$("gateNewPw").hidden) $("gateNewPw1").focus();
       return;
     }
     $("gateForm").hidden = mode === "setup" || mode === "connecting";
@@ -5262,6 +5276,8 @@
       var session = r && r.data && r.data.session;
       if(!session){ warmPut(null); showGate("login"); return false; }
       signedInEmail = session.user && session.user.email || "";
+      // An account made by the admin starts with a temporary password: replace it first.
+      if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ warmPut(null); showGate("newpassword"); return false; }
       return client.rpc("my_role").then(function(r2){
         if(r2.error) throw {code: "unavailable", message: "Couldn’t check your account (" + (r2.error.message || "network error") + ")."};
         var userId = (session.user && session.user.id) || "", w = warmGet();
@@ -5467,6 +5483,20 @@
       });
     });
     $("gateSignOut").addEventListener("click", signOut);
+    $("gateNewPw").addEventListener("submit", function(e){
+      e.preventDefault();
+      var a = $("gateNewPw1").value, b = $("gateNewPw2").value;
+      if(a.length < 10){ $("gateError").textContent = "Use at least 10 characters."; return; }
+      if(a !== b){ $("gateError").textContent = "The two passwords don’t match."; return; }
+      $("gateNewPwBtn").disabled = true; $("gateError").textContent = "";
+      supabaseApi().auth.updateUser({password: a, data: {must_change_password: false}}).then(function(r){
+        $("gateNewPwBtn").disabled = false;
+        if(r.error){ $("gateError").textContent = r.error.message || "Couldn’t save the password. Try again."; return; }
+        $("gateNewPw1").value = ""; $("gateNewPw2").value = "";
+        showGate("connecting");
+        connectHosted();
+      }, function(){ $("gateNewPwBtn").disabled = false; $("gateError").textContent = "Couldn’t reach the sign-in server. Check your internet connection."; });
+    });
     if(USE_SUPABASE) $("forgetKeyBtn").textContent = "Sign out";
     $("gateForm").addEventListener("submit", function(e){
       e.preventDefault();

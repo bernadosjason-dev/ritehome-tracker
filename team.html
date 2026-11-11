@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Team</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-14.1">
+<link rel="stylesheet" href="team.css?v=2026-11-14.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "team"};</script>
+</head>
+<body class="acct team">
+<main class="wrap">
+<script src="shell.js?v=2026-11-14.1"></script>
+  <header class="acct-head">
+    <div>
+      <div class="eyebrow">Admin</div>
+      <h1>Team accounts</h1>
+      <p class="sub">Give each person their own sign-in. They see only the projects they're assigned to and change only their own stages; nobody but an admin sees money.</p>
+    </div>
+    <div class="acct-head-actions no-print"><button class="btn" type="button" id="addPersonBtn">+ Add person</button></div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="kpis" id="teamKpis"></div>
+
+    <section class="card" id="handover" hidden></section>
+
+    <section class="card" id="addCard" hidden>
+      <h2>Add a person</h2>
+      <p class="muted small">You choose a temporary password and give it to them in person. At their first sign-in the portal makes them pick their own. No email is sent.</p>
+      <form id="addForm" class="acct-grid" novalidate>
+        <label>Full name <input id="pName" maxlength="120" required autocomplete="off" placeholder="e.g. Jane Dela Cruz"></label>
+        <label>Email <input id="pEmail" type="email" maxlength="160" required autocomplete="off" placeholder="their own email"></label>
+        <label>Role <select id="pRole"></select><span class="hint" id="pRoleHint"></span></label>
+        <label>Temporary password
+          <span class="pw-row"><input id="pPassword" maxlength="72" minlength="10" required autocomplete="off" spellcheck="false"><button class="btn ghost small" type="button" id="pNewPw">New</button></span>
+          <span class="hint">At least 10 characters. Shown only here.</span>
+        </label>
+        <div class="wide acct-actions"><button class="btn" type="submit" id="pSave">Create account</button><button class="btn ghost" type="button" id="addCancel">Cancel</button></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>People <span class="count" id="peopleCount"></span></h2>
+      <div id="peopleTable"></div>
+    </section>
+
+    <section class="card">
+      <h2>What each role can do</h2>
+      <div id="roleGuide" class="role-guide"></div>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="team.js?v=2026-11-14.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

@@ -663,6 +663,7 @@
   client.auth.getSession().then(function(r){
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then open Schedule from the menu.", true); }
+    if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password the admin gave you. Open the portal's front page to choose your own.", true); }
     return rpc("my_role").then(function(role){
       if(!role) return gate("Your account isn't active yet", "Ask the admin to activate your account and set your role.");
       // Staff can't open the other workspaces (the database refuses them), so don't offer them.

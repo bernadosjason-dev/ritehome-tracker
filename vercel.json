@@ -21,6 +21,10 @@
     {
       "source": "/schedule",
       "destination": "/schedule.html"
+    },
+    {
+      "source": "/team",
+      "destination": "/team.html"
     }
   ],
   "redirects": [

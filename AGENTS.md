@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -116,3 +116,17 @@ change fills in the actual dates (Manila day). Working days are Monday to Saturd
 durations in `schedule-plan.js` (40 working days, initial cutlist to handover 31) are a starting point to tune. Tests:
 `node --test tests/schedule.test.cjs tests/schedule-plan.test.cjs` (dates in the latter worked out by hand: keep it
 that way) and `node tests/schedule.browser.cjs`.
+
+Team (`team.html`/`team.js` at `/team`, admin only; SQL in `supabase/migrations/20261114000010_team.sql`, the
+`team-admin` Edge Function in `supabase/functions/team-admin/`): the admin makes each person's sign-in with a
+temporary password handed over in person (no email is sent: Supabase's built-in mailer only reaches the project's
+own team members). `user_metadata.must_change_password` makes tracker.html ask for a new password before anything
+else, on every page. Creating accounts and resetting passwords need the service role key, so they go through the
+Edge Function (`core.js` is plain JavaScript with `fetch` injected, so Node tests run it; `index.ts` is the Deno
+entry). It checks the caller's token and that their profile is an active admin before doing anything; deploy it
+with JWT verification off, since it verifies the caller itself. Everything else is SQL: `team_list()` (definer,
+because it reads `auth.users` for emails and last sign-in; refuses anyone but an admin), `team_update()` (role, name,
+switch off/on; an admin can't switch off or demote their own account) and `team_assign_in_charge()` (gives a person
+the unfinished whiteboard rows whose "In charge" matches their name, and their own role's unassigned stages on them).
+Never put the service role key in this repo or a browser. Tests: `node --test tests/team.test.cjs` and
+`node tests/team.browser.cjs`.

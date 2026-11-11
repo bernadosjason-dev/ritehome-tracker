@@ -1,0 +1,27 @@
+/* Team accounts (team.html). Base pieces come from accounting.css; theme from shell.css. */
+.team .pill{display:inline-flex;align-items:center;font:600 11.5px/1 var(--f-mono);padding:4px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-muted)}
+.team .pill.good{background:var(--good-bg);color:var(--good)}
+.team .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.team .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pw-row{display:flex;gap:6px}
+.pw-row input{flex:1;font-family:var(--f-mono)!important;min-width:0}
+.people td{vertical-align:middle}
+.people .who strong{display:block;font-size:14px}
+.people .who small{display:block;color:var(--ink-muted);font-size:12.5px}
+.people select{min-height:34px;font-size:13px;padding:5px 8px}
+.people .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.people tr.off td{opacity:.62}
+.handover-box{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px;margin:10px 0 14px;padding:14px;border:1px dashed var(--border);border-radius:12px;background:var(--surface-2)}
+.handover-box dt{color:var(--ink-muted);font-size:12.5px;align-self:center}
+.handover-box dd{margin:0;font-family:var(--f-mono);font-size:14px;word-break:break-all}
+.role-guide{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.role-guide div{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface)}
+.role-guide b{display:block;margin-bottom:4px}
+.role-guide p{font-size:13px;color:var(--ink-muted);line-height:1.5;margin:0}
+@media (max-width:760px){
+  .people thead{display:none}
+  .people tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .people td{border:0;padding:0}
+  .people td.who,.people td.acts-cell{grid-column:1 / -1}
+  .people .acts{justify-content:flex-start}
+}

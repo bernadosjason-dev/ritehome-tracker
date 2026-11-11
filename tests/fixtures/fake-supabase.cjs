@@ -42,6 +42,10 @@ const SHIM = String.raw`(function(){
           setSession(r.session, 'SIGNED_IN'); return {data: {session: r.session}, error: null};
         }); },
         signOut: function(){ setSession(null, 'SIGNED_OUT'); return Promise.resolve({error: null}); },
+        updateUser: function(attrs){ return send({kind: 'updateUser', session: session && session.access_token, attrs: attrs}).then(function(r){
+          if(r.error) return {data: {user: null}, error: r.error};
+          setSession(Object.assign({}, session, {user: r.user}), 'USER_UPDATED'); return {data: {user: r.user}, error: null};
+        }); },
         onAuthStateChange: function(cb){ listeners.push(cb); return {data: {subscription: {unsubscribe: function(){}}}}; }
       },
       rpc: function(name, args){ return send({kind: 'rpc', name: name, args: args || {}, session: session && session.access_token}); },
@@ -62,6 +66,7 @@ function createFakeSupabase(opts = {}) {
     {id: 'u-designer', email: 'designer@ritehome.test', password: 'designer-pass', role: 'designer', active: true},
     {id: 'u-new', email: 'new@ritehome.test', password: 'new-pass', role: null, active: false}
   ];
+  (opts.users || []).forEach(u => users.push(u));   // extra people, e.g. {id, email, password, role, active, meta: {must_change_password: true}}
   const rows = [], files = new Map(), log = [];
   let seq = 0;
   const who = token => users.find(u => 'token-' + u.id === token) || null;
@@ -109,7 +114,14 @@ function createFakeSupabase(opts = {}) {
     if (m.kind === 'signIn') {
       const u = users.find(x => x.email === m.email && x.password === m.password);
       if (!u) return {error: {status: 400, code: 'invalid_credentials', message: 'Invalid login credentials'}};
-      return {session: {access_token: 'token-' + u.id, user: {id: u.id, email: u.email}}};
+      return {session: {access_token: 'token-' + u.id, user: {id: u.id, email: u.email, user_metadata: Object.assign({}, u.meta)}}};
+    }
+    if (m.kind === 'updateUser') {   // a signed-in person changing their own password or metadata
+      const u = who(m.session);
+      if (!u) return {error: {status: 401, message: 'Not signed in'}};
+      if (m.attrs.password) u.password = m.attrs.password;
+      if (m.attrs.data) u.meta = Object.assign({}, u.meta, m.attrs.data);
+      return {user: {id: u.id, email: u.email, user_metadata: Object.assign({}, u.meta)}};
     }
     if (m.kind === 'rpc') {
       const u = who(m.session);

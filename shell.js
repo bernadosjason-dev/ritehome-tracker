@@ -33,6 +33,7 @@
     if(mode === 'accounting') return CLEAN ? '/accounting' : 'accounting.html';
     if(mode === 'leads') return CLEAN ? '/leads' : 'leads.html';
     if(mode === 'schedule') return CLEAN ? '/schedule' : 'schedule.html';
+    if(mode === 'team') return CLEAN ? '/team' : 'team.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
@@ -86,13 +87,13 @@
     side.appendChild(brand());
     side.appendChild(el('div', 'side-label', 'Workspaces'));
     [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['procurement', 'Procurement', 'procurement'],
-     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books']].forEach(function(n){
+     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
       side.appendChild(a);
     });
     side.appendChild(el('div', 'side-label', 'Coming next'));
-    [['Project files', 'pipeline'], ['Attendance', 'attendance'], ['Team accounts', 'team']].forEach(function(n){
+    [['Project files', 'pipeline'], ['Attendance', 'attendance']].forEach(function(n){
       var d = el('div', 'side-link soon'); d.setAttribute('aria-disabled', 'true');
       d.appendChild(icon(n[1])); d.appendChild(document.createTextNode(n[0])); d.appendChild(el('span', 'soon-tag', 'Soon'));
       side.appendChild(d);

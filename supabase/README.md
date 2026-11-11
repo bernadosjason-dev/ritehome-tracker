@@ -40,9 +40,9 @@ admin to check.
 - Migrations applied: `portal_core`, `portal_storage`, `portal_harden`
   (2026-11-05), `tracker_backend` (2026-11-08: row order, longer ids, the
   public-by-unguessable-name `receipts` bucket).
-- `20261111000005_accounting.sql` (in-house books): written and tested locally,
-  **not yet applied to the live project** as of 2026-11-11. Until it is, the
-  Accounting page shows "Couldn't open the books".
+- `accounting` (2026-11-11, `20261111000005_accounting.sql`): applied with its
+  comment lines stripped; every `acct_*` function and view definition was then
+  checked by md5 against a local load of the file and matched exactly.
 - Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
   `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
   2 procurement jobs, 1 procurement record). Totals checked against the Sheet.

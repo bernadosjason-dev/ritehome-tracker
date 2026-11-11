@@ -130,3 +130,14 @@ switch off/on; an admin can't switch off or demote their own account) and `team_
 the unfinished whiteboard rows whose "In charge" matches their name, and their own role's unassigned stages on them).
 Never put the service role key in this repo or a browser. Tests: `node --test tests/team.test.cjs` and
 `node tests/team.browser.cjs`.
+
+Design rules (the 2026-11-14 review; the "Design review" block at the end of `shell.css` carries them, numbered):
+no eyebrow labels over page titles (the menu already says where you are) and no "Soon" placeholders in the menu;
+headlines say something true (the dashboard's is computed: "3 open jobs · 1 needs you"); the first figure on a page
+is the one to act on and is drawn larger; monospace only for account codes and passwords, figures use Inter with
+tabular numerals; labels are sentence case, not spaced capitals (the whiteboard alone keeps marker capitals); one red
+button per screen, and a Save with nothing to save is quiet until something changes; red means action or alert, not
+decoration; nested corners follow inner radius = outer − padding; buttons that start a request call
+`RitehomeBusy(button, true)` (shell.js) so they spin until it settles; a saved row or whiteboard cell gets
+`just-saved` for a one-off green glow. Page stylesheets (schedule.css, team.css, leads.css) load after shell.css, so a
+shell.css rule meant to override one of them needs the `body ` prefix.

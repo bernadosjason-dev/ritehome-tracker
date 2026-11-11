@@ -337,3 +337,104 @@ body{
 /* Solid surfaces on top of the grain, so it never sits under text. */
 .card,.kpi,.gate-card,.workspace-bar{background-color:var(--surface)}
 @media print{body,.gate-main{background:#fff!important}}
+
+/* ---------- Design review, 2026-11-14: the 20-point "unslop" pass ----------
+   One layer on top of everything above, so each rule says which point it serves. */
+:root{
+  /* (5) one scale for corners: cards, controls, nested pieces */
+  --r-lg:14px; --r-md:9px; --r-sm:6px;
+  /* (15) copy that sits straight on the grainy page, not on a white card */
+  --ink-2:#3B3B42; --side-muted:#A3A3AB;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ink-2:#CFCFD5}}
+:root[data-theme="dark"]{--ink-2:#CFCFD5}
+
+/* (16) headlines wrap as balanced lines; paragraphs avoid one-word last lines */
+h1,h2,h3,.kpi .label,.gate-hero-h{text-wrap:balance}
+p,.sub,.section-sub,.hint,.muted,.kpi .sub,.kpi .sub-line{text-wrap:pretty}
+
+/* (15) contrast: page-level copy is darker than card-level secondary text */
+.hero .sub,.acct-head .sub,.section-head .section-sub{color:var(--ink-2)}
+
+/* (4) monospace only where it means something (account codes). Figures use the body face
+   with (18) tabular numerals, so columns of pesos and counts still line up. */
+.mono,.kpi .val,.kpi .val.small,.budget-fig .val,.stat-line .v,.amount-input,.ar-amt,.ar-sum strong,
+td.num,td.date,tfoot td,.cat-row .top-line .amt,.count,.card h2 .count,.section-head h2 .count,
+.acct .count,.acct-table .num,.acct-table input.amt,.lead-stages button b,.wb-systems button b,
+.leads .score,.wait-row .clock,.lead-parts td.pts,.g-load .cell,.cal-cell .num,.sched .pill,.team .pill,
+.wb .wb-n,.handover-box dd{font-family:var(--f-body)!important;font-variant-numeric:tabular-nums}
+table,.kpi,.ar-row,.recent-row,.stat-line{font-variant-numeric:tabular-nums}
+.handover-box dd[data-temp-password],.pw-row input{font-family:var(--f-mono)!important}  /* a password is read character by character */
+/* Labels: sentence case in the body face, not spaced-out monospace capitals. */
+.kpi .label,.acct-table th,.stage-row.head,.cal .dow,.g-row.head,.pace-label,.acct-issues li b,.timeline .when,thead th{
+  font-family:var(--f-body)!important;text-transform:none!important;letter-spacing:0!important;font-size:12.5px;font-weight:500;color:var(--ink-muted)}
+.side-brand small{font-family:var(--f-body);letter-spacing:.04em;text-transform:none;font-size:11px}
+.gate-hero-brand small{font-family:var(--f-body);letter-spacing:.06em;text-transform:none;font-size:12px}
+/* The whiteboard keeps its marker-pen capitals (it's a copy of the office board), in the body face. */
+body .wb th{font-family:var(--f-body)!important;text-transform:uppercase!important;letter-spacing:.03em!important;font-size:11px;font-weight:600;color:var(--ink-muted)}
+body .wb tr.wb-group td{font-family:var(--f-body);letter-spacing:.04em}
+
+/* (3) no italics for emphasis */
+.proj-value.placeholder,.rc-broken{font-style:normal}
+
+/* (7) the first figure on each page is the one to act on: bigger than the rest */
+.kpis>.kpi:first-child .val,.acct .kpis>div>.kpi:first-child .val{font-size:32px;line-height:1.05}
+/* six figures fit one row on a laptop instead of leaving one orphan underneath */
+.acct .kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+/* (8) group with spacing, not lines: a clear gap between the figures and the card below,
+   and each schedule stage reads as one block with its notes */
+.acct .kpis,.kpis{margin-bottom:18px}
+body .stage-row{padding:14px 0}
+body .stage-row .notes{margin-top:-2px}
+.acct-head{margin-bottom:22px}
+
+/* (10) one loud button per screen. A Save with nothing to save is quiet text, not a faded
+   red button; it turns red the moment something changes. */
+.acct .btn:not(.ghost):disabled,.btn:not(.ghost):not(.danger):disabled{background:transparent;border-color:var(--border);color:var(--ink-muted);opacity:1}
+.stage-row .save:disabled{border-color:transparent}
+
+/* (11) red is the action and alert colour, not decoration */
+.workspace-actions .btn .action-icon,.btn.ghost .action-icon,.btn.secondary .action-icon{color:var(--ink-muted)}
+body .wb .wb-n{color:var(--ink-muted)}
+
+/* (12) one icon style: the same 1.7-stroke line icons everywhere */
+.acct .btn .action-icon{width:16px;height:16px;flex:none}
+
+/* (13) embellishments out: no red bars beside headings, no dashed boxes around content */
+#companyFuelCard>.card-head h2,#procurementCard>.card-head h2{border-left:0;padding-left:0}
+body .handover-box{border-style:solid}
+body .planner{border-style:solid;background:var(--surface-2)}
+
+/* (14) nested corners: inner radius = outer radius − the padding between them */
+body .pipe-col{border-radius:var(--r-lg);padding:8px}
+body .pcard{border-radius:var(--r-sm)}                         /* 14 − 8 */
+.app-top{border-radius:16px;padding:10px}
+.app-top button{border-radius:var(--r-sm)}                /* 16 − 10 */
+.gate-pw button{border-radius:3px;right:6px}              /* 9 − 6 */
+body .bom-import{border-radius:16px;padding:10px}
+body .bom-import-zone{border-radius:var(--r-sm)}               /* 16 − 10 */
+
+/* (17) optical alignment: the page's main button lines up with the title, not the paragraph;
+   empty messages sit on the same inset as the rows they stand in for */
+.acct-head{align-items:flex-start}
+.acct-head-actions{padding-top:2px}
+.ar-list>.empty-note{padding:14px 16px}
+
+/* (19) loading: a busy button keeps its label and spins, so a slow save never looks ignored */
+.btn[aria-busy="true"]{cursor:progress}
+.btn[aria-busy="true"]::before{content:"";width:12px;height:12px;flex:none;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:busy-spin .7s linear infinite}
+@keyframes busy-spin{to{transform:rotate(360deg)}}
+
+/* (20) feedback that moves: the status line slides in on every new message, and a row or
+   whiteboard cell that just saved glows green once */
+@keyframes msg-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.acct-msg.pop{animation:msg-in .22s ease-out}
+@keyframes saved-glow{from{background:var(--good-bg);box-shadow:inset 0 0 0 1px var(--good)}to{background:transparent;box-shadow:inset 0 0 0 1px transparent}}
+.just-saved,.wb td.just-saved{animation:saved-glow 1.4s ease-out}
+.stage-row.just-saved{border-radius:var(--r-sm)}
+@media (prefers-reduced-motion: reduce){
+  .acct-msg.pop,.just-saved,.wb td.just-saved{animation:none}
+  .btn[aria-busy="true"]::before{animation-duration:2s}
+}
+.pcard-pills:empty{display:none}

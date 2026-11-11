@@ -366,13 +366,14 @@
     var lines = state.lines.filter(function(l){ return l.account; }).map(function(l){
       return {account: l.account, debit: num(l.debit), credit: num(l.credit), memo: l.memo.trim()};
     });
-    $("postEntry").disabled = true;
+    RitehomeBusy($("postEntry"), true);
     rpc("acct_post_entry", {p_date: $("entryDate").value, p_memo: $("entryMemo").value.trim(), p_lines: lines,
       p_ref: $("entryRef").value.trim(), p_project: $("entryProject").value || null}).then(function(id){
+      $("postEntry").removeAttribute("aria-busy");
       msg("Entry #" + id + " posted.");
       resetEntry();
       return loadJournal();
-    }).catch(function(err){ fail(err); totals(); });
+    }).catch(function(err){ $("postEntry").removeAttribute("aria-busy"); fail(err); totals(); });
   }
   function loadJournal(){
     var from = $("jFrom").value || null, to = $("jTo").value || null;

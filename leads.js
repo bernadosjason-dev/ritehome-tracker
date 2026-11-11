@@ -90,7 +90,7 @@
       ["Waiting for a reply", String(b.waiting.length), b.overdueReplies ? b.overdueReplies + " past the 2-hour promise" : b.waiting.length ? "All within 2 business hours" : "Nobody waiting", b.overdueReplies > 0],
       ["Hot leads", String(b.hot), "Score 65 or more"],
       ["Follow-ups due", String(b.followUpsDue), "Today or overdue", b.followUpsDue > 0],
-      ["Open pipeline", money(b.pipelineValue), b.rows.length + " open leads"],
+      ["Open pipeline", money(b.pipelineValue), b.rows.length + (b.rows.length === 1 ? " open lead" : " open leads")],
       ["Win rate, 90 days", b.winRate == null ? "—" : Math.round(b.winRate * 100) + "%", b.closed90 ? b.closed90 + " won or lost" : "Nothing closed yet"],
       ["Typical first reply", b.medianReplyHours == null ? "—" : hours(b.medianReplyHours), "Business hours, last 30 days", b.medianReplyHours != null && b.medianReplyHours > L.REPLY_HOURS]
     ];
@@ -193,7 +193,7 @@
       e.preventDefault();
       var p = {id: l.id};
       form.querySelectorAll("[data-key]").forEach(function(el){ p[el.getAttribute("data-key")] = el.value; });
-      rpc("lead_save", {p: p}).then(function(){ msg("Saved."); return refreshDetail(); }).catch(fail);
+      busy(e, rpc("lead_save", {p: p}).then(function(){ msg((p.name || "Lead") + " saved."); return refreshDetail(); })).catch(fail);
     }}, [
       field("Name", "name", "text", {maxlength: "120"}), field("Phone", "phone", "tel", {maxlength: "40"}), field("Email", "email", "email", {maxlength: "160"}),
       field("System", "system", "select", SYSTEMS), field("When", "timeline", "select", TIMELINES),
@@ -214,8 +214,8 @@
     var nextAt = h("input", {type: "date", value: l.next_action_at || "", "aria-label": "Next step date"});
     var log = h("form", {class: "acct-grid no-print", onsubmit: function(e){
       e.preventDefault();
-      rpc("lead_log", {p_id: l.id, p_kind: kind.value, p_body: body.value, p_next_action: next.value, p_next_at: nextAt.value || null})
-        .then(function(){ msg("Logged."); state.logKind = "call"; return refreshDetail(); }).catch(fail);
+      busy(e, rpc("lead_log", {p_id: l.id, p_kind: kind.value, p_body: body.value, p_next_action: next.value, p_next_at: nextAt.value || null})
+        .then(function(){ msg("Logged."); state.logKind = "call"; return refreshDetail(); })).catch(fail);
     }}, [h("label", null, ["What happened", kind]), h("label", {class: "wide"}, ["Note", body]), h("label", null, ["Next step", next]), h("label", null, ["By", nextAt]),
       h("div", {class: "wide acct-actions"}, h("button", {class: "btn", type: "submit", text: "Log it"}))]);
 
@@ -253,13 +253,21 @@
     rpc("lead_save", {p: p}).then(function(){ msg("Moved to " + STAGE_LABEL[stage] + "."); return refreshDetail(); }).catch(fail);
   }
 
+  // (19) the button that sent a form spins until the answer comes back (RitehomeBusy, shell.js)
+  function busy(e, promise){
+    var b = e && (e.submitter || (e.target && e.target.querySelector && e.target.querySelector("[type=submit]")));
+    if(!b || !window.RitehomeBusy) return promise;
+    RitehomeBusy(b, true);
+    return promise.then(function(v){ RitehomeBusy(b, false); return v; }, function(err){ RitehomeBusy(b, false); throw err; });
+  }
+
   // ---------- add ----------
   function addLead(e){
     e.preventDefault();
     var p = {source: $("nSource").value, name: $("nName").value, phone: $("nPhone").value, email: $("nEmail").value, location: $("nLocation").value,
       system: $("nSystem").value, timeline: $("nTimeline").value, budget: $("nBudget").value, message: $("nMessage").value};
     if(!p.name.trim()){ msg("A lead needs a name.", true); return; }
-    rpc("lead_save", {p: p}).then(function(id){
+    busy(e, rpc("lead_save", {p: p})).then(function(id){
       $("addForm").reset(); $("addCard").hidden = true; msg("Lead added.");
       location.hash = "lead=" + id;
       return load();

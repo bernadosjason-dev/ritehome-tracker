@@ -149,8 +149,8 @@
       var handovers = hs.filter(function(x){ return x.s.forecast && x.s.forecast >= t && x.s.forecast <= S.addDays(t, 30); }).length;
       var ld = S.load(active, t, 8, t), peak = ld.reduce(function(m, w){ return w.count > m.count ? w : m; }, {count: 0});
       k = [
-        ["Active projects", String(active.length), active.filter(function(p){ return !health(p).planned; }).length + " not planned yet"],
         ["Late or at risk", String(risky), risky ? "Open them from the pipeline" : "Every planned handover holds", risky > 0],
+        ["Active projects", String(active.length), active.filter(function(p){ return !health(p).planned; }).length + " not planned yet"],
         ["Stages due this week", String(dueWeek), overdue ? overdue + " overdue" : "None overdue", overdue > 0],
         ["Handovers in 30 days", String(handovers), "By forecast"],
         ["Workshop peak, 8 weeks", peak.count ? peak.count + " of " + state.cap : "0", peak.count ? "Week of " + short(peak.week) : "Nothing in fabrication", peak.count > state.cap]
@@ -158,8 +158,8 @@
     } else {
       var mine = 0;
       active.forEach(function(p){ (p.stages || []).forEach(function(s){ if(s.can_edit && s.status !== "done") mine++; }); });
-      k = [["Your projects", String(active.length), "Assigned to you"], ["Your open stages", String(mine), "Not done yet"],
-        ["Due this week", String(dueWeek), "Your stages"], ["Overdue", String(overdue), overdue ? "Past the planned finish" : "Nothing overdue", overdue > 0]];
+      k = [["Overdue", String(overdue), overdue ? "Past the planned finish" : "Nothing overdue", overdue > 0], ["Due this week", String(dueWeek), "Your stages"],
+        ["Your open stages", String(mine), "Not done yet"], ["Your projects", String(active.length), "Assigned to you"]];
     }
     put("schedKpis", h("div", {style: "display:contents"}, k.map(function(x){
       return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val" + (x[3] ? " neg" : ""), text: x[1]}), h("span", {class: "sub", text: x[2]})]);
@@ -194,17 +194,18 @@
     if(!s) return h("td");
     var cls = "wb-cell " + INK[s.status || "not_started"];
     var note = s.notes ? h("small", {class: "wb-note", text: s.notes}) : null;
-    if(!s.can_edit) return h("td", null, [h("span", {class: cls, text: s.status === "not_started" ? "" : statusWord(key, s.status)}), note]);
+    var glow = state.flash === p.id + ":" + key ? (state.flash = null, "just-saved") : null;
+    if(!s.can_edit) return h("td", {class: glow}, [h("span", {class: cls, text: s.status === "not_started" ? "" : statusWord(key, s.status)}), note]);
     var sel = options(h("select", {class: cls, "aria-label": (p.client || p.name) + " " + stageLabel(key)}),
       statusList(key).map(function(o){ return o[0] === "not_started" ? ["not_started", "—"] : o; }), s.status);
     sel.addEventListener("change", function(){
       sel.className = "wb-cell " + INK[sel.value];   // the marker colour changes at once
       sel.disabled = true;
       rpc("stage_save", {p_project: p.id, p_stage: key, p: {status: sel.value}})
-        .then(function(){ msg((p.client || p.name) + ": " + stageLabel(key).toLowerCase() + " " + statusWord(key, sel.value).toLowerCase() + "."); return load(); })
+        .then(function(){ state.flash = p.id + ":" + key; msg((p.client || p.name) + ": " + stageLabel(key).toLowerCase() + " " + statusWord(key, sel.value).toLowerCase() + "."); return load(); })
         .catch(function(e){ sel.disabled = false; fail(e); });
     });
-    return h("td", null, [sel, note]);
+    return h("td", {class: glow}, [sel, note]);
   }
   function systemSelect(value, label){
     return options(h("select", {"aria-label": label}), SYSTEMS.map(function(x){ return [x[0], SYSTEM[x[0]]]; }), value || "kitchen");
@@ -259,13 +260,13 @@
       var who = h("input", {type: "text", maxlength: "80", placeholder: "In charge", list: "wbPeople", "aria-label": "New row in charge"});
       var dl = datalist("wbTypes", typesFor(sys.value));
       sys.addEventListener("change", function(){ var fresh = datalist("wbTypes", typesFor(sys.value)); dl.replaceWith(fresh); dl = fresh; });
-      var add = h("button", {class: "btn small", type: "button", text: "Add row"});
+      var add = h("button", {class: "btn ghost small", type: "button", text: "+ Add row"});
       add.addEventListener("click", function(){
         if(!c.value.trim()) return fail(new Error("Write the client's name."));
-        add.disabled = true;
+        RitehomeBusy(add, true);
         rpc("board_project_save", {p: {clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim()}})
           .then(function(){ msg("Row added for " + c.value.trim() + " under " + SYSTEM[sys.value] + "."); return load(); })
-          .catch(function(e){ add.disabled = false; fail(e); });
+          .catch(function(e){ RitehomeBusy(add, false); fail(e); });
       });
       foot = h("tfoot", null, h("tr", {class: "wb-add no-print"}, [h("td", {class: "wb-n", text: String(n + 1)}), h("td", {class: "wb-client"}, c), h("td", null, [sys, t]), h("td", null, who),
         h("td", {colspan: String(BOARD_STAGES.length)}, [add, h("span", {class: "muted small", style: "margin-left:10px", text: "Pick the system, then the type. Every stage starts empty; tap a cell to set it."})])]));
@@ -368,9 +369,9 @@
     var save = h("button", {class: "btn ghost small", type: "button", disabled: true, text: "Save"});
     [c, sys, t, who, target].forEach(function(i){ i.addEventListener(i.tagName === "SELECT" ? "change" : "input", function(){ save.disabled = false; }); });
     save.addEventListener("click", function(){
-      save.disabled = true;
+      RitehomeBusy(save, true);
       rpc("board_project_save", {p: {id: p.id, clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim(), targetDate: target.value}})
-        .then(function(){ msg("Saved."); return load(); }).catch(function(e){ save.disabled = false; fail(e); });
+        .then(function(){ msg(c.value.trim() + " saved."); return load(); }).catch(function(e){ RitehomeBusy(save, false); fail(e); });
     });
     return h("div", {class: "acct-grid labels no-print"}, [h("label", null, ["Client's name", c]), h("label", null, ["System", sys]), h("label", null, ["Project type", t]),
       h("label", null, ["In charge", who]), h("label", null, ["Client's target", target]), h("div", {class: "acct-actions", style: "align-self:end;margin:0"}, save),
@@ -393,7 +394,8 @@
     } else who = h("span", {class: "ro", text: s.assignee ? staffName(s.assignee) || "Someone" : "—"});
     var notes = edit ? h("input", {type: "text", maxlength: "4000", value: s.notes || "", "data-k": "notes", placeholder: "Notes", "aria-label": d.label + " notes"}) : (s.notes ? h("span", {class: "ro muted", text: s.notes}) : null);
     var save = edit ? h("button", {class: "btn small save", type: "button", disabled: true, text: "Save"}) : h("span");
-    var row = h("div", {class: "stage-row" + (edit ? "" : " locked") + (overdue ? " overdue" : ""), "data-stage": d.key}, [
+    var glow = state.flash === p.id + ":row:" + d.key ? (state.flash = null, " just-saved") : "";
+    var row = h("div", {class: "stage-row" + (edit ? "" : " locked") + (overdue ? " overdue" : "") + glow, "data-stage": d.key}, [
       h("div", {class: "name"}, [h("b", null, [stDot(d.key), d.label]), h("small", {text: d.owner + (overdue ? " · overdue" : "")})]),
       field("Status", status), field("Planned start", date("planned_start", admin)), field("Planned finish", date("planned_end", admin)),
       field("Started", date("actual_start", edit)), field("Finished", date("actual_end", edit)), field("Assigned", who), save,
@@ -405,8 +407,8 @@
       save.addEventListener("click", function(){
         var body = {};
         row.querySelectorAll("[data-k]").forEach(function(i){ body[i.getAttribute("data-k")] = i.value; });
-        save.disabled = true;
-        rpc("stage_save", {p_project: p.id, p_stage: d.key, p: body}).then(function(){ msg(d.label + " saved."); return load(); }).catch(function(e){ save.disabled = false; fail(e); });
+        RitehomeBusy(save, true);
+        rpc("stage_save", {p_project: p.id, p_stage: d.key, p: body}).then(function(){ state.flash = p.id + ":row:" + d.key; msg(d.label + " saved."); return load(); }).catch(function(e){ RitehomeBusy(save, false); fail(e); });
       });
     }
     return row;

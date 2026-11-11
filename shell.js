@@ -16,7 +16,8 @@
     team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5',
     leads: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M12 12h.01',
     books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
-    menu: 'M4 7h16M4 12h16M4 17h16'
+    menu: 'M4 7h16M4 12h16M4 17h16',
+    plus: 'M12 5v14M5 12h14'
   };
   function icon(name){
     var s = document.createElementNS(NS, 'svg');
@@ -85,18 +86,11 @@
     var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
-    side.appendChild(el('div', 'side-label', 'Workspaces'));
     [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['procurement', 'Procurement', 'procurement'],
      ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
       side.appendChild(a);
-    });
-    side.appendChild(el('div', 'side-label', 'Coming next'));
-    [['Project files', 'pipeline'], ['Attendance', 'attendance']].forEach(function(n){
-      var d = el('div', 'side-link soon'); d.setAttribute('aria-disabled', 'true');
-      d.appendChild(icon(n[1])); d.appendChild(document.createTextNode(n[0])); d.appendChild(el('span', 'soon-tag', 'Soon'));
-      side.appendChild(d);
     });
     var foot = el('div', 'side-foot');
     var who = el('div', 'side-who'); who.id = 'sideWho';
@@ -136,6 +130,42 @@
     // the page sets the button label and the session after boot
     new MutationObserver(refreshWho).observe(document.body, {attributes: true, attributeFilter: ['class']});
   }
+  // Shared behaviour for the pages built on accounting.css (leads, schedule, team, accounting);
+  // tracker.html has its own versions in ui.js.
+  //  - Busy buttons: RitehomeBusy(button, true) disables it and shows a spinner (shell.css) until
+  //    the request settles, so a slow connection never looks like a dead click.
+  //  - "+ Add …" buttons get the same plus icon the tracker uses, instead of a typed "+".
+  //  - The status message (#acctMsg) replays a short entrance each time its text changes, so a
+  //    second "Saved." after the first one still registers.
+  window.RitehomeBusy = function(btn, on){
+    if(!btn) return;
+    btn.disabled = !!on;
+    if(on) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+  };
+  function plusIcons(root){
+    (root || document).querySelectorAll('.acct .btn').forEach(function(b){
+      var t = b.firstChild;
+      if(!t || t.nodeType !== 3 || !/^\s*\+\s*/.test(t.textContent)) return;
+      t.textContent = t.textContent.replace(/^\s*\+\s*/, '');
+      var i = icon('plus'); i.setAttribute('class', 'action-icon'); b.insertBefore(i, t);
+    });
+  }
+  function polish(){
+    if(!document.body.classList.contains('acct')) return;
+    var wrap = document.querySelector('.wrap'), queued = false;
+    plusIcons(wrap);
+    if(wrap) new MutationObserver(function(){
+      if(queued) return; queued = true;
+      requestAnimationFrame(function(){ queued = false; plusIcons(wrap); });
+    }).observe(wrap, {childList: true, subtree: true});
+    var m = document.getElementById('acctMsg');
+    if(m) new MutationObserver(function(){
+      if(m.hidden) return;
+      m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop');
+    }).observe(m, {childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['hidden']});
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', polish); else polish();
+
   // Loaded as the first thing inside .wrap: build now, before any content can paint without the
   // menu. (Waiting for DOMContentLoaded let the browser paint a frame without it.)
   if(document.body && document.querySelector('.wrap')) build(); else document.addEventListener('DOMContentLoaded', build);

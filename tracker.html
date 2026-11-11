@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-11-13.1"></script>
+<script src="portal.js?v=2026-11-14.1"></script>
 <script src="project-health.js?v=2026-11-13.1"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-14.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-14.2">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-14.1"></script>
+<script src="shell.js?v=2026-11-14.2"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -524,7 +524,6 @@
     <aside class="gate-hero" aria-hidden="true">
       <div class="gate-hero-brand"><img src="brand/logo-mark-light.png" alt="" width="430" height="894"><span><strong>RITEHOME</strong><small>Modular Systems</small></span></div>
       <div>
-        <p class="gate-hero-k">Staff portal</p>
         <p class="gate-hero-h">Every job, from first inquiry to handover, in one place.</p>
         <ul class="gate-hero-list"><li>Whiteboard</li><li>Schedule</li><li>Leads</li><li>Projects</li><li>Procurement</li><li>Books</li></ul>
       </div>
@@ -533,8 +532,7 @@
     <div class="gate-main">
     <div class="card gate-card">
       <img class="gate-logo" src="brand/logo-mark.png" alt="" width="430" height="894">
-      <span class="eyebrow">Welcome back</span>
-      <h1>Project Tracker</h1>
+      <h1>Staff sign-in</h1>
       <p id="gateMsg">Connecting…</p>
       <form id="gateForm" hidden>
         <div class="field" style="margin:0;">
@@ -587,9 +585,8 @@
       <div class="hero-inner">
         <div class="hero-top">
           <div>
-            <span class="eyebrow">All projects</span>
-            <h1>Ritehome Project Tracker</h1>
-            <div class="sub">Every job, one ledger. Open a project below, or start a new one.</div>
+            <h1 id="dashTitle">Open jobs</h1>
+            <div class="sub">Which jobs need you, who owes us, and where profit is slipping.</div>
           </div>
           <div class="sync" id="syncPill"><span class="dot"></span><span id="syncLabel">Connecting…</span></div>
         </div>
@@ -614,10 +611,10 @@
     <!-- Profit outlook: the open book of work, and which jobs to look at first (project-health.js) -->
     <section class="dash-section" id="healthSection">
       <div class="kpis health-kpis">
+        <div class="kpi"><span class="label">Need attention</span><span class="val" id="hfAttention">0</span><span class="sub-line" id="hfAttentionSub"></span></div>
         <div class="kpi"><span class="label">Active projects</span><span class="val" id="hfActive">0</span><span class="sub-line" id="hfActiveSub"></span></div>
         <div class="kpi"><span class="label">Profit at handover</span><span class="val small" id="hfProjected">—</span><span class="sub-line" id="hfProjectedSub"></span></div>
         <div class="kpi"><span class="label">Profit eroded</span><span class="val small" id="hfErosion">—</span><span class="sub-line" id="hfErosionSub"></span></div>
-        <div class="kpi"><span class="label">Need attention</span><span class="val" id="hfAttention">0</span><span class="sub-line" id="hfAttentionSub"></span></div>
       </div>
       <div class="attn-list" id="attnList"></div>
     </section>
@@ -1443,7 +1440,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-14.1";
+  var PAGE_VERSION = "2026-11-14.2";
 
   // ---------- reference data ----------
 
@@ -3398,7 +3395,7 @@
     var status = budget <= 0 ? "warn" : pct > 100 ? "bad" : pct >= 80 ? "warn" : "good";
     var bill = billingSummary(price, normBilling(p));
     var nd = nextDueInfo(bill.next);
-    var sysLabel = SYSTEM_LABEL[p.system] || "System not set";
+    var sysLabel = SYSTEM_LABEL[p.system] || "";
     var tierLabel = TIER_LABEL[p.tier] || "";
     var isSampleCard = p.id === "sample";
     var done = isCompleted(p);
@@ -3416,11 +3413,11 @@
           '<div>' +
             '<h3>' + esc(p.name) + (isSampleCard ? '<span class="sample-tag">SAMPLE</span>' : '') + '</h3>' +
             (p.clientName ? '<div class="pcard-client">' + esc(p.clientName) + '</div>' : '') +
-            '<div class="pills"><span class="pill">' + esc(sysLabel) + '</span>' + (tierLabel ? '<span class="pill">' + esc(tierLabel) + '</span>' : '') + '</div>' +
+            (sysLabel || tierLabel ? '<div class="pills">' + (sysLabel ? '<span class="pill">' + esc(sysLabel) + '</span>' : '') + (tierLabel ? '<span class="pill">' + esc(tierLabel) + '</span>' : '') + '</div>' : '') +
           '</div>' +
           '<button class="icon-btn danger" data-action="delete-project" data-id="' + esc(p.id) + '" title="' + (isSampleCard ? "Hide sample" : "Delete project") + '" type="button">' + iconTrash() + '</button>' +
         '</div>' +
-        '<div class="pcard-pills"><span class="status-pill ' + sched.cls + '">' + esc(sched.short) + '</span>' +
+        '<div class="pcard-pills">' + (p.targetDate || done ? '<span class="status-pill ' + sched.cls + '">' + esc(sched.short) + '</span>' : '') +
           (hh.status !== "unknown" && hh.status !== "setup" ? '<span class="status-pill ' + (HEALTH_CLS[hh.status] || "neutral") + '">' + esc(hh.label) + '</span>' : '') + '</div>' +
         '<div class="bar-track"><div class="bar-fill ' + status + '" style="width:' + pct + '%"></div></div>' +
         (hh.progress != null && !done ? '<div class="pcard-pace mono">Budget ' + (hh.budgetUsed != null ? Math.round(hh.budgetUsed) + '%' : '—') + ' used · work ' + Math.round(hh.progress) + '% done</div>' : '') +
@@ -3466,6 +3463,13 @@
     at.textContent = String(f.attention.length);
     at.className = "val" + (f.attention.length ? " alert" : "");
     $("hfAttentionSub").textContent = f.attention.length ? "Listed below, worst first" : "Every open job is on pace";
+    // The headline says the one thing worth knowing at a glance (projects view only; the fuel and
+    // procurement workspaces keep their own titles from portal.js).
+    var mode = (window.RitehomePortal || {}).mode;
+    if(mode === "all" || mode === "projects"){
+      $("dashTitle").textContent = !f.active ? "No open jobs" : plural(f.active, "open job") + " · " +
+        (f.attention.length ? f.attention.length + (f.attention.length === 1 ? " needs" : " need") + " you" : "all on pace");
+    }
     $("attnList").innerHTML = f.attention.map(function(r){
       var p = r.project, h = r.h, why;
       if(h.status === "loss") why = "At this pace: " + signedMoney(Math.round(h.projectedProfit)) + " at handover" + (h.quotedProfit != null ? " (quoted " + signedMoney(h.quotedProfit) + ")" : "");

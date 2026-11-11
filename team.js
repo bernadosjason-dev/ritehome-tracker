@@ -152,15 +152,15 @@
     if(!body.full_name) return fail(new Error("Write the person's name."));
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(body.email)) return fail(new Error("That email address doesn't look right."));
     if(body.password.length < 10) return fail(new Error("The temporary password needs at least 10 characters."));
-    $("pSave").disabled = true;
+    RitehomeBusy($("pSave"), true);
     fn(body).then(function(){
-      $("pSave").disabled = false; $("addCard").hidden = true; $("addForm").reset();
+      RitehomeBusy($("pSave"), false); $("addCard").hidden = true; $("addForm").reset();
       msg("Account created for " + body.full_name + ".");
       return load().then(function(){
         var p = state.people.filter(function(x){ return (x.email || "").toLowerCase() === body.email.toLowerCase(); })[0];
         showHandover(body.full_name, body.email.toLowerCase(), body.password, p ? boardRows(p).filter(function(b){ return (p.project_ids || []).indexOf(b.id) < 0; }) : []);
       });
-    }).catch(function(err){ $("pSave").disabled = false; fail(err); });
+    }).catch(function(err){ RitehomeBusy($("pSave"), false); fail(err); });
   }
   function resetPassword(p){
     var pw = tempPassword();

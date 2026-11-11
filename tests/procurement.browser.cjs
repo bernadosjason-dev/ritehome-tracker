@@ -7,6 +7,7 @@ const {createBackend}=require('./fuel.test.cjs');
  try{
   const page=await browser.newPage();const errors=[];let loseSave=false;let loseSaveCount=0;page.on('pageerror',e=>errors.push(e.message));
   await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
+  await page.addInitScript(()=>{try{sessionStorage.setItem('ritehome_ptab','procurement');}catch(e){}});   // project-level procurement lives in its tab
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());
   await page.route('https://script.google.com/**',async r=>{const req=r.request().postDataJSON();const result=b.request(req);if(req.action==='saveProcurement'&&loseSaveCount>0){loseSaveCount--;return r.abort();}if(req.action==='saveProcurement'&&loseSave){loseSave=false;return r.abort();}await r.fulfill({json:result});});
   await page.goto('http://127.0.0.1:8000/tracker.html#p='+project,{waitUntil:'domcontentloaded'});

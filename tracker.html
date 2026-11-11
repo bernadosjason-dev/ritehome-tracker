@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-11-11.11"></script>
+<script src="portal.js?v=2026-11-11.12"></script>
+<script src="project-health.js?v=2026-11-11.12"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -276,7 +277,7 @@
   .card.needs-save, .hero.needs-save{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn);}
   .form-ok{color:var(--good);font-size:12.5px;font-weight:600;margin-top:8px;}
   .form-ok:empty{display:none;}
-  body.readonly :is(#newProjectToggle, #newProjectCard, #completeBtn, #nameEditBtn, #budgetEditBtn, #priceEditBtn, #fuelEditBtn,
+  body.readonly :is(#newProjectToggle, #newProjectCard, #completeBtn, #nameEditBtn, #budgetEditBtn, #progressEditBtn, #priceEditBtn, #fuelEditBtn, #addExpenseBtn,
     #infoEditBtn, #billingEditBtn, #pkAddBtn, #expenseCard, .w,
     [data-action="delete-project"], [data-action="record-payment"], [data-action="pk-edit"], [data-action="pk-delete"],
     [data-action="edit"], [data-action="delete"]){display:none !important;}
@@ -481,9 +482,9 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-11-11.11">
-<link rel="stylesheet" href="portals.css?v=2026-11-11.11">
-<link rel="stylesheet" href="shell.css?v=2026-11-11.11">
+<link rel="stylesheet" href="ui.css?v=2026-11-11.12">
+<link rel="stylesheet" href="portals.css?v=2026-11-11.12">
+<link rel="stylesheet" href="shell.css?v=2026-11-11.12">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -496,7 +497,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-11.11"></script>
+<script src="shell.js?v=2026-11-11.12"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -574,7 +575,18 @@
       <div id="pj-list"></div>
     </section>
 
-    <div class="kpis">
+    <!-- Profit outlook: the open book of work, and which jobs to look at first (project-health.js) -->
+    <section class="dash-section" id="healthSection">
+      <div class="kpis health-kpis">
+        <div class="kpi"><span class="label">Active projects</span><span class="val" id="hfActive">0</span><span class="sub-line" id="hfActiveSub"></span></div>
+        <div class="kpi"><span class="label">Profit at handover</span><span class="val small" id="hfProjected">—</span><span class="sub-line" id="hfProjectedSub"></span></div>
+        <div class="kpi"><span class="label">Profit eroded</span><span class="val small" id="hfErosion">—</span><span class="sub-line" id="hfErosionSub"></span></div>
+        <div class="kpi"><span class="label">Need attention</span><span class="val" id="hfAttention">0</span><span class="sub-line" id="hfAttentionSub"></span></div>
+      </div>
+      <div class="attn-list" id="attnList"></div>
+    </section>
+
+    <div class="kpis" hidden>
       <div class="kpi">
         <span class="label">Unfinished</span>
         <span class="val" id="dashUnfinished">0</span>
@@ -767,6 +779,7 @@
       <button class="btn ghost" id="backBtn" type="button">&larr; All projects</button>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
         <span class="muted" id="printStatus" style="font-size:12px;" role="status"></span>
+        <button class="btn ghost" id="addExpenseBtn" type="button" data-ptab-go="expenses" data-focus="f-item">+ Add expense</button>
         <button class="btn ghost" id="printBtn" type="button">Print summary</button>
         <button class="btn small" id="completeBtn" type="button">Mark as complete</button>
       </div>
@@ -794,10 +807,12 @@
           <button class="btn ghost" id="nameCancelBtn" type="button">Cancel</button>
         </div>
 
-        <div class="budget-row">
+        <!-- Health: is this job on track to make money? (project-health.js) -->
+        <div class="budget-row cols-4 health-figs">
           <div class="budget-fig">
-            <span class="label">Total spent</span>
+            <span class="label">Spent</span>
             <span class="val mono" id="figSpent">₱0</span>
+            <span class="fig-sub" id="figSpentSub"></span>
           </div>
           <div class="budget-fig">
             <span class="label">
@@ -805,10 +820,20 @@
               <button class="budget-edit-btn no-print" id="budgetEditBtn" type="button">edit</button>
             </span>
             <span class="val mono" id="figBudget">₱0</span>
+            <span class="fig-sub">Left <span class="mono" id="figRemaining">₱0</span></span>
           </div>
           <div class="budget-fig">
-            <span class="label">Remaining</span>
-            <span class="val mono" id="figRemaining">₱0</span>
+            <span class="label">
+              Work done
+              <button class="budget-edit-btn no-print" id="progressEditBtn" type="button">edit</button>
+            </span>
+            <span class="val mono" id="figProgress">—</span>
+            <span class="fig-sub" id="figProgressSub"></span>
+          </div>
+          <div class="budget-fig">
+            <span class="label">Profit at handover</span>
+            <span class="val mono" id="figProjected">—</span>
+            <span class="fig-sub" id="figProjectedSub"></span>
           </div>
         </div>
 
@@ -817,11 +842,17 @@
           <button class="btn small" id="budgetSaveBtn" type="button">Save</button>
           <button class="btn ghost" id="budgetCancelBtn" type="button">Cancel</button>
         </div>
-
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div class="bar-track" style="flex:1 1 240px;"><div class="bar-fill good" id="budgetBarFill" style="width:0%"></div></div>
-          <span class="status-pill good" id="budgetStatusPill">On track</span>
+        <div id="progressEditRow" class="budget-edit-row no-print" hidden>
+          <input type="number" id="progressInput" min="0" max="100" step="5" inputmode="numeric" placeholder="% of the work done, e.g. 40" aria-label="Work done, percent">
+          <button class="btn small" id="progressSaveBtn" type="button">Save</button>
+          <button class="btn ghost" id="progressCancelBtn" type="button">Cancel</button>
         </div>
+
+        <div class="pace" aria-label="Budget used compared with work done">
+          <div class="pace-row"><span class="pace-label">Budget used</span><div class="bar-track"><div class="bar-fill good" id="budgetBarFill" style="width:0%"></div></div><span class="pace-val mono" id="paceBudget">—</span></div>
+          <div class="pace-row"><span class="pace-label">Work done</span><div class="bar-track"><div class="bar-fill work" id="progressBarFill" style="width:0%"></div></div><span class="pace-val mono" id="paceWork">—</span></div>
+        </div>
+        <div class="health-line"><span class="status-pill good" id="budgetStatusPill">On track</span><span class="muted" id="healthNote"></span></div>
 
         <div class="sample-banner no-print" id="sampleBanner" hidden>
           <strong>Sample project.</strong> Nothing here is saved — create your own project from the dashboard to start tracking for real.
@@ -829,7 +860,16 @@
       </div>
     </header>
 
-    <section class="card" id="procurementCard">
+    <nav class="ptabs no-print" id="projectTabs" aria-label="Project sections">
+      <button type="button" data-ptab-btn="overview">Overview</button>
+      <button type="button" data-ptab-btn="expenses">Expenses</button>
+      <button type="button" data-ptab-btn="billing">Billing</button>
+      <button type="button" data-ptab-btn="labor">Labor</button>
+      <button type="button" data-ptab-btn="procurement" class="ptab-procurement">Procurement</button>
+      <button type="button" data-ptab-btn="details">Details</button>
+    </nav>
+
+    <section class="card" id="procurementCard" data-ptab="procurement">
       <div class="card-head"><div><h2>Procurement · BOMs &amp; purchase orders</h2><div class="muted">One procurement job, multiple BOMs. Split quantities across suppliers without losing what remains.</div></div><button class="btn ghost" type="button" id="pr-refresh">Refresh procurement</button></div>
       <div id="pr-next-step" class="procurement-next-step no-print"></div>
       <p id="pr-status" class="rc-status" role="status"></p><p id="pr-totals" class="muted" role="status"></p>
@@ -868,7 +908,7 @@
     </section>
 
     <!-- 1. Project & client -->
-    <div class="card">
+    <div class="card" data-ptab="details">
       <div class="card-head">
         <h2>Project &amp; client</h2>
         <button class="btn ghost no-print" id="infoEditBtn" type="button">Edit details</button>
@@ -944,7 +984,7 @@
     </div>
 
     <!-- 2. Contract & billing -->
-    <div class="card">
+    <div class="card" data-ptab="billing">
       <h2>Contract &amp; billing</h2>
       <div class="budget-row cols-4">
         <div class="budget-fig">
@@ -1022,7 +1062,7 @@
     </div>
 
     <!-- 3. Labor -->
-    <div class="card">
+    <div class="card" data-ptab="labor">
       <h2>Labor</h2>
       <div class="budget-row cols-4">
         <div class="budget-fig">
@@ -1107,9 +1147,13 @@
       <div class="note no-print">Record pakyawan payments and daily wages under <strong>Add expense → Category: Labor</strong>. A man-day is 8 man-hours.</div>
     </div>
 
-    <!-- 4. Cost management -->
-    <div class="pair">
+    <!-- 4. Overview: where the money went, the fuel cap, the latest expenses -->
+    <div class="pair" data-ptab="overview">
       <div class="card">
+        <h2>Where the money went <span class="count" id="catCount"></span></h2>
+        <div id="categoryChart"></div>
+      </div>
+      <div class="card" hidden>
         <h2>Materials</h2>
         <div class="budget-fig">
           <span class="label">Materials spent</span>
@@ -1158,12 +1202,17 @@
       </div>
     </div>
 
-    <div class="kpis">
+    <div class="card" data-ptab="overview" id="recentCard">
+      <div class="card-head"><h2>Latest expenses</h2><button class="btn ghost small no-print" type="button" data-ptab-go="expenses">All expenses</button></div>
+      <div id="recentList"></div>
+    </div>
+
+    <div class="kpis" data-ptab="expenses">
       <div class="kpi">
         <span class="label">Items logged</span>
         <span class="val" id="kpiCount">0</span>
       </div>
-      <div class="kpi">
+      <div class="kpi" hidden>
         <span class="label">Top category</span>
         <span class="val small" id="kpiTopCategory">—</span>
       </div>
@@ -1178,7 +1227,7 @@
       </div>
     </div>
 
-    <div class="layout">
+    <div class="layout" data-ptab="expenses">
       <div class="col">
         <div class="card no-print" id="expenseCard">
           <h2 id="expenseFormTitle">Add expense</h2>
@@ -1279,10 +1328,6 @@
           </form>
         </div>
 
-        <div class="card">
-          <h2>By category <span class="count" id="catCount"></span></h2>
-          <div id="categoryChart"></div>
-        </div>
       </div>
 
       <div class="col">
@@ -1338,10 +1383,10 @@
 </div>
 
 <script src="vendor/fflate-0.8.2.js"></script>
-<script src="bom-import.js?v=2026-11-11.11"></script>
-<script src="procurement.js?v=2026-11-11.11"></script>
+<script src="bom-import.js?v=2026-11-11.12"></script>
+<script src="procurement.js?v=2026-11-11.12"></script>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="supabase-backend.js?v=2026-11-11.11"></script>
+<script src="supabase-backend.js?v=2026-11-11.12"></script>
 <script>
 (function(){
   "use strict";
@@ -1362,7 +1407,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-11.11";
+  var PAGE_VERSION = "2026-11-11.12";
 
   // ---------- reference data ----------
 
@@ -2332,28 +2377,83 @@
 
   // ---------- render: project screen ----------
 
+  // The header answers one question: is this job on track to make money? Budget used is set against
+  // work done; the projection and the status come from project-health.js (same rules as the list).
+  function projectHealth(spent){
+    return window.RitehomeHealth.health({price: state.projectPrice, budget: state.budget, totalSpent: spent,
+      materialsSpent: categorySpent(state.expenses, "materials"),
+      progress: state.progress, status: state.status, targetDate: state.targetDate}, todayISO());
+  }
+  var HEALTH_CLS = {loss: "bad", over: "bad", overrun: "warn", late: "warn", setup: "warn", unknown: "neutral", ok: "good", done: "good"};
+
   function renderBudget(){
     var spent = computeTotals(state.expenses).total;
     var budget = state.budget || 0;
-    var pct = budget > 0 ? (spent / budget) * 100 : 0;
+    var h = projectHealth(spent);
+    var used = h.budgetUsed;
 
     $("figSpent").textContent = money(spent);
+    $("figSpentSub").textContent = used != null ? Math.round(used) + "% of budget" : "";
     $("figBudget").textContent = budget > 0 ? money(budget) : "Not set";
     $("figRemaining").textContent = budget > 0 ? signedMoney(budget - spent) : "—";
+    $("figProgress").textContent = h.progress != null ? Math.round(h.progress) + "%" : "Not set";
+    $("figProgressSub").textContent = isCompleted(state) ? "Completed" : h.progress == null ? "Set it to see if the job is on pace" : "Update as work moves";
+    var proj = $("figProjected");
+    proj.textContent = h.projectedProfit != null ? signedMoney(Math.round(h.projectedProfit)) : "—";
+    proj.className = "val mono" + (h.projectedProfit != null && h.projectedProfit < 0 ? " var-neg" : "");
+    $("figProjectedSub").textContent = h.projectedProfit == null ? (state.projectPrice ? "" : "Set the contract price")
+      : h.quotedProfit != null ? "Quoted " + signedMoney(h.quotedProfit) + (Math.round(h.erosion) > 0 ? " · " + money(Math.round(h.erosion)) + " eroded" : "")
+      : "";
 
-    var status = pct > 100 ? "bad" : pct >= 80 ? "warn" : "good";
-    var label = pct > 100 ? "Over budget" : pct >= 80 ? "Approaching limit" : "On track";
-    if(budget <= 0){ status = "warn"; label = "Set a budget"; }
-
+    var bcls = budget <= 0 ? "warn" : used > 100 ? "bad" : h.flags.indexOf("overrun") >= 0 ? "warn" : "good";
     var fill = $("budgetBarFill");
-    fill.className = "bar-fill " + status;
-    fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    fill.className = "bar-fill " + bcls;
+    fill.style.width = (used != null ? Math.max(0, Math.min(100, used)) : 0) + "%";
+    $("paceBudget").textContent = used != null ? Math.round(used) + "%" : "—";
+    $("progressBarFill").style.width = (h.progress != null ? h.progress : 0) + "%";
+    $("paceWork").textContent = h.progress != null ? Math.round(h.progress) + "%" : "—";
 
     var pill = $("budgetStatusPill");
-    pill.className = "status-pill " + status;
-    pill.textContent = label + (budget > 0 ? " · " + Math.round(pct) + "%" : "");
+    pill.className = "status-pill " + (HEALTH_CLS[h.status] || "neutral");
+    pill.textContent = h.label;
+    var note = "";
+    if(h.status === "done") note = h.projectedProfit != null ? "Final profit " + signedMoney(Math.round(h.projectedProfit)) + (state.projectPrice ? " · " + Math.round(h.projectedProfit / state.projectPrice * 100) + "% margin" : "") + "." : "";
+    else if(h.status === "setup") note = "Set the budget to compare spending with work done.";
+    else if(h.status === "unknown") note = "Set how much of the work is done to see whether spending is keeping pace.";
+    else if(h.projectedProfit != null){
+      note = "Expected cost " + money(Math.round(h.projectedCost)) + " (" + money(Math.round(h.spent)) + " spent + what the budget allows for the " +
+        Math.round(100 - h.progress) + "% of work left), so profit at handover " + signedMoney(Math.round(h.projectedProfit)) +
+        (h.quotedProfit != null ? " vs " + signedMoney(h.quotedProfit) + " quoted" : "") + ".";
+      if(h.late) note += " Past the target date.";
+    }
+    $("healthNote").textContent = note;
 
     $("sampleBanner").hidden = !isSample();
+  }
+
+  // ---------- project tabs: Overview · Expenses · Billing · Labor · Procurement · Details ----------
+  var PTABS = ["overview", "expenses", "billing", "labor", "procurement", "details"];
+  function currentProjectTab(){
+    var t = "";
+    try { t = sessionStorage.getItem("ritehome_ptab") || ""; } catch(e){}
+    if(t === "procurement" && PORTAL !== "all") t = "";
+    return PTABS.indexOf(t) >= 0 ? t : "overview";
+  }
+  function setProjectTab(tab){
+    if(PTABS.indexOf(tab) < 0) tab = "overview";
+    try { sessionStorage.setItem("ritehome_ptab", tab); } catch(e){}
+    $("projectScreen").setAttribute("data-tab", tab);
+    document.querySelectorAll("[data-ptab-btn]").forEach(function(b){
+      if(b.getAttribute("data-ptab-btn") === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+  }
+
+  function renderRecent(){
+    var list = state.expenses.slice().sort(function(a, b){ return (b.date || "").localeCompare(a.date || "") || String(b.createdAt || "").localeCompare(String(a.createdAt || "")); }).slice(0, 5);
+    $("recentList").innerHTML = list.length ? '<div class="recent-list">' + list.map(function(e){
+      return '<div class="recent-row"><span class="recent-date mono">' + esc(dateFmt(e.date)) + '</span><span class="recent-item">' + esc(e.item || CAT_LABEL[e.category] || "Expense") +
+        '<span class="cell-sub">' + esc(CAT_LABEL[e.category] || "Other") + (e.vendor ? " · " + esc(e.vendor) : "") + '</span></span><span class="recent-amt mono">' + money(Number(e.amount) || 0) + '</span></div>';
+    }).join("") + '</div>' : '<p class="muted">Nothing logged yet. Every peso spent on this job goes in Expenses.</p>';
   }
 
   function setInfo(id, text){
@@ -3231,6 +3331,8 @@
     ALLOTMENTS.forEach(renderAllotment);
     renderKPIs();
     renderCategoryChart();
+    renderRecent();
+    setProjectTab(currentProjectTab());
     renderTable();
     renderReceiptForm();
     renderReceiptDialog();
@@ -3266,6 +3368,7 @@
     var done = isCompleted(p);
     var sched = scheduleInfo(p);
     var profit = price - spent;
+    var hh = window.RitehomeHealth.health(p, todayISO());
 
     function line(label, value, cls){
       return '<div class="stat-line"><span class="muted">' + label + '</span><span class="v' + (cls ? " " + cls : "") + '">' + value + '</span></div>';
@@ -3281,8 +3384,10 @@
           '</div>' +
           '<button class="icon-btn danger" data-action="delete-project" data-id="' + esc(p.id) + '" title="' + (isSampleCard ? "Hide sample" : "Delete project") + '" type="button">' + iconTrash() + '</button>' +
         '</div>' +
-        '<div><span class="status-pill ' + sched.cls + '">' + esc(sched.short) + '</span></div>' +
+        '<div class="pcard-pills"><span class="status-pill ' + sched.cls + '">' + esc(sched.short) + '</span>' +
+          (hh.status !== "unknown" && hh.status !== "setup" ? '<span class="status-pill ' + (HEALTH_CLS[hh.status] || "neutral") + '">' + esc(hh.label) + '</span>' : '') + '</div>' +
         '<div class="bar-track"><div class="bar-fill ' + status + '" style="width:' + pct + '%"></div></div>' +
+        (hh.progress != null && !done ? '<div class="pcard-pace mono">Budget ' + (hh.budgetUsed != null ? Math.round(hh.budgetUsed) + '%' : '—') + ' used · work ' + Math.round(hh.progress) + '% done</div>' : '') +
         '<div class="pcard-stats">' +
           line("Spent", money(spent) + (budget > 0 ? " / " + money(budget) : "")) +
           (done && price ? line("Profit", signedMoney(profit) + " · " + Math.round(profit / price * 100) + "%") : "") +
@@ -3307,6 +3412,37 @@
       '</div>';
   }
 
+  // Profit outlook on the projects list: open jobs only, worst first.
+  function renderOutlook(){
+    var H = window.RitehomeHealth, f = H.portfolio(state.projects, todayISO());
+    $("hfActive").textContent = String(f.active);
+    $("hfActiveSub").textContent = f.contractValue ? money(f.contractValue) + " in contracts" : "";
+    var pj = $("hfProjected");
+    pj.textContent = f.compared ? signedMoney(Math.round(f.projectedProfit)) : "—";
+    pj.className = "val small" + (f.compared && f.projectedProfit < 0 ? " alert" : "");
+    $("hfProjectedSub").textContent = f.compared ? "vs " + signedMoney(Math.round(f.quotedProfit)) + " quoted" : "Needs a contract price and budget";
+    var er = $("hfErosion");
+    er.textContent = f.compared ? (Math.round(f.erosion) > 0 ? money(Math.round(f.erosion)) : "None") : "—";
+    er.className = "val small" + (f.compared && Math.round(f.erosion) > 0 ? " alert" : "");
+    $("hfErosionSub").textContent = f.eroding ? "Short of the quote on " + f.eroding + (f.eroding === 1 ? " job" : " jobs") + (f.missingProgress ? " · " + f.missingProgress + " without work done %" : "")
+      : f.missingProgress ? f.missingProgress + " without work done % (counted at budget)" : f.compared ? "Every job at or above its quote" : "";
+    var at = $("hfAttention");
+    at.textContent = String(f.attention.length);
+    at.className = "val" + (f.attention.length ? " alert" : "");
+    $("hfAttentionSub").textContent = f.attention.length ? "Listed below, worst first" : "Every open job is on pace";
+    $("attnList").innerHTML = f.attention.map(function(r){
+      var p = r.project, h = r.h, why;
+      if(h.status === "loss") why = "At this pace: " + signedMoney(Math.round(h.projectedProfit)) + " at handover" + (h.quotedProfit != null ? " (quoted " + signedMoney(h.quotedProfit) + ")" : "");
+      else if(h.status === "over") why = "Spent " + money(h.spent) + " of a " + money(h.budget) + " budget";
+      else if(h.status === "overrun") why = "Expected cost " + money(Math.round(h.projectedCost)) + " vs a " + money(h.budget) + " budget · work " + Math.round(h.progress) + "% done";
+      else why = "Target date was " + dateFmt(p.targetDate);
+      return '<div class="attn-row ' + (h.severity >= 4 ? "bad" : "warn") + '">' +
+        '<div class="attn-main"><span class="status-pill ' + (HEALTH_CLS[h.status] || "warn") + '">' + esc(h.label) + '</span><strong>' + esc(p.name) + '</strong>' +
+        '<span class="attn-why">' + esc(why) + '</span></div>' +
+        '<button class="btn ghost small" type="button" data-open-project="' + esc(p.id) + '">Open project</button></div>';
+    }).join("");
+  }
+
   function renderDashboard(){
     if(PORTAL === "procurement"){ renderProcurementJobs(); return; }
     renderCompanyFuel();
@@ -3329,6 +3465,7 @@
     od.textContent = String(overdue);
     od.className = "val" + (overdue ? " alert" : "");
     $("dashCompleted").textContent = String(completed.length);
+    renderOutlook();
     var priced = completed.filter(function(p){ return (p.price||0) > 0; });
     $("dashProfit").textContent = priced.length
       ? signedMoney(sum(priced, function(p){ return p.price - (p.totalSpent||0); }))
@@ -3786,6 +3923,7 @@
     state.status = d.status || "active";
     state.completedAt = d.completedAt || "";
     state.targetDate = d.targetDate || "";
+    state.progress = d.progress === "" || d.progress == null || !isFinite(Number(d.progress)) ? null : Math.max(0, Math.min(100, Number(d.progress)));
   }
 
   function expensesRef(){
@@ -3933,7 +4071,7 @@
 
   var FIELD_NAMES = {name: "Project name", budget: "Budget", price: "Contract price", fuelBudget: "Fuel budget",
     billing: "Payment schedule", pakyawan: "Pakyawan contracts", laborTotal: "Labor total",
-    status: "Project status", completedAt: "Project status"};
+    status: "Project status", completedAt: "Project status", progress: "Work done"};
 
   // Applies the change to the screen immediately; the db snapshot then confirms it.
   function saveProjectFields(patch){
@@ -4368,6 +4506,24 @@
     wireEditRow("fuel", function(){ return state.fuelBudget || ""; }, function(v){
       saveProjectFields({fuelBudget: Number(v) || 0});
     });
+    wireEditRow("progress", function(){ return state.progress == null ? "" : state.progress; }, function(v){
+      if(String(v).trim() === ""){ saveProjectFields({progress: null}); return; }
+      var n = Math.round(Number(v));
+      if(!isFinite(n) || n < 0 || n > 100){ alert("Work done is a percentage from 0 to 100."); return; }
+      saveProjectFields({progress: n});
+    });
+
+    // --- project tabs ---
+    $("projectScreen").addEventListener("click", function(e){
+      var b = e.target.closest("[data-ptab-btn]");
+      if(b){ setProjectTab(b.getAttribute("data-ptab-btn")); return; }
+      var go = e.target.closest("[data-ptab-go]");
+      if(go){
+        setProjectTab(go.getAttribute("data-ptab-go"));
+        var f = go.getAttribute("data-focus") && $(go.getAttribute("data-focus"));
+        if(f){ f.scrollIntoView({block: "center"}); f.focus(); }
+      }
+    });
 
     // --- project & client ---
 
@@ -4471,6 +4627,10 @@
       var pid = b.getAttribute("data-id");
       if(b.getAttribute("data-ar") === "remind") openRemind(pid, b.getAttribute("data-key"));
       else guardLeave(function(){ openProject(pid); });
+    });
+    $("attnList").addEventListener("click", function(e){
+      var b = e.target.closest("button[data-open-project]");
+      if(b) guardLeave(function(){ openProject(b.getAttribute("data-open-project")); });
     });
     var rmBox = $("remindDialog");
     rmBox.addEventListener("click", function(e){
@@ -5358,7 +5518,7 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-11-11.11"></script>
+<script src="ui.js?v=2026-11-11.12"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

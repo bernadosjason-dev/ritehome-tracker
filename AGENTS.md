@@ -78,3 +78,11 @@ Loading states and moving between workspaces (each menu item is a full page load
   0.3 s so fast loads never flicker. `node tests/warm-start.browser.cjs` covers all of this with an
   800 ms backend.
 
+Project health (`project-health.js`, used by the project page header and the projects list): cost at
+handover = spent + (1 − work done) × (budget − materials already bought); profit at handover = contract
+price − that. Materials count as spent because modular cabinetry buys them up front; do not switch to
+spent ÷ work done, which calls every new job a loss. Portfolio "profit eroded" counts only jobs short of
+their quote. `node --test tests/project-health.test.cjs` holds hand-worked figures; keep it that way.
+The project page is tabbed (Overview · Expenses · Billing · Labor · Procurement · Details) by
+`data-ptab` on each section; the tab is remembered per browser tab in sessionStorage (`ritehome_ptab`).
+

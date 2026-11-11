@@ -35,8 +35,11 @@ const {createBackend}=require('./fuel.test.cjs');
   await page.locator('[data-ui-target="companyFuelCard"]').click();await page.waitForTimeout(400);await page.screenshot({path:'/tmp/ritehome-ui-mobile.png'});
   await page.goto('http://127.0.0.1:8000/tracker.html#p='+project,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>!document.getElementById('pr-fields-bom').disabled);
-  assert(await page.locator('[data-ui-target="procurementCard"]').isVisible());assert(!await page.locator('[data-ui-target="companyFuelCard"]').isVisible());
-  await page.locator('[data-ui-target="procurementCard"]').click();
+  // On a project page the sections are tabs; the old scroll-to pills for them are gone.
+  assert(!await page.locator('[data-ui-target="procurementCard"]').isVisible());assert(!await page.locator('[data-ui-target="companyFuelCard"]').isVisible());
+  assert(await page.locator('[data-ptab-btn="procurement"]').isVisible(),'a Procurement tab on the Dashboard workspace');
+  await page.locator('[data-ptab-btn="procurement"]').click();assert(await page.locator('#procurementCard').isVisible());
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'tabs scroll inside themselves on a phone');
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
   const background=await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor);assert.equal(background,'rgb(15, 15, 17)');
   await page.screenshot({path:'/tmp/ritehome-ui-dark.png'});

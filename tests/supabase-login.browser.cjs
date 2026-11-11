@@ -17,6 +17,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
   const browser = await chromium.launch({executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-dev-shm-usage']});
   try {
     const page = await browser.newPage({viewport: {width: 1280, height: 900}}), errors = [];
+    await page.addInitScript(() => { try { sessionStorage.setItem('ritehome_ptab', 'expenses'); } catch (e) {} });   // these tests work in the Expenses tab
     page.on('pageerror', e => errors.push(e.message));
     let appsScriptCalls = 0;
     await page.route('https://fonts.googleapis.com/**', r => r.abort());

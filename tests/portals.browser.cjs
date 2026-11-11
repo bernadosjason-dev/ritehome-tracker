@@ -38,7 +38,14 @@ const BASE='http://127.0.0.1:8000';
   await go('Projects');assert.equal(path(),'/projects');
   await page.waitForFunction(()=>((document.getElementById('projectGrid')||{}).textContent||'').includes('Client portal project'));
   assert(!await page.locator('#companyFuelCard').isVisible());assert(await page.locator('#arSection').isVisible());
-  await page.locator('#projectGrid .project-card').click();await page.waitForFunction(()=>document.getElementById('projectNameText').textContent==='Client portal project');assert(await page.locator('#expenseCard').isVisible());assert(!await page.locator('#procurementCard').isVisible());
+  await page.locator('#projectGrid .project-card').click();await page.waitForFunction(()=>document.getElementById('projectNameText').textContent==='Client portal project');
+  // The project opens on Overview (health header + tabs); each tab shows one section.
+  assert(await page.locator('#figProjected').isVisible());assert(await page.locator('#recentCard').isVisible());assert(!await page.locator('#expenseCard').isVisible());
+  assert.deepEqual(await page.locator('#projectTabs button:visible').allInnerTexts(),['Overview','Expenses','Billing','Labor','Details'],'no Procurement tab in the projects workspace');
+  await page.locator('[data-ptab-btn="expenses"]').click();assert(await page.locator('#expenseCard').isVisible());assert(!await page.locator('#recentCard').isVisible());
+  await page.locator('[data-ptab-btn="billing"]').click();assert(await page.locator('#billingBody').isVisible());assert(!await page.locator('#expenseCard').isVisible());
+  await page.locator('[data-ptab-btn="overview"]').click();await page.locator('#addExpenseBtn').click();assert(await page.locator('#expenseCard').isVisible());assert.equal(await page.evaluate(()=>document.activeElement.id),'f-item');
+  assert(!await page.locator('#procurementCard').isVisible());
 
   // 4. Procurement: its own jobs, never general projects.
   await go('Procurement');assert.equal(path(),'/procurement');

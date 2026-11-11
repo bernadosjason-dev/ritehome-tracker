@@ -198,3 +198,61 @@ body.connecting .workspace-bar{display:none}
 @keyframes sk-in{from{opacity:0}to{opacity:1}}
 body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{animation:sk-in .2s ease-out .3s both}
 @media (prefers-reduced-motion: reduce){body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{animation:sk-in 0s linear .3s both}}
+
+/* ---------- project page: health header and tabs ---------- */
+.health-figs .fig-sub{display:block;font-size:12px;color:var(--ink-muted);margin-top:3px;font-family:var(--f-body)}
+.health-figs .val.var-neg{color:var(--bad)}
+.pace{display:grid;gap:7px;margin:14px 0 10px}
+.pace-row{display:grid;grid-template-columns:96px minmax(0,1fr) 46px;align-items:center;gap:10px}
+.pace-label{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted)}
+.pace-row .bar-track{margin:0}
+.pace-val{font-size:12.5px;text-align:right}
+.bar-fill.work{background:var(--ink)}
+.health-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;line-height:1.5}
+.health-line .muted{flex:1 1 260px}
+.ptabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;margin:4px 0 14px;scrollbar-width:thin}
+.ptabs button{appearance:none;flex:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 14px;font:500 13.5px/1.1 var(--f-body);cursor:pointer;min-height:38px}
+.ptabs button[aria-current="page"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.ptabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:root[data-portal="projects"] .ptab-procurement{display:none}
+/* One section at a time; the procurement workspace keeps its own single view. */
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="overview"] [data-ptab]:not([data-ptab~="overview"]),
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="expenses"] [data-ptab]:not([data-ptab~="expenses"]),
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="billing"] [data-ptab]:not([data-ptab~="billing"]),
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="labor"] [data-ptab]:not([data-ptab~="labor"]),
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="procurement"] [data-ptab]:not([data-ptab~="procurement"]),
+:root:not([data-portal="procurement"]) #projectScreen[data-tab="details"] [data-ptab]:not([data-ptab~="details"]){display:none!important}
+/* The old scroll-to pills for Overview and Expenses are tabs now. */
+:root:not([data-portal="procurement"]) .workspace-actions [data-ui-target="projectScreen"],
+:root:not([data-portal="procurement"]) .workspace-actions [data-ui-target="expenseCard"],
+:root:not([data-portal="procurement"]) .workspace-actions [data-ui-target="procurementCard"]{display:none!important}
+@media print{.ptabs{display:none!important}#projectScreen [data-ptab]{display:revert!important}}
+.recent-list{display:flex;flex-direction:column}
+.recent-row{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--border)}
+.recent-row:last-child{border-bottom:0}
+.recent-date{font-size:12.5px;color:var(--ink-muted)}
+.recent-item{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.recent-amt{font-size:14px}
+@media (max-width:640px){
+  .pace-row{grid-template-columns:78px minmax(0,1fr) 40px}
+  .recent-row{grid-template-columns:minmax(0,1fr) auto}.recent-date{grid-column:1 / -1}
+}
+
+/* ---------- projects list: profit outlook and attention ---------- */
+.health-kpis .kpi .val.alert{color:var(--bad)}
+.health-kpis .sub-line{font-size:12px;color:var(--ink-muted);line-height:1.4}
+.attn-list{display:flex;flex-direction:column;gap:0;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.attn-list:empty{display:none}
+.attn-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.attn-row:last-child{border-bottom:0}
+.attn-row.bad{box-shadow:inset 3px 0 0 var(--bad)}
+.attn-row.warn{box-shadow:inset 3px 0 0 var(--warn)}
+.attn-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.attn-main strong{font-weight:600}
+.attn-why{color:var(--ink-muted);font-size:13px;flex-basis:100%}
+.pcard-pills{display:flex;gap:6px;flex-wrap:wrap}
+.pcard-pace{font-size:12px;color:var(--ink-muted);margin-top:-4px}
+@media (max-width:640px){
+  .budget-row.health-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px}
+  .health-figs .val{font-size:19px}
+}

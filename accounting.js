@@ -13,6 +13,10 @@
   var SOURCE_LABEL = {journal: "Journal", expense: "Expense", fuel: "Fuel", payment: "Payment"};
   var CATEGORY_KEYS = ["materials", "labor", "transportation", "food", "other"];
 
+  function home(){ return window.RitehomeLinks ? window.RitehomeLinks.href("all") : "tracker.html"; }
+  if(window.RitehomeLinks && window.RitehomeLinks.href("accounting") === "/accounting" && /accounting\.html$/.test(location.pathname)){
+    try { history.replaceState(history.state, "", "/accounting" + location.hash); } catch(e){}
+  }
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}
   });
@@ -581,12 +585,12 @@
   }
 
   $("forgetKeyBtn").addEventListener("click", function(){
-    client.auth.signOut().then(function(){ location.href = "tracker.html"; });
+    client.auth.signOut().then(function(){ location.href = home(); });
   });
   document.body.classList.add("gated", "connecting");   // skeleton of the page while the session is checked
   client.auth.getSession().then(function(r){
     var session = r && r.data && r.data.session;
-    if(!session) return gate("Sign in first", "Sign in on the staff portal, then come back to Accounting from the menu.", true);
+    if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then come back to Accounting from the menu.", true); }
     return rpc("my_role").then(function(role){
       if(role !== "admin") return gate("Accounting is for admins", role ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
       return start();

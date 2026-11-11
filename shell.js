@@ -1,6 +1,6 @@
 /* Builds the portal's left menu (shell.css) around the existing tracker page.
-   It only adds navigation: the four workspaces are the existing ?portal= modes of
-   tracker.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
+   It only adds navigation: the workspaces are tracker.html's portal modes (short addresses
+   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and accounting.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
 (function(){
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
@@ -27,8 +27,16 @@
     return s;
   }
   function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+  // Short addresses where vercel.json serves them (see portal.js); the long form elsewhere.
+  var CLEAN = /(^|\.)ritehomemodular\.com$|\.vercel\.app$|^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  function href(mode){
+    if(mode === 'accounting') return CLEAN ? '/accounting' : 'accounting.html';
+    if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
+    return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
+  }
+  window.RitehomeLinks = {href: href};
   function brand(){
-    var a = el('a', 'side-brand'); a.href = 'tracker.html';
+    var a = el('a', 'side-brand'); a.href = href('all');
     a.appendChild(el('b'));
     var t = el('span'); t.appendChild(el('strong', null, 'RITEHOME')); t.appendChild(el('small', null, 'Staff portal'));
     a.appendChild(t);
@@ -74,12 +82,9 @@
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
     side.appendChild(el('div', 'side-label', 'Workspaces'));
-    [['all', 'Dashboard', 'dash', 'tracker.html'],
-     ['projects', 'Projects', 'projects', 'tracker.html?portal=projects'],
-     ['procurement', 'Procurement', 'procurement', 'tracker.html?portal=procurement'],
-     ['fuel', 'Company fuel', 'fuel', 'tracker.html?portal=fuel'],
-     ['accounting', 'Accounting', 'books', 'accounting.html']].forEach(function(n){
-      var a = el('a', 'side-link'); a.href = n[3]; a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
+    [['all', 'Dashboard', 'dash'], ['projects', 'Projects', 'projects'], ['procurement', 'Procurement', 'procurement'],
+     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books']].forEach(function(n){
+      var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
       side.appendChild(a);
     });

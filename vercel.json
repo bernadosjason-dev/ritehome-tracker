@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/tracker.html"
+    },
+    {
+      "source": "/:mode(projects|procurement|fuel)",
+      "destination": "/tracker.html"
+    },
+    {
+      "source": "/accounting",
+      "destination": "/accounting.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
+}

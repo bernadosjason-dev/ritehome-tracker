@@ -2,7 +2,7 @@
 
 An internal tool for running Ritehome Modular Systems jobs. It covers projects and clients, 50/40/10 progress billing, pakyawan and daily-rate labor, who owes us (with reminder messages), and receipt photos with a "confirmed by head" flag for expenses that have no receipt. **Scan receipt** reads a receipt photo with Gemini and fills in the expense form.
 
-- **Directory:** `index.html`; tracker workspaces use `tracker.html?portal=fuel`, `tracker.html?portal=projects` and `tracker.html?portal=procurement`, served by GitHub Pages at `https://bernadosjason-dev.github.io/ritehome-tracker/`
+- **Addresses:** `https://portal.ritehomemodular.com/` opens the tracker itself (sign-in, then the dashboard); workspaces are `/projects`, `/procurement`, `/fuel` and `/accounting` (`vercel.json` rewrites; `.vercelignore` keeps the old directory `index.html` out of that deployment). Old `tracker.html?portal=…` links still work and tidy themselves to the short form. The GitHub Pages copy at `https://bernadosjason-dev.github.io/ritehome-tracker/` keeps `index.html` and the `?portal=` addresses.
 - **Data:** Supabase (project `laxavfldivkhufeubgmb`): records in the `tracker_docs` table, new receipt photos in the `receipts` bucket. `supabase-backend.js` carries out every action `backend/Code.gs` did, with the same rules and replies, so the screens didn't change. Schema, roles and setup: [`supabase/README.md`](supabase/README.md).
 - **Previous backend:** the Google Sheet + Apps Script web app in `backend/Code.gs` ([`backend/README.md`](backend/README.md)). Setting `var BACKEND = "sheet";` near the top of `tracker.html` switches back to it. Receipts saved before the move stay in Google Drive and still show.
 
@@ -98,7 +98,7 @@ Removed or replaced fuel photos remain in Drive rather than deleting files that
 might be referenced elsewhere.
 
 Backend tests: `node --test tests/fuel.test.cjs`. Browser regression checks:
-start `python3 -m http.server 8000 --bind 127.0.0.1` in the repository, then run
+start `node tests/fixtures/serve.cjs` (serves on 127.0.0.1:8000 with the live `vercel.json` rules), then run
 `node tests/fuel.browser.cjs` with Playwright and `/usr/bin/chromium` installed.
 The browser checks use local simulated Apps Script/Drive services; no production
 records or photos are written.

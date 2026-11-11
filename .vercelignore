@@ -1,0 +1,5 @@
+# portal.ritehomemodular.com opens the tracker itself at "/", which needs no index.html in the
+# deployment (on Vercel a real file wins over a rewrite). The directory page stays in the repo
+# for the old GitHub Pages copy only.
+index.html
+landing.js

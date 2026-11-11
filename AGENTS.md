@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. index.html is the portal directory; keep versioned asset URLs current for UI and directory changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -25,7 +25,7 @@ tests/bom-import.browser.cjs. Never commit customer workbooks as public fixtures
 Keep portal URLs and version reloads compatible with the shared access key.
 Fuel/project/procurement views share tracker.html; do not duplicate business logic
 per portal. Preserve root #key share links through landing.js and test the
-three portals with tests/portals.browser.cjs after navigation changes.
+the addresses and workspaces with tests/portals.browser.cjs after navigation changes.
 
 Procurement uses independently created jobs in the Procurement Jobs tab; never
 automatically list or clone general Projects in that portal. Preserve legacy

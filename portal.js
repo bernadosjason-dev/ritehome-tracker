@@ -1,14 +1,24 @@
 (function(){
  'use strict';
- var value=new URLSearchParams(location.search).get('portal');
+ // Short addresses (portal.ritehomemodular.com/fuel, /projects, /procurement; "/" is the dashboard)
+ // come from vercel.json rewrites. Hosts without them (the old GitHub Pages copy) keep ?portal=.
+ var CLEAN=/(^|\.)ritehomemodular\.com$|\.vercel\.app$|^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+ var params=new URLSearchParams(location.search),seg=location.pathname.split('/').pop().replace(/\.html$/,'');
+ var value=params.get('portal')||seg;
  var mode=['fuel','projects','procurement'].includes(value)?value:'all';
- window.RitehomePortal={mode:mode};document.documentElement.dataset.portal=mode;
+ window.RitehomePortal={mode:mode,clean:CLEAN};document.documentElement.dataset.portal=mode;
+ // Old bookmarks and links (tracker.html?portal=fuel&v=...) tidy themselves to the short form, keeping
+ // any other parameters and the #p= project link. Nothing reloads.
+ if(CLEAN&&(/\/(tracker|index)\.html$/.test(location.pathname)||params.has('portal')||params.has('v'))){
+  params.delete('portal');params.delete('v');
+  var rest=params.toString();
+  try{history.replaceState(history.state,'','/'+(mode==='all'?'':mode)+(rest?'?'+rest:'')+location.hash);}catch(e){}
+ }
  document.addEventListener('DOMContentLoaded',function(){
-  var names={fuel:'Fuel tracker',projects:'Project tracker',procurement:'Procurement tracker',all:'Company tracker'},name=names[mode];
+  var names={fuel:'Fuel tracker',projects:'Project tracker',procurement:'Procurement tracker',all:'Staff portal'},name=names[mode];
   document.title=name+' · Ritehome';
   document.querySelector('.workspace-brand small').textContent=mode==='all'?'Projects · Procurement · Company fuel':name+' · Company workspace';
-  var back=document.createElement('a');back.href='index.html';back.className='btn ghost portal-directory';back.textContent='All portals';document.querySelector('.workspace-bar').appendChild(back);
-  if(mode==='all')return;
+  if(mode==='all'){document.querySelector('#gateScreen h1').textContent='Staff portal';return;}
   document.querySelector('#gateScreen h1').textContent=name;
   document.querySelector('#dashboardScreen .hero h1').textContent=name;
   document.querySelector('#dashboardScreen .hero .eyebrow').textContent=mode==='fuel'?'Company vehicles & equipment':mode==='procurement'?'Independent procurement jobs':'Client projects';

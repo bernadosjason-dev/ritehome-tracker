@@ -2,7 +2,7 @@
 // admin, the next page draws from the data this tab last read before its first paint, then re-checks the
 // sign-in and reloads behind it. Runs with every backend answer held back 800 ms, so only the warm start
 // can show content within 100 ms. Also: a revoked role still ends at the gate and drops the saved copy,
-// sign-out drops it, and a new tab starts cold. Needs: python3 -m http.server 8000 --bind 127.0.0.1
+// sign-out drops it, and a new tab starts cold. Needs: node tests/fixtures/serve.cjs
 const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 const {createFakeSupabase} = require('./fixtures/fake-supabase.cjs');

@@ -3,7 +3,8 @@
 // to "sheet". Everything above the transport is the same code either way; the Supabase
 // path has its own suite (supabase-login.browser.cjs).
 async function useSheetBackend(page) {
-  await page.route(/\/tracker\.html(\?(?!check=).*)?$/, async route => {
+  // tracker.html, and the short addresses vercel.json serves it at: /, /projects, /procurement, /fuel.
+  await page.route(/^https?:\/\/[^/]+\/(tracker\.html|projects|procurement|fuel)?(\?(?!check=).*)?$/, async route => {
     const res = await route.fetch();
     const body = (await res.text()).replace('var BACKEND = "supabase";', 'var BACKEND = "sheet";');
     if (!body.includes('var BACKEND = "sheet";')) throw Error('BACKEND line not found in tracker.html');

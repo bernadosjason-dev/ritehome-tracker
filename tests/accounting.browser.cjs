@@ -2,7 +2,7 @@
 // SQL (supabase/migrations on a throwaway local PostgreSQL, tests/fixtures/local-pg.cjs) and
 // sign-in by tests/fixtures/fake-supabase.cjs. Covers the admin gate, the statements, posting
 // and voiding a journal entry, VAT tags flowing into the VAT figures, settings, CSV export, and
-// phone width. Needs the local HTTP server: python3 -m http.server 8000 --bind 127.0.0.1
+// phone width. Needs the local server: node tests/fixtures/serve.cjs
 const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

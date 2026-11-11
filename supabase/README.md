@@ -51,6 +51,14 @@ admin to check.
   matched. The 16 rows of the office whiteboard were loaded the same day
   (project ids `p_wb…`, `importedFrom` "office whiteboard 2026-11-12"), with no
   start or finish dates, since the board never recorded any.
+- `team` (2026-11-14, `20261114000010_team.sql`): applied comment-stripped, all three
+  functions md5-checked against a local load and matched; anon can't execute them.
+  The `team-admin` Edge Function (`supabase/functions/team-admin/`, version 1) was
+  deployed the same day with JWT verification **off**: it checks the caller's token and
+  admin profile itself, and the platform check would also block the browser's CORS
+  preflight. It uses the `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` that Supabase
+  gives every function; no secret needs setting. Redeploy it after any change to
+  `core.js` (upload both files).
 - Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
   `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
   2 procurement jobs, 1 procurement record). Totals checked against the Sheet.

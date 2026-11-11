@@ -55,6 +55,7 @@ const SHIM = String.raw`(function(){
 })();`;
 
 // opts.rpc(name, args, user) answers any function but my_role (e.g. from a real local PostgreSQL).
+// opts.delayMs holds every answer back that long.
 function createFakeSupabase(opts = {}) {
   const users = [
     {id: 'u-admin', email: 'admin@ritehome.test', password: 'admin-pass', role: 'admin', active: true},
@@ -104,6 +105,7 @@ function createFakeSupabase(opts = {}) {
 
   async function handle(raw) {
     const m = JSON.parse(raw);
+    if (opts.delayMs) await new Promise(r => setTimeout(r, opts.delayMs));   // a slow network, for loading-state tests
     if (m.kind === 'signIn') {
       const u = users.find(x => x.email === m.email && x.password === m.password);
       if (!u) return {error: {status: 400, code: 'invalid_credentials', message: 'Invalid login credentials'}};

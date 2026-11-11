@@ -123,8 +123,11 @@
       who.textContent = email ? 'Signed in as ' + email : '';
     }
     refreshWho();
+    document.addEventListener('DOMContentLoaded', refreshWho);   // #forgetKeyBtn comes later in the page
     // the page sets the button label and the session after boot
     new MutationObserver(refreshWho).observe(document.body, {attributes: true, attributeFilter: ['class']});
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+  // Loaded as the first thing inside .wrap: build now, before any content can paint without the
+  // menu. (Waiting for DOMContentLoaded let the browser paint a frame without it.)
+  if(document.body && document.querySelector('.wrap')) build(); else document.addEventListener('DOMContentLoaded', build);
 })();

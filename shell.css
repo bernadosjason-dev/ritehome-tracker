@@ -185,3 +185,16 @@ body.gated.connecting #gateScreen{display:none!important}
 .kpi.sk-kpi-box .sk-line{margin:6px 0}
 body.connecting .workspace-bar{display:none}
 .pj-card-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start}
+
+/* ---------- moving between pages without a flash ----------
+   Each menu item is a separate page load. Browsers that support cross-document view
+   transitions (Chrome, Edge) keep the old page on screen until the new one has painted,
+   then swap in a single frame. No cross-fade: two different layouts fading through each
+   other read as a smear. The warm start in tracker.html makes that first paint real content. */
+@view-transition{navigation:auto}
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none}
+/* Skeletons fade in only if loading takes longer than 0.3s, so a fast load goes straight to
+   content instead of flickering a placeholder. They keep their space meanwhile: no jump. */
+@keyframes sk-in{from{opacity:0}to{opacity:1}}
+body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{animation:sk-in .2s ease-out .3s both}
+@media (prefers-reduced-motion: reduce){body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{animation:sk-in 0s linear .3s both}}

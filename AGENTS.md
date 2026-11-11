@@ -64,6 +64,17 @@ balance and is voided, never edited or deleted. After changing it, run
 `node --test tests/accounting.test.cjs` (expected figures in that file are worked out by hand: keep
 it that way) and `node tests/accounting.browser.cjs` (the page against the real SQL).
 
-Loading states: while a page checks the session and loads data, `body.connecting` shows the
-skeleton that `shell.js` builds (styles at the end of `shell.css`) instead of a "Connecting…" card.
+Loading states and moving between workspaces (each menu item is a full page load):
+- Warm start (Supabase only): once a tab has signed in as admin, `tracker.html` keeps that fact and
+  the last-read data in sessionStorage (`ritehome_warm_v1`) and draws from it before the first
+  paint, then re-checks the sign-in and reloads behind it. Cleared on sign-out, on a failed check,
+  and when the tab closes. Row-level security still decides every read and write.
+- No frame of an unfilled page: `shell.js` is loaded as the first thing inside `.wrap` (not at the
+  end), and `<link rel="expect" href="#pageReady" blocking="render">` holds the first paint until the
+  marker at the end of `<body>` is parsed. The marker must stay a parsed element, not one a script
+  creates: Chromium ignores script-created targets. Pages swap in one frame (`@view-transition`,
+  no cross-fade).
+- Cold loads show the skeleton `shell.js` builds (`body.connecting`); skeletons fade in only after
+  0.3 s so fast loads never flicker. `node tests/warm-start.browser.cjs` covers all of this with an
+  800 ms backend.
 

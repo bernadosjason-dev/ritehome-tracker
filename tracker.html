@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-11-11.5"></script>
+<script src="portal.js?v=2026-11-11.10"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -481,9 +481,12 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-11-11.5">
-<link rel="stylesheet" href="portals.css?v=2026-11-11.5">
-<link rel="stylesheet" href="shell.css?v=2026-11-11.5">
+<link rel="stylesheet" href="ui.css?v=2026-11-11.10">
+<link rel="stylesheet" href="portals.css?v=2026-11-11.10">
+<link rel="stylesheet" href="shell.css?v=2026-11-11.10">
+<!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
+     page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
+<link rel="expect" href="#pageReady" blocking="render">
 </head>
 <body>
 
@@ -492,6 +495,8 @@
 <datalist id="leadsList"></datalist>
 
 <div class="wrap">
+<!-- The menu is built here, before any content, so no frame ever paints without it. -->
+<script src="shell.js?v=2026-11-11.10"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -1333,10 +1338,10 @@
 </div>
 
 <script src="vendor/fflate-0.8.2.js"></script>
-<script src="bom-import.js?v=2026-11-11.5"></script>
-<script src="procurement.js?v=2026-11-11.5"></script>
+<script src="bom-import.js?v=2026-11-11.10"></script>
+<script src="procurement.js?v=2026-11-11.10"></script>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="supabase-backend.js?v=2026-11-11.5"></script>
+<script src="supabase-backend.js?v=2026-11-11.10"></script>
 <script>
 (function(){
   "use strict";
@@ -1357,7 +1362,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-11.5";
+  var PAGE_VERSION = "2026-11-11.10";
 
   // ---------- reference data ----------
 
@@ -3371,7 +3376,7 @@
     $("pj-status").textContent = access === "none" ? "Procurement jobs unlock when the tracker reconnects." : procurementJobs.error ? (procurementJobs.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable independent procurement jobs. General projects are kept separate." : procurementJobs.error.message || "Could not load procurement jobs.") : procurementJobs.loaded ? "Procurement jobs synced · " + procurementJobs.entries.length + " jobs" : "Connecting to procurement jobs…";
     $("pj-list").innerHTML = procurementJobs.entries.length ? procurementJobs.entries.slice().sort(function(a,b){ return (a.status === "completed") - (b.status === "completed") || (b.updatedAt || "").localeCompare(a.updatedAt || ""); }).map(function(job){
       return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + '</p></div><div class="pj-card-actions"><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button><button class="btn ghost small ui-destructive" type="button" data-pj-delete="' + esc(job.id) + '" aria-label="Delete ' + esc(job.name) + '" ' + (disabled ? 'disabled' : '') + '>Delete</button></div></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
-    }).join("") : '<div class="procurement-empty"><h3>' + (procurementJobs.loaded ? 'Start your first procurement job' : 'Your procurement jobs will appear here') + '</h3><p class="muted">This workspace has its own jobs. Start with a name, then add the first BOM and split materials into supplier POs.</p><button class="btn small" type="button" data-start-procurement data-ui-icon="plus" ' + (disabled ? 'disabled' : '') + '>Start procurement</button></div>';
+    }).join("") : !procurementJobs.loaded && !procurementJobs.error ? '<div class="sk-cards one pj-loading" role="status" aria-label="Loading procurement jobs"><div class="sk-card"><div class="sk sk-line w40 tall"></div><div class="sk sk-line w60"></div><div class="sk sk-line w100"></div></div></div>' : '<div class="procurement-empty"><h3>' + (procurementJobs.loaded ? 'Start your first procurement job' : 'Your procurement jobs will appear here') + '</h3><p class="muted">This workspace has its own jobs. Start with a name, then add the first BOM and split materials into supplier POs.</p><button class="btn small" type="button" data-start-procurement data-ui-icon="plus" ' + (disabled ? 'disabled' : '') + '>Start procurement</button></div>';
   }
   function subscribeProcurementJobs(){
     if(procurementJobs.subscribed || !db) return; procurementJobs.subscribed = true;
@@ -4792,9 +4797,13 @@
 
   // `transport`, when given, replaces the HTTP call to Apps Script: a function (action, payload) that resolves
   // to the same {ok, ...} / {ok:false, code, error} replies (RitehomeSupabaseBackend.makeActions).
-  function makeSheetBackend(endpoint, onKeyRejected, transport){
+  // persist (optional): {load(), save(cache)} keeps the last-read data across page loads in this tab (warm start).
+  function makeSheetBackend(endpoint, onKeyRejected, transport, persist){
     var subs = [];         // {kind: "list"|"project"|"expenses", key, pid, cb, err}
     var cache = {list: null, jobs: null, fuel: null, vehicles: null, projects: {}};
+    var saved = persist && persist.load();
+    if(saved && typeof saved === "object") ["list", "jobs", "fuel", "vehicles"].forEach(function(k){ if(Array.isArray(saved[k])) cache[k] = saved[k]; });
+    if(saved && saved.projects && typeof saved.projects === "object") cache.projects = saved.projects;
     var lastSig = {};      // key -> last delivered result, so an unchanged poll doesn't re-render
     var failed = {};       // key -> the last read failed (deliver the next success even if unchanged)
     var inflight = {};
@@ -4844,6 +4853,7 @@
         inflight[key] = null;
         var sig = JSON.stringify(key === "jobs" ? res.jobs : key === "vehicles" ? res.vehicles : key === "fuel" ? res.entries : key === "list" ? res.projects : [res.project, res.expenses]);
         if(key === "jobs") cache.jobs = res.jobs; else if(key === "vehicles") cache.vehicles = res.vehicles; else if(key === "fuel") cache.fuel = res.entries; else if(key === "list") cache.list = res.projects; else cache.projects[pid] = {project: res.project, expenses: res.expenses};
+        if(persist) persist.save(cache);
         if(sig === lastSig[key] && !failed[key]) return;
         lastSig[key] = sig;
         failed[key] = false;
@@ -4861,7 +4871,7 @@
       var key = kind === "jobs" ? "jobs" : kind === "vehicles" ? "vehicles" : kind === "fuel" ? "fuel" : kind === "list" ? "list" : "p:" + pid;
       var s = {kind: kind, key: key, pid: pid, cb: cb, err: err};
       subs.push(s);
-      setTimeout(function(){ if(subs.indexOf(s) >= 0) deliverTo(s); }, 0);   // cached copy first, if any
+      Promise.resolve().then(function(){ if(subs.indexOf(s) >= 0) deliverTo(s); });   // cached copy first, if any, before the next paint
       lastSig[key] = null;
       refresh(key, pid);
       return function(){ var i = subs.indexOf(s); if(i >= 0) subs.splice(i, 1); };
@@ -5039,6 +5049,17 @@
     $("gateScreen").hidden = true;
   }
 
+  // Warm start: once this tab has signed in as an admin, moving between workspaces (each a page load)
+  // draws from the data this tab last read, before the first paint, while the sign-in is re-checked and
+  // fresh data loads behind it. sessionStorage is this tab only; it goes on sign-out and when the tab closes.
+  // Row-level security still decides every read and write; this only skips the blank screen.
+  var WARM_KEY = "ritehome_warm_v1", warmStarted = false;
+  function warmGet(){ try { var w = JSON.parse(sessionStorage.getItem(WARM_KEY)); return w && w.user ? w : null; } catch(e){ return null; } }
+  function warmPut(w){ try { if(w) sessionStorage.setItem(WARM_KEY, JSON.stringify(w)); else sessionStorage.removeItem(WARM_KEY); } catch(e){} }
+  function storedSessionUser(){
+    try { var s = JSON.parse(localStorage.getItem("sb-laxavfldivkhufeubgmb-auth-token")); return (s && s.user && s.user.id) || ""; } catch(e){ return ""; }
+  }
+
   var supabaseClient = null;
   function supabaseApi(){
     if(!supabaseClient) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -5052,11 +5073,13 @@
     var client = supabaseApi();
     return client.auth.getSession().then(function(r){
       var session = r && r.data && r.data.session;
-      if(!session){ showGate("login"); return false; }
+      if(!session){ warmPut(null); showGate("login"); return false; }
       signedInEmail = session.user && session.user.email || "";
       return client.rpc("my_role").then(function(r2){
         if(r2.error) throw {code: "unavailable", message: "Couldn’t check your account (" + (r2.error.message || "network error") + ")."};
-        if(r2.data === "admin") return true;
+        var userId = (session.user && session.user.id) || "", w = warmGet();
+        if(r2.data === "admin"){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
+        warmPut(null);
         showGate(r2.data ? "staff" : "inactive");
         return false;
       });
@@ -5069,7 +5092,11 @@
     });
     var B = window.RitehomeSupabaseBackend;
     var call = B.makeActions(B.makeSupabaseStore(supabaseApi()), window.ProcurementLogic);
-    return makeSheetBackend(null, function(code){ showGate(code === "session_expired" ? "expired" : "denied"); }, call);
+    var persist = {
+      load: function(){ var w = warmGet(); return w && w.cache; },
+      save: function(cache){ var w = warmGet(); if(w){ w.cache = cache; warmPut(w); } }
+    };
+    return makeSheetBackend(null, function(code){ warmPut(null); showGate(code === "session_expired" ? "expired" : "denied"); }, call, persist);
   }
 
   function connectHosted(){
@@ -5078,7 +5105,11 @@
     hostedConnecting = true;
     var ready = USE_SUPABASE ? checkSignIn() : Promise.resolve(true);
     ready.then(function(ok){
-      if(!ok){ hostedConnecting = false; return; }
+      if(!ok){
+        hostedConnecting = false;
+        if(warmStarted){ warmStarted = false; db = null; access = "none"; sheetBackend = null; }   // the gate is showing why
+        return;
+      }
       if(!sheetBackend) sheetBackend = makeHostedBackend();
       return sheetBackend.db.ping().then(connected, connectFailed);
     }).catch(connectFailed);
@@ -5150,9 +5181,11 @@
       if(!window.supabase || !window.RitehomeSupabaseBackend){ showGate("noclient"); return; }
       // Signed out in another tab, or the session couldn't be refreshed: back to the sign-in form.
       supabaseApi().auth.onAuthStateChange(function(event){
-        if(event === "SIGNED_OUT"){ signedInEmail = ""; db = null; access = "none"; showGate("login"); }
+        if(event === "SIGNED_OUT"){ warmPut(null); signedInEmail = ""; db = null; access = "none"; showGate("login"); }
       });
-      showGate("connecting");
+      var warm = warmGet();
+      if(warm && warm.user === storedSessionUser()){ warmStarted = true; sheetBackend = makeHostedBackend(); connected(); }
+      else showGate("connecting");
       connectHosted();
       return;
     }
@@ -5214,6 +5247,7 @@
   }
 
   function signOut(){
+    warmPut(null);
     var done = function(){ location.hash = ""; location.reload(); };
     if(supabaseClient) supabaseClient.auth.signOut().then(done, done); else done();
   }
@@ -5324,7 +5358,7 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-11-11.5"></script>
-<script src="shell.js?v=2026-11-11.5"></script>
+<script src="ui.js?v=2026-11-11.10"></script>
+<span id="pageReady" hidden></span>
 </body>
 </html>

@@ -40,7 +40,7 @@ function doPost(e) {
 
   var reads = { listProcurementJobs:listProcurementJobs_, getProcurementJob:getProcurementJob_, getProcurement: getProcurement_, listVehicles: listVehicles_, listFuel: listFuel_, ping: ping_, listProjects: listProjects_, getProject: getProject_,
                 uploadReceipt: uploadReceipt_, deleteReceipt: deleteReceipt_, scanReceipt: scanReceipt_ };
-  var writes = { saveProcurementJob:saveProcurementJob_, saveProcurement: saveProcurement_, checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
+  var writes = { saveProcurementJob:saveProcurementJob_, deleteProcurementJob:deleteProcurementJob_, saveProcurement: saveProcurement_, checkFuelReceiptStorage: checkFuelReceiptStorage_, uploadFuelReceipt: uploadFuelReceipt_, saveVehicle: saveVehicle_, saveFuel: saveFuel_, deleteFuel: deleteFuel_, addProject: addProject_, updateProject: updateProject_, deleteProject: deleteProject_,
                  importProject: importProject_, addExpense: addExpense_, updateExpense: updateExpense_,
                  deleteExpense: deleteExpense_ };
   var action = String(req.action || "");
@@ -725,6 +725,19 @@ function getProcurementJob_(req) {
   if (!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "Choose an independent procurement job.");
   var found=findRow_(procurementJobsSheet_(), PROCUREMENT_JOB_HEADERS, id);
   return {ok:true,project:found ? withId_(id,found.data) : null,expenses:[]};
+}
+// Deletes a job and its BOMs and purchase orders. Refused once any PO has deliveries recorded:
+// those are the company's receiving history, so the job is closed instead (same rule as saveProcurement_).
+function deleteProcurementJob_(req) {
+  var id=String(req.id || "");
+  if (!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError_("invalid_argument", "A valid procurement job ID is required.");
+  var jsh=procurementJobsSheet_(),job=findRow_(jsh,PROCUREMENT_JOB_HEADERS,id);
+  if (!job) return {ok:true};
+  var record=procurementRecord_(id);
+  if (record.data.orders.some(function(o){return o.lines.some(function(l){return l.received>0;});})) throw codeError_("failed_precondition", "This job has deliveries recorded on its purchase orders, so it can't be deleted. Close it instead.");
+  if (record.row) record.sh.deleteRow(record.row);
+  jsh.deleteRow(job.row);
+  return {ok:true};
 }
 function saveProcurementJob_(req) {
   var id=String(req.id || "");

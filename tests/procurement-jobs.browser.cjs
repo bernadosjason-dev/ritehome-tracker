@@ -22,6 +22,22 @@ const {createBackend}=require('./fuel.test.cjs');
   assert.equal(b.request({action:'getProject',id:general}).project.name,'General project that must not appear');assert.equal(b.request({action:'getProcurementJob',id:job.id}).project.status,'completed');
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.getElementById('pj-list').textContent.includes('Banisilan materials'));
   assert(!await page.locator('#pj-steps').isVisible(),'first-time instructions collapse once jobs exist');
+  
+  // Delete: a plain job goes with its BOMs and POs after a confirmation; a job with deliveries is refused with the reason.
+  const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());d.accept();});
+  const waitDialogs=async n=>{for(let i=0;i<100&&dialogs.length<n;i++)await page.waitForTimeout(100);assert(dialogs.length>=n,'expected '+n+' dialogs, got '+JSON.stringify(dialogs));};
+  await page.locator('#pj-start').click();await page.locator('#pj-name').fill('Example');await page.locator('#pj-client').fill('Oliver');await page.locator('#pj-submit').click();
+  await page.waitForFunction(()=>!document.getElementById('projectScreen').hidden);await page.locator('#backBtn').click();
+  await page.waitForFunction(()=>document.getElementById('pj-list').textContent.includes('Example')&&!document.getElementById('pj-fields').disabled);
+  const example=b.request({action:'listProcurementJobs'}).jobs.find(j=>j.name==='Example');assert(example,'Example job created');
+  await page.locator('[data-pj-delete="'+example.id+'"]').click();await waitDialogs(1);assert.match(dialogs[0],/Delete the procurement job “Example”\?/);
+  await page.waitForFunction(()=>!document.getElementById('pj-list').textContent.includes('Example')&&!document.getElementById('pj-fields').disabled);
+  assert(!b.request({action:'listProcurementJobs'}).jobs.some(j=>j.id===example.id),'Example deleted on the server');
+  const delivered=b.request({action:'getProcurement',projectId:job.id}).data.orders.some(o=>o.lines.some(l=>l.received>0));
+  if(!delivered)b.request({action:'saveProcurement',projectId:job.id,revision:b.request({action:'getProcurement',projectId:job.id}).revision,mutationId:'pr-delete-test-0001',data:(d=>{d.orders[0].lines[0].received=1;return d;})(b.request({action:'getProcurement',projectId:job.id}).data)});
+  await page.locator('[data-pj-delete="'+job.id+'"]').click();await waitDialogs(3);assert.match(dialogs[2],/deliveries recorded/);
+  assert(b.request({action:'getProcurementJob',id:job.id}).project,'a job with deliveries is kept');
+  await page.waitForFunction(()=>document.getElementById('pj-list').textContent.includes('Banisilan materials')&&!document.getElementById('pj-fields').disabled);
   await page.locator('#procurementJobsSection').screenshot({path:'/tmp/independent-procurement-list.png'});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
   console.log('PASS independent procurement: no general-project reads/cards, guided job creation, lost-response deduplication, first BOM/PO actions, 8 remaining sheets, independent closing and reload persistence.');
  }finally{await browser.close();}

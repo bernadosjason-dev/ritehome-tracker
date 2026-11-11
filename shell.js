@@ -14,6 +14,7 @@
     gantt: 'M4 6h9M7 12h11M5 18h7M3 3v18',
     attendance: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2',
     team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5',
+    leads: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M12 12h.01',
     books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
     menu: 'M4 7h16M4 12h16M4 17h16'
   };
@@ -83,7 +84,7 @@
       side.appendChild(a);
     });
     side.appendChild(el('div', 'side-label', 'Coming next'));
-    [['Pipeline & stages', 'pipeline'], ['Calendar', 'calendar'], ['Gantt timeline', 'gantt'], ['Attendance', 'attendance'], ['Team accounts', 'team']].forEach(function(n){
+    [['Lead scoreboard', 'leads'], ['Pipeline & stages', 'pipeline'], ['Calendar', 'calendar'], ['Gantt timeline', 'gantt'], ['Attendance', 'attendance'], ['Team accounts', 'team']].forEach(function(n){
       var d = el('div', 'side-link soon'); d.setAttribute('aria-disabled', 'true');
       d.appendChild(icon(n[1])); d.appendChild(document.createTextNode(n[0])); d.appendChild(el('span', 'soon-tag', 'Soon'));
       side.appendChild(d);

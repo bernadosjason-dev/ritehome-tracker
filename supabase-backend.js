@@ -361,6 +361,20 @@
         });
       },
 
+      // Same rules as Code.gs deleteProcurementJob_.
+      deleteProcurementJob: function(req){
+        var id = String(req.id || '');
+        if(!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError('invalid_argument', 'A valid procurement job ID is required.');
+        return store.get('procurementJobs', id).then(function(job){
+          if(!job) return {};
+          return procurementRecord(id).then(function(record){
+            if(record.data.orders.some(function(o){ return o.lines.some(function(l){ return l.received > 0; }); })) throw codeError('failed_precondition', "This job has deliveries recorded on its purchase orders, so it can't be deleted. Close it instead.");
+            return (record.exists ? store.remove('procurement', id) : Promise.resolve())
+              .then(function(){ return store.remove('procurementJobs', id); }).then(function(){ return {}; });
+          });
+        });
+      },
+
       saveProcurementJob: function(req){
         var id = String(req.id || '');
         if(!/^pj-[A-Za-z0-9-]{10,80}$/.test(id)) throw codeError('invalid_argument', 'A valid procurement job ID is required.');

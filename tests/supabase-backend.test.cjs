@@ -177,6 +177,27 @@ test('procurement: revisions, idempotent retries, PO history rules, independent 
   r({action: 'listProcurementJobs'})
 ]));
 
+const pj2 = 'pj-00000000-0000-4000-8000-000000000002', pj3 = 'pj-00000000-0000-4000-8000-000000000003';
+test('procurement jobs: delete takes the BOMs and POs with it, never a job with deliveries', () => compare([
+  r({action: 'deleteProcurementJob', id: 'pj-bad'}),
+  r({action: 'deleteProcurementJob', id: pj2}),
+  r({action: 'saveProcurementJob', id: pj2, data: {name: 'Example', clientName: 'Oliver'}, create: true}),
+  r({action: 'saveProcurementJob', id: pj3, data: {name: 'Walk in closet', clientName: 'Oliver'}, create: true}),
+  r({action: 'deleteProcurementJob', id: pj3}),
+  r({action: 'saveProcurementJob', id: pj3, data: {name: 'Walk in closet', clientName: 'Oliver'}, create: true}),
+  r({action: 'saveProcurement', projectId: pj2, revision: 0, mutationId: mid(5), data: state([order('a', 10)])}),
+  r({action: 'saveProcurement', projectId: pj3, revision: 0, mutationId: mid(6), data: state([order('b', 10, 'confirmed', 4)])}),
+  r({action: 'deleteProcurementJob', id: pj3}),
+  r({action: 'getProcurement', projectId: pj3}),
+  r({action: 'deleteProcurementJob', id: pj2}),
+  r({action: 'getProcurementJob', id: pj2}),
+  r({action: 'getProcurement', projectId: pj2}),
+  r({action: 'listProcurementJobs'}),
+  r({action: 'deleteProcurementJob', id: pj2}),
+  r({action: 'saveProcurementJob', id: pj2, data: {name: 'Example', clientName: 'Oliver'}, create: true}),
+  r({action: 'getProcurement', projectId: pj2})
+]));
+
 test('a save that loses a race retries on fresh data instead of overwriting', async () => {
   const store = makeMemoryStore();
   const call = makeActions(store, globalThis.ProcurementLogic);

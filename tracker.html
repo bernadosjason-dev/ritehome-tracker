@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<script src="portal.js?v=2026-11-11.3"></script>
+<script src="portal.js?v=2026-11-11.5"></script>
 <title>Ritehome Project Tracker</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -481,9 +481,9 @@
     .bar-fill, .cat-fill, .status-pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
-<link rel="stylesheet" href="ui.css?v=2026-11-11.3">
-<link rel="stylesheet" href="portals.css?v=2026-11-11.3">
-<link rel="stylesheet" href="shell.css?v=2026-11-11.3">
+<link rel="stylesheet" href="ui.css?v=2026-11-11.5">
+<link rel="stylesheet" href="portals.css?v=2026-11-11.5">
+<link rel="stylesheet" href="shell.css?v=2026-11-11.5">
 </head>
 <body>
 
@@ -1333,10 +1333,10 @@
 </div>
 
 <script src="vendor/fflate-0.8.2.js"></script>
-<script src="bom-import.js?v=2026-11-11.3"></script>
-<script src="procurement.js?v=2026-11-11.3"></script>
+<script src="bom-import.js?v=2026-11-11.5"></script>
+<script src="procurement.js?v=2026-11-11.5"></script>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="supabase-backend.js?v=2026-11-11.3"></script>
+<script src="supabase-backend.js?v=2026-11-11.5"></script>
 <script>
 (function(){
   "use strict";
@@ -1357,7 +1357,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-11.3";
+  var PAGE_VERSION = "2026-11-11.5";
 
   // ---------- reference data ----------
 
@@ -3370,7 +3370,7 @@
     $("pj-status").className = "rc-status" + (procurementJobs.error ? " err" : "");
     $("pj-status").textContent = access === "none" ? "Procurement jobs unlock when the tracker reconnects." : procurementJobs.error ? (procurementJobs.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable independent procurement jobs. General projects are kept separate." : procurementJobs.error.message || "Could not load procurement jobs.") : procurementJobs.loaded ? "Procurement jobs synced · " + procurementJobs.entries.length + " jobs" : "Connecting to procurement jobs…";
     $("pj-list").innerHTML = procurementJobs.entries.length ? procurementJobs.entries.slice().sort(function(a,b){ return (a.status === "completed") - (b.status === "completed") || (b.updatedAt || "").localeCompare(a.updatedAt || ""); }).map(function(job){
-      return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + '</p></div><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
+      return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + '</p></div><div class="pj-card-actions"><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button><button class="btn ghost small ui-destructive" type="button" data-pj-delete="' + esc(job.id) + '" aria-label="Delete ' + esc(job.name) + '" ' + (disabled ? 'disabled' : '') + '>Delete</button></div></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
     }).join("") : '<div class="procurement-empty"><h3>' + (procurementJobs.loaded ? 'Start your first procurement job' : 'Your procurement jobs will appear here') + '</h3><p class="muted">This workspace has its own jobs. Start with a name, then add the first BOM and split materials into supplier POs.</p><button class="btn small" type="button" data-start-procurement data-ui-icon="plus" ' + (disabled ? 'disabled' : '') + '>Start procurement</button></div>';
   }
   function subscribeProcurementJobs(){
@@ -3383,11 +3383,22 @@
     $("pj-form").reset(); procurementJobs.editing = null; procurementJobs.requestId = null;
     $("pj-form-card").hidden = true; $("pj-error").textContent = ""; $("pj-form-title").textContent = "Start a procurement job"; $("pj-submit").textContent = "Create job & add BOM"; renderSaveStatus();
   }
+  // The server refuses a job whose POs have deliveries recorded; say so instead of failing quietly.
+  function deleteProcurementJob(id){
+    var job = procurementJobs.entries.find(function(j){ return j.id === id; }); if(!job) return;
+    if(!confirm("Delete the procurement job “" + job.name + "”?\n\nIts BOMs and purchase orders are deleted with it. This can't be undone.")) return;
+    if(procurementJobs.editing === id) resetProcurementJob();
+    procurementJobs.busy = true; renderProcurementJobs();
+    track(function(){ return db.collection("procurementJobs").doc(id).delete(); }, 'Deleting “' + job.name + '”', null)
+      .catch(function(err){ if(err && err.code === "failed_precondition") alert(err.message); })
+      .finally(function(){ procurementJobs.busy = false; renderProcurementJobs(); });
+  }
   function wireProcurementJobs(){
     $("procurementJobsSection").addEventListener("click", function(ev){
-      var start = ev.target.closest("[data-start-procurement]"), edit = ev.target.closest("[data-pj-edit]"), open = ev.target.closest("[data-pj-open]");
-      if((!start && !edit && !open) || !db || !canWrite() || !procurementJobs.loaded || procurementJobs.error || procurementJobs.busy) return;
+      var start = ev.target.closest("[data-start-procurement]"), edit = ev.target.closest("[data-pj-edit]"), open = ev.target.closest("[data-pj-open]"), del = ev.target.closest("[data-pj-delete]");
+      if((!start && !edit && !open && !del) || !db || !canWrite() || !procurementJobs.loaded || procurementJobs.error || procurementJobs.busy) return;
       if(open){ guardLeave(function(){ openProject(open.getAttribute("data-pj-open")); }); return; }
+      if(del){ deleteProcurementJob(del.getAttribute("data-pj-delete")); return; }
       if(edit){
         if(!$("pj-form-card").hidden && ($("pj-name").value.trim() || procurementJobs.editing) && !confirm("Discard unsaved job details?")) return;
         var job = procurementJobs.entries.find(function(job){ return job.id === edit.getAttribute("data-pj-edit"); }); if(!job) return;
@@ -4926,7 +4937,8 @@
       onSnapshot: function(cb, err){ return subscribe("jobs", null, cb, err); },
       doc: function(id){ return {
         set: function(data){ return call("saveProcurementJob", {id:id,data:data,create:true}).then(function(){ refresh("jobs"); }); },
-        update: function(data){ return call("saveProcurementJob", {id:id,data:data,create:false}).then(function(){ refresh("jobs"); refresh("p:" + id, id); }); }
+        update: function(data){ return call("saveProcurementJob", {id:id,data:data,create:false}).then(function(){ refresh("jobs"); refresh("p:" + id, id); }); },
+        delete: function(){ return call("deleteProcurementJob", {id:id}).then(function(){ refresh("jobs"); }); }
       }; }
     };
 
@@ -5312,7 +5324,7 @@
   renderSaveStatus();
 })();
 </script>
-<script src="ui.js?v=2026-11-11.3"></script>
-<script src="shell.js?v=2026-11-11.3"></script>
+<script src="ui.js?v=2026-11-11.5"></script>
+<script src="shell.js?v=2026-11-11.5"></script>
 </body>
 </html>

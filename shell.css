@@ -184,3 +184,4 @@ body.gated.connecting #gateScreen{display:none!important}
 .sk-rows .sk-line{height:14px;margin:12px 0}
 .kpi.sk-kpi-box .sk-line{margin:6px 0}
 body.connecting .workspace-bar{display:none}
+.pj-card-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start}

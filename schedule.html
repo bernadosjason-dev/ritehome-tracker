@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Schedule</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-13.1">
+<link rel="stylesheet" href="schedule.css?v=2026-11-13.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "schedule"};</script>
+<script src="schedule-plan.js?v=2026-11-13.1"></script>
+</head>
+<body class="acct sched">
+<main class="wrap">
+<script src="shell.js?v=2026-11-13.1"></script>
+  <header class="acct-head">
+    <div>
+      <div class="eyebrow">Production</div>
+      <h1>Schedule</h1>
+      <p class="sub" id="schedSub">Every project from consultation to handover: who has it, what's due, and whether the handover date still holds.</p>
+    </div>
+    <div class="acct-head-actions no-print"><button class="btn" type="button" id="addEventBtn" hidden>+ Add event</button></div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="kpis" id="schedKpis"></div>
+
+    <section class="card" id="eventCard" hidden></section>
+    <section class="card" id="projCard" hidden></section>
+
+    <nav class="acct-tabs no-print" aria-label="Schedule views">
+      <button type="button" data-stab="pipeline">Pipeline</button>
+      <button type="button" data-stab="timeline">Timeline</button>
+      <button type="button" data-stab="calendar">Calendar</button>
+    </nav>
+
+    <section class="card" id="tab-pipeline" data-view="pipeline">
+      <h2>Pipeline <span class="count" id="pipeCount"></span></h2>
+      <div class="acct-bar no-print"><label class="inline"><input type="checkbox" id="fDone"> Show finished projects</label></div>
+      <div id="pipeBoard"></div>
+    </section>
+
+    <section class="card" id="tab-timeline" data-view="timeline" hidden>
+      <h2>Timeline</h2>
+      <div class="acct-bar no-print">
+        <label>Show <select id="fSpan"><option value="6">6 weeks</option><option value="13">3 months</option><option value="26">6 months</option></select></label>
+        <label id="capLabel" hidden>Workshop capacity <input type="number" id="fCap" min="1" max="20" step="1" inputmode="numeric" style="width:90px"><span class="hint">jobs in fabrication at once</span></label>
+      </div>
+      <div id="gantt"></div>
+      <div class="legend" id="ganttLegend"></div>
+    </section>
+
+    <section class="card" id="tab-calendar" data-view="calendar" hidden>
+      <div class="cal-head">
+        <h2 id="calTitle"></h2>
+        <div class="cal-nav no-print">
+          <button class="btn ghost small" type="button" id="calPrev" aria-label="Previous month">‹</button>
+          <button class="btn ghost small" type="button" id="calToday">Today</button>
+          <button class="btn ghost small" type="button" id="calNext" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div id="calGrid"></div>
+      <div id="calDay"></div>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="schedule.js?v=2026-11-13.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

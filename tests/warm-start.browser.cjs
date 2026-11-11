@@ -49,7 +49,7 @@ const {createFakeSupabase} = require('./fixtures/fake-supabase.cjs');
     sb.users.find(u => u.id === 'u-admin').role = 'designer';
     await Promise.all([page.waitForEvent('domcontentloaded'), page.locator('.side-link', {hasText: 'Company fuel'}).click()]);
     await page.waitForFunction(() => !document.getElementById('gateAccount').hidden, null, {timeout: 5000});
-    assert.match(await page.locator('#gateMsg').innerText(), /aren’t built yet/);
+    assert.match(await page.locator('#gateMsg').innerText(), /your projects and their stages are on the Schedule/);
     assert.equal(await warm(), null, 'saved copy dropped');
     await page.reload({waitUntil: 'domcontentloaded'});
     assert(await page.evaluate(() => document.body.classList.contains('gated')), 'next load starts cold, at the gate');

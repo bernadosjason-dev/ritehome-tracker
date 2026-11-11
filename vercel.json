@@ -17,6 +17,10 @@
     {
       "source": "/leads",
       "destination": "/leads.html"
+    },
+    {
+      "source": "/schedule",
+      "destination": "/schedule.html"
     }
   ],
   "redirects": [

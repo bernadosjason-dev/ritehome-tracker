@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -95,3 +95,14 @@ quote) times the first reply for the 2-business-hour promise (Mon-Sat 8-17, Mani
 not stored. Tests: `node --test tests/leads.test.cjs tests/lead-score.test.cjs` and
 `node tests/leads.browser.cjs` (real SQL through `tests/fixtures/pg-rpc.cjs`).
 
+
+Schedule (`schedule.html`/`schedule.js` at `/schedule`, arithmetic in `schedule-plan.js`, data in
+`supabase/migrations/20261113000007_schedule.sql` on the `project_stages`/`project_events` tables from portal_core):
+the one workspace staff can use. Pipeline board, timeline (Gantt) with workshop load, and calendar. Admin sees every
+project, plans dates and assigns people; assigning someone to a stage also assigns them the project. Staff see only
+assigned projects through `my_projects()` (never money or client email) and change status, actual dates and notes of
+their own stages; the stage guard trigger refuses planned dates and assignees from anyone but an admin. A status
+change fills in the actual dates (Manila day). Working days are Monday to Saturday minus holiday events; the default
+durations in `schedule-plan.js` (39 working days, cutlist to handover 30) are a starting point to tune. Tests:
+`node --test tests/schedule.test.cjs tests/schedule-plan.test.cjs` (dates in the latter worked out by hand: keep it
+that way) and `node tests/schedule.browser.cjs`.

@@ -25,7 +25,7 @@ const BASE='http://127.0.0.1:8000';
   await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());
   await page.waitForFunction(()=>((document.getElementById('projectGrid')||{}).textContent||'').includes('Client portal project'));
   assert.equal(await page.locator('.side-link[aria-current="page"]').innerText(),'Dashboard');
-  assert.deepEqual(await page.locator('a.side-link').evaluateAll(a=>a.map(x=>x.getAttribute('href'))),['/','/leads','/projects','/procurement','/fuel','/accounting']);
+  assert.deepEqual(await page.locator('a.side-link').evaluateAll(a=>a.map(x=>x.getAttribute('href'))),['/','/leads','/projects','/schedule','/procurement','/fuel','/accounting']);
 
   // 2. Fuel, by the menu: short address, fuel only.
   await go('Company fuel');assert.equal(path(),'/fuel');

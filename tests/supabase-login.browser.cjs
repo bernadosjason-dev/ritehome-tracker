@@ -48,7 +48,8 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
     // 3. Staff and unactivated accounts stay at the gate, see why, and can sign out. No tracker data is read.
     await signIn('designer@ritehome.test', 'designer-pass');
     await page.waitForFunction(() => !document.getElementById('gateAccount').hidden);
-    assert.match(await gateText(), /aren’t built yet/);
+    assert.match(await gateText(), /your projects and their stages are on the Schedule/);
+    assert.equal(await page.locator('#gateSchedule').getAttribute('href'), '/schedule');
     assert.equal(await page.locator('#gateWho').innerText(), 'Signed in as designer@ritehome.test');
     assert(await page.locator('body').evaluate(b => b.classList.contains('gated')));
     assert.equal(sb.log.length, 0, 'a staff sign-in reads no tracker documents');

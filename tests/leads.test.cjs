@@ -89,7 +89,7 @@ test('by hand, lost with a reason, won into a tracker project', () => {
   assert.equal(doc.budget, 160000);
   assert.equal(doc.leadId, walkIn);
   assert.equal(must('admin', `select stage || '|' || project_id || '|' || expected_value from public.leads where id = '${walkIn}'`), `won|${pid}|210000.00`);
-  assert.equal(must('admin', `select count(*) from public.project_stages where project_id = '${pid}'`), '8', 'the pipeline starts');
+  assert.equal(must('admin', `select count(*) from public.project_stages where project_id = '${pid}'`), '9', 'the pipeline starts');
 });
 
 test('staff never see leads', () => {

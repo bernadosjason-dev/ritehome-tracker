@@ -4,6 +4,75 @@
 -- trigger still decide every read and write. Staff see only projects they're assigned to (through
 -- my_projects(), which never returns money or a client's email) and change only their own stages.
 
+-- The whiteboard's Final cutlist is the designer's, like the initial cutlist and the BOM.
+create or replace function public.role_owns_stage(p_role public.staff_role, p_stage text) returns boolean
+language sql immutable set search_path = public as $$
+  select case p_role
+    when 'admin' then true
+    when 'designer' then p_stage in ('design', 'cutlist', 'bom', 'final_cutlist')
+    when 'fabrication' then p_stage = 'fabrication'
+    when 'installer' then p_stage in ('installation', 'handover')
+    else false end
+$$;
+
+-- Projects that already exist get the new stage too (new ones get it from seed_project_stages).
+insert into public.project_stages (project_id, stage)
+select d.id, 'final_cutlist' from public.tracker_docs d where d.collection = 'projects'
+on conflict do nothing;
+
+-- What the whiteboard writes beside the client's name: the project type in the office's own words
+-- ("TV console", "Walk-in pantry") and the person in charge. Neither is money, so staff see them for
+-- their own projects; they live in the project document (projectType, inCharge), which only an admin
+-- can read directly.
+create function public.project_labels()
+returns table (id text, project_type text, in_charge text, created_at text)
+language sql stable security definer set search_path = public as $$
+  select d.id, coalesce(d.data ->> 'projectType', ''), coalesce(d.data ->> 'inCharge', ''),
+         coalesce(d.data ->> 'createdAt', to_char(d.updated_at at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+  from public.tracker_docs d
+  where d.collection = 'projects' and public.can_read_project(d.id)
+$$;
+
+-- A whiteboard row (admin): a new project from a client name, project type and person in charge,
+-- or, with "id", a change to those (and the target date). Other project fields are left alone.
+create function public.board_project_save(p jsonb) returns text
+language plpgsql security invoker set search_path = public as $$
+declare
+  v_id text := nullif(p ->> 'id', '');
+  v_now text := to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+  v_type text := btrim(coalesce(p ->> 'projectType', ''));
+  v_client text := btrim(coalesce(p ->> 'clientName', ''));
+  v_system text;
+  v_patch jsonb;
+begin
+  if not public.is_admin() then raise exception 'Only an admin can add or change projects.' using errcode = '42501'; end if;
+  if length(v_type) > 80 or length(v_client) > 120 or length(coalesce(p ->> 'inCharge', '')) > 80 then
+    raise exception 'Keep the client name under 120 characters and the type and person under 80.' using errcode = '22001';
+  end if;
+  v_system := case when lower(v_type) like '%kitchen%' or lower(v_type) like '%pantry%' then 'kitchen'
+    when lower(v_type) like '%partition%' then 'partition'
+    when lower(v_type) ~ '(office|workstation|workspace|desk)' then 'workspace'
+    when v_type = '' then null else 'storage' end;
+  if v_id is null then
+    if v_client = '' then raise exception 'Write the client''s name.' using errcode = '23514'; end if;
+    v_id := 'p_' || substr(md5(gen_random_uuid()::text), 1, 16);
+    insert into public.tracker_docs (collection, id, data) values ('projects', v_id, jsonb_strip_nulls(jsonb_build_object(
+      'name', case when v_type <> '' then v_type || ' – ' || v_client else v_client end,
+      'clientName', v_client, 'projectType', nullif(v_type, ''), 'inCharge', nullif(btrim(coalesce(p ->> 'inCharge', '')), ''),
+      'system', v_system, 'targetDate', nullif(p ->> 'targetDate', ''), 'status', 'active',
+      'createdAt', v_now, 'updatedAt', v_now)));
+    return v_id;
+  end if;
+  v_patch := jsonb_build_object('updatedAt', v_now);
+  if p ? 'projectType' then v_patch := v_patch || jsonb_build_object('projectType', v_type); end if;
+  if p ? 'inCharge' then v_patch := v_patch || jsonb_build_object('inCharge', btrim(coalesce(p ->> 'inCharge', ''))); end if;
+  if p ? 'clientName' and v_client <> '' then v_patch := v_patch || jsonb_build_object('clientName', v_client); end if;
+  if p ? 'targetDate' then v_patch := v_patch || jsonb_build_object('targetDate', coalesce(p ->> 'targetDate', '')); end if;
+  update public.tracker_docs set data = data || v_patch where collection = 'projects' and id = v_id;
+  if not found then raise exception 'No project %.', v_id using errcode = 'P0002'; end if;
+  return v_id;
+end $$;
+
 -- Stage dates fill themselves in when the status moves, on the Manila calendar day, so staff only
 -- have to tap a status. Reopening a finished stage clears the finish date unless one is given.
 create function public.stage_auto_dates() returns trigger
@@ -41,6 +110,7 @@ language sql stable security invoker set search_path = public as $$
       select jsonb_agg(jsonb_build_object(
         'id', p.id, 'name', p.name, 'system', p.system, 'client', p.client_name, 'phone', p.client_phone,
         'address', p.address, 'status', p.status, 'target', p.target_date,
+        'type', lb.project_type, 'in_charge', lb.in_charge, 'created', lb.created_at,
         'stages', coalesce((
           select jsonb_agg(jsonb_build_object(
             'stage', s.stage, 'status', s.status, 'planned_start', s.planned_start, 'planned_end', s.planned_end,
@@ -48,7 +118,7 @@ language sql stable security invoker set search_path = public as $$
             'updated_at', s.updated_at, 'can_edit', public.can_work_stage(p.id, s.stage::text)) order by s.stage)
           from public.project_stages s where s.project_id = p.id), '[]'::jsonb))
         order by p.target_date nulls last, p.name)
-      from public.my_projects() p), '[]'::jsonb),
+      from public.my_projects() p left join public.project_labels() lb on lb.id = p.id), '[]'::jsonb),
     'staff', coalesce((select jsonb_agg(to_jsonb(d) order by d.full_name) from public.staff_directory() d), '[]'::jsonb))
 $$;
 
@@ -160,6 +230,8 @@ begin
 end $$;
 
 revoke execute on function public.stage_auto_dates() from public, anon, authenticated;
+revoke execute on function public.project_labels(), public.board_project_save(jsonb) from public, anon;
+grant execute on function public.project_labels(), public.board_project_save(jsonb) to authenticated;
 revoke execute on function public.schedule_board(), public.stage_save(text, public.stage_key, jsonb),
   public.stage_plan(text, jsonb), public.schedule_events(date, date), public.event_save(jsonb),
   public.event_delete(uuid) from public, anon;

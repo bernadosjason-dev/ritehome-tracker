@@ -125,9 +125,9 @@ test("the admin keeps the whole tracker; each project gets its pipeline", () => 
     ('projects', 'P1', '{"name":"Ana kitchen","system":"Kitchen","clientName":"Ana","clientPhone":"0917","clientEmail":"ana@example.com","address":"Carmen, CDO","budget":250000,"price":310000,"status":"active","targetDate":"2026-12-15"}'),
     ('projects', 'P2', '{"name":"Office floor","system":"Workspace","budget":900000,"price":1100000}'),
     ('expenses', 'E1', '{"amount":12000,"note":"marine plywood"}');`);
-  assert.equal(must("admin", "select count(*) from public.project_stages where project_id = 'P1'"), "8");
+  assert.equal(must("admin", "select count(*) from public.project_stages where project_id = 'P1'"), "9");
   assert.equal(must("admin", "select string_agg(stage::text, ',' order by stage) from public.project_stages where project_id = 'P1'"),
-    "consultation,design,cutlist,bom,procurement,fabrication,installation,handover");
+    "consultation,design,cutlist,bom,final_cutlist,procurement,fabrication,installation,handover");
   assert.equal(must("admin", "select revision from public.tracker_docs where id = 'P1'"), "1");
   must("admin", `update public.tracker_docs set data = data || '{"status":"active"}' where id = 'P1'`);
   assert.equal(must("admin", "select revision from public.tracker_docs where id = 'P1'"), "2");

@@ -97,12 +97,18 @@ not stored. Tests: `node --test tests/leads.test.cjs tests/lead-score.test.cjs` 
 
 
 Schedule (`schedule.html`/`schedule.js` at `/schedule`, arithmetic in `schedule-plan.js`, data in
-`supabase/migrations/20261113000007_schedule.sql` on the `project_stages`/`project_events` tables from portal_core):
-the one workspace staff can use. Pipeline board, timeline (Gantt) with workshop load, and calendar. Admin sees every
+`supabase/migrations/20261113000008_schedule.sql` on the `project_stages`/`project_events` tables from portal_core):
+the one workspace staff can use. Whiteboard (the office board as a table: client, project type, person in
+charge, then Design / Initial cutlist / BOM / Final cutlist / Fabrication / Installation in the board's own words
+and marker colours, tapped to change), pipeline board, timeline (Gantt) with workshop load, and calendar. The
+board's vocabulary is `stage_key` 'final_cutlist' and `stage_status` 'waiting_client' / 'submitted', added on their
+own in `20261113000007_stage_vocabulary.sql` (Postgres can't use a new enum value in the transaction that adds it).
+Project type and person in charge are `projectType`/`inCharge` in the project document, read through
+`project_labels()` and written by `board_project_save()`; never put client data from the real board in tests. Admin sees every
 project, plans dates and assigns people; assigning someone to a stage also assigns them the project. Staff see only
 assigned projects through `my_projects()` (never money or client email) and change status, actual dates and notes of
 their own stages; the stage guard trigger refuses planned dates and assignees from anyone but an admin. A status
 change fills in the actual dates (Manila day). Working days are Monday to Saturday minus holiday events; the default
-durations in `schedule-plan.js` (39 working days, cutlist to handover 30) are a starting point to tune. Tests:
+durations in `schedule-plan.js` (40 working days, initial cutlist to handover 31) are a starting point to tune. Tests:
 `node --test tests/schedule.test.cjs tests/schedule-plan.test.cjs` (dates in the latter worked out by hand: keep it
 that way) and `node tests/schedule.browser.cjs`.

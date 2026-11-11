@@ -1,4 +1,4 @@
-// Schedule (supabase/migrations/20261113000007_schedule.sql) on a real local PostgreSQL:
+// Schedule (supabase/migrations/20261113000008_schedule.sql) on a real local PostgreSQL:
 // who sees which project, who may move which stage, planned dates, events and the calendar feed.
 //   node --test tests/schedule.test.cjs
 const test = require('node:test');
@@ -30,9 +30,10 @@ test.before(() => {
 });
 test.after(() => db && db.stop());
 
-test('every project gets all eight stages, and only an admin plans dates, all or nothing', () => {
+test('every project gets all nine stages, and only an admin plans dates, all or nothing', () => {
   const { must, refused } = db;
-  assert.equal(must('super', `select count(*) from public.project_stages where project_id = 'p_k'`), '8');
+  assert.equal(must('super', `select string_agg(stage::text, ',' order by stage) from public.project_stages where project_id = 'p_k'`),
+    'consultation,design,cutlist,bom,final_cutlist,procurement,fabrication,installation,handover');
   assert.equal(must('admin', `select public.stage_plan('p_k', ${j([
     { stage: 'design', planned_start: '2026-11-16', planned_end: '2026-11-23' },
     { stage: 'cutlist', planned_start: '2026-11-24', planned_end: '2026-11-25' },
@@ -60,8 +61,8 @@ test('staff see only the projects they are assigned to, and never the money or t
   const text = JSON.stringify(b);
   for (const secret of ['250000', '160000', 'ana@example.com', 'price', 'budget']) assert.ok(!text.includes(secret), `staff board leaks ${secret}`);
   const can = Object.fromEntries(b.projects[0].stages.map((s) => [s.stage, s.can_edit]));
-  assert.deepEqual(can, { consultation: false, design: true, cutlist: true, bom: true, procurement: false, fabrication: false, installation: false, handover: false });
-  assert.deepEqual(b.projects[0].stages.map((s) => s.stage), ['consultation', 'design', 'cutlist', 'bom', 'procurement', 'fabrication', 'installation', 'handover']);
+  assert.deepEqual(can, { consultation: false, design: true, cutlist: true, bom: true, final_cutlist: true, procurement: false, fabrication: false, installation: false, handover: false });
+  assert.deepEqual(b.projects[0].stages.map((s) => s.stage), ['consultation', 'design', 'cutlist', 'bom', 'final_cutlist', 'procurement', 'fabrication', 'installation', 'handover']);
   assert.equal(board('admin').projects.length, 2);
   assert.deepEqual(board('admin').staff.map((s) => s.full_name), ['Dina Designer', 'Jason', 'Rudy']);
   refused('fab', `select public.stage_save('p_k', 'fabrication', ${j({ status: 'in_progress' })})`, /isn't yours to change/);   // not assigned
@@ -122,4 +123,35 @@ test('the calendar shows the admin open leads\' follow-ups and requested visits;
     ['2026-11-18 follow_up Carla Send quote', '2026-11-21 visit_request Carla Morning']);
   assert.deepEqual(events('designer', '2026-11-01', '2026-11-30').leads, []);
   assert.deepEqual(events('fab', '2026-11-01', '2026-11-30').leads, []);
+});
+
+test('the whiteboard: rows added by the admin, the office\'s own words, "submitted" and "no feedback yet"', () => {
+  const { U, must, refused } = db;
+  const id = must('admin', `select public.board_project_save(${j({ clientName: 'Dr. Dy', projectType: 'TV console', inCharge: 'Jane' })})`);
+  assert.match(id, /^p_[0-9a-f]{16}$/);
+  const doc = JSON.parse(must('admin', `select data from public.tracker_docs where id = '${id}'`));
+  assert.deepEqual([doc.name, doc.clientName, doc.projectType, doc.inCharge, doc.system, doc.status], ['TV console – Dr. Dy', 'Dr. Dy', 'TV console', 'Jane', 'storage', 'active']);
+  assert.equal(must('super', `select count(*) from public.project_stages where project_id = '${id}'`), '9');
+  const pantry = must('admin', `select public.board_project_save(${j({ clientName: 'Ar. Amerol', projectType: 'Walk-in pantry', inCharge: 'Yhna' })})`);
+  assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${pantry}'`)).system, 'kitchen');
+  // Changing the person in charge leaves the price and everything else alone.
+  must('admin', `select public.board_project_save(${j({ id: 'p_k', inCharge: 'Paula', projectType: 'Kitchen' })})`);
+  const k = JSON.parse(must('admin', `select data from public.tracker_docs where id = 'p_k'`));
+  assert.deepEqual([k.inCharge, k.projectType, k.price, k.clientName], ['Paula', 'Kitchen', 250000, 'Ana Reyes']);
+  refused('designer', `select public.board_project_save(${j({ clientName: 'X' })})`, /Only an admin/);
+  refused('admin', `select public.board_project_save(${j({ clientName: '' })})`, /client's name/);
+  refused('admin', `select public.board_project_save(${j({ id: 'nope', inCharge: 'X' })})`, /No project/);
+  // Staff see the type and the person in charge of their own projects, not of others.
+  const mine = board('designer').projects;
+  assert.deepEqual(mine.map((p) => [p.id, p.type, p.in_charge]), [['p_k', 'Kitchen', 'Paula']]);
+  assert.equal(board('admin').projects.find((p) => p.id === id).in_charge, 'Jane');
+  // The whiteboard's in-between states count as started, and are the designer's to set on their stages.
+  must('designer', `select public.stage_save('p_k', 'bom', ${j({ status: 'submitted' })})`);
+  assert.equal(stage('p_k', 'bom').split('|').slice(0, 3).join('|'), `submitted|${today}|-`);
+  must('designer', `select public.stage_save('p_k', 'final_cutlist', ${j({ status: 'submitted', notes: 'For review' })})`);
+  must('admin', `select public.stage_save('${pantry}', 'design', ${j({ status: 'waiting_client', notes: 'Design proposal sent' })})`);
+  assert.equal(stage(pantry, 'design').split('|').slice(0, 3).join('|'), `waiting_client|${today}|-`);
+  refused('designer', `select public.stage_save('p_k', 'fabrication', ${j({ status: 'in_progress' })})`, /isn't yours/);
+  refused('anon', `select public.board_project_save(${j({ clientName: 'X' })})`, /permission denied/);
+  refused('anon', 'select * from public.project_labels()', /permission denied/);
 });

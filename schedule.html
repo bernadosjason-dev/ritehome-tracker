@@ -39,12 +39,19 @@
     <section class="card" id="projCard" hidden></section>
 
     <nav class="acct-tabs no-print" aria-label="Schedule views">
+      <button type="button" data-stab="board">Whiteboard</button>
       <button type="button" data-stab="pipeline">Pipeline</button>
       <button type="button" data-stab="timeline">Timeline</button>
       <button type="button" data-stab="calendar">Calendar</button>
     </nav>
 
-    <section class="card" id="tab-pipeline" data-view="pipeline">
+    <section class="card" id="tab-board" data-view="board">
+      <h2>Whiteboard <span class="count" id="boardCount"></span></h2>
+      <p class="muted small no-print">The office board, live. Tap a status to change it; green is finished, red is moving, blue is waiting for approval, black is stuck. Open a client to see dates and notes.</p>
+      <div id="boardTable"></div>
+    </section>
+
+    <section class="card" id="tab-pipeline" data-view="pipeline" hidden>
       <h2>Pipeline <span class="count" id="pipeCount"></span></h2>
       <div class="acct-bar no-print"><label class="inline"><input type="checkbox" id="fDone"> Show finished projects</label></div>
       <div id="pipeBoard"></div>

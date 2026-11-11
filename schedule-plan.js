@@ -2,16 +2,19 @@
    forecast and the workshop load. Pure functions on 'YYYY-MM-DD' strings (Manila calendar days),
    no page or database code, so tests/schedule-plan.test.cjs can check them by hand.
 
-   Working days are Monday to Saturday, minus the company holidays on the calendar. The default
-   durations are a starting point to tune against real jobs: cutlist to handover adds up to 30
-   working days, about 35 calendar days, inside the website's 30-45 day promise. */
+   Working days are Monday to Saturday, minus the company holidays on the calendar. The stages are
+   the office whiteboard's (initial cutlist, BOM, final cutlist, fabrication) inside the full
+   pipeline. The default durations are a starting point to tune against real jobs: initial cutlist
+   to handover adds up to 31 working days, about 36 calendar days, inside the website's 30-45 day
+   promise. */
 (function(root){
   'use strict';
   var STAGES = [
     {key: 'consultation', label: 'Consultation', days: 2, owner: 'Admin'},
     {key: 'design', label: 'Design', days: 7, owner: 'Designer'},
-    {key: 'cutlist', label: 'Cutlist', days: 2, owner: 'Designer'},
-    {key: 'bom', label: 'BOM', days: 1, owner: 'Designer'},
+    {key: 'cutlist', label: 'Initial cutlist', days: 2, owner: 'Designer'},
+    {key: 'bom', label: 'Bill of materials', days: 1, owner: 'Designer'},
+    {key: 'final_cutlist', label: 'Final cutlist', days: 1, owner: 'Designer'},
     {key: 'procurement', label: 'Procurement', days: 6, owner: 'Admin'},
     {key: 'fabrication', label: 'Fabrication', days: 15, owner: 'Workshop'},
     {key: 'installation', label: 'Installation', days: 5, owner: 'Installers'},
@@ -99,6 +102,9 @@
       return out;
     }
     out.current = open[0].key;
+    // The current stage is stuck rather than slow: on hold, waiting on the client, or waiting for approval.
+    var cs = m[out.current];
+    out.hold = cs && ['blocked', 'waiting_client', 'submitted'].indexOf(cs.status) >= 0 ? cs.status : null;
     var cursor = null;
     open.forEach(function(d, i){
       var s = m[d.key] || {stage: d.key}, end;

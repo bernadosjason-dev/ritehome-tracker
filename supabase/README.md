@@ -45,8 +45,10 @@ admin to check.
   checked by md5 against a local load of the file and matched exactly.
 - `leads` (2026-11-11, `20261112000006_leads.sql`): applied the same way, md5-checked;
   the website Worker's intake key hash is in `app_secrets` (see below).
-- `schedule` (`20261113000007_schedule.sql`): **not applied yet**. Apply it
-  comment-stripped and md5-check it, as above, before deploying `schedule.html`.
+- `stage_vocabulary` then `schedule` (`20261113000007_stage_vocabulary.sql`,
+  `20261113000008_schedule.sql`): **not applied yet**. Apply them in that order,
+  as two separate migrations, comment-stripped and md5-checked as above, before
+  deploying `schedule.html`.
 - Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
   `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
   2 procurement jobs, 1 procurement record). Totals checked against the Sheet.

@@ -1,5 +1,5 @@
 /* Schedule: pipeline board, timeline (Gantt) and calendar. Reads and writes only through the
-   Supabase functions in supabase/migrations/20261113000007_schedule.sql; dates, forecasts and the
+   Supabase functions in supabase/migrations/20261113000008_schedule.sql; dates, forecasts and the
    workshop load come from schedule-plan.js. Admins see and plan every project; staff see the
    projects they're assigned to and move their own stages. Row-level security enforces both. */
 (function(){
@@ -7,7 +7,23 @@
   var SUPABASE_URL = "https://laxavfldivkhufeubgmb.supabase.co";
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var S = window.RitehomeSchedule;
-  var STATUS = [["not_started", "Not started"], ["in_progress", "In progress"], ["blocked", "Blocked"], ["done", "Done"]];
+  // Statuses in the office whiteboard's own words, per stage where the board uses its own.
+  var STATUS = [["not_started", "Not started"], ["in_progress", "In progress"], ["waiting_client", "Waiting on client"],
+    ["submitted", "Submitted"], ["blocked", "On hold"], ["done", "Completed"]];
+  var STAGE_WORDS = {
+    design: {in_progress: "Designing", waiting_client: "No feedback yet", submitted: "For approval", done: "Approved"},
+    cutlist: {submitted: "For review"},
+    bom: {submitted: "Submitted", done: "Approved"},
+    final_cutlist: {submitted: "For review", done: "Printed, approved"},
+    procurement: {in_progress: "Buying", done: "Materials complete"},
+    fabrication: {in_progress: "On going"},
+    installation: {in_progress: "On going", done: "Installed"},
+    handover: {done: "Handed over"}
+  };
+  function statusWord(stage, st){ return (STAGE_WORDS[stage] || {})[st] || label(STATUS, st || "not_started"); }
+  function statusList(stage){ return STATUS.map(function(x){ return [x[0], statusWord(stage, x[0])]; }); }
+  // The marker colours on the board: green finished, red moving, blue waiting for approval, black stuck.
+  var INK = {done: "ink-done", in_progress: "ink-moving", submitted: "ink-review", waiting_client: "ink-stuck", blocked: "ink-stuck", not_started: "ink-none"};
   var KINDS = [["site_visit", "Site visit"], ["delivery", "Delivery"], ["installation", "Installation"], ["meeting", "Meeting"], ["holiday", "Holiday (no work)"], ["other", "Other"]];
   var KIND_COLOR = {site_visit: "var(--st-design)", delivery: "var(--st-procurement)", installation: "var(--st-installation)", meeting: "var(--st-cutlist)", holiday: "var(--warn)", other: "var(--st-consultation)"};
   var SYSTEM = {kitchen: "Kitchen", storage: "Storage", partition: "Partition", workspace: "Workspace"};
@@ -16,7 +32,7 @@
   function stageLabel(k){ return S.STAGES[S.INDEX[k]].label; }
 
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}});
-  var state = {board: null, cal: {events: [], leads: []}, holidays: new Set(), tab: "pipeline", open: null, plan: null,
+  var state = {board: null, cal: {events: [], leads: []}, holidays: new Set(), tab: "board", open: null, plan: null,
     month: null, day: null, showDone: false, span: 13, cap: 2, editEvent: null};
 
   // ---------- helpers ----------
@@ -65,7 +81,11 @@
   function project(id){ return (state.board.projects || []).filter(function(p){ return p.id === id; })[0]; }
   function stageOf(p, k){ return (p.stages || []).filter(function(s){ return s.stage === k; })[0]; }
   function health(p){ return S.status(p, today(), state.holidays); }
-  function pill(st){ return h("span", {class: "pill " + (st.severity || ""), text: st.label}); }
+  function pill(st){
+    var hold = st.hold && st.current ? statusWord(st.current, st.hold) : "";
+    return h("span", {style: "display:inline-flex;gap:4px;flex-wrap:wrap"}, [h("span", {class: "pill " + (st.severity || ""), text: st.label}),
+      hold ? h("span", {class: "pill " + (st.hold === "submitted" ? "" : "warn"), text: hold}) : null]);
+  }
   function stDot(k){ return h("span", {class: "dot", style: "background:var(--st-" + k + ")"}); }
   function visibleProjects(){ return (state.board.projects || []).filter(function(p){ return state.showDone || p.status !== "completed"; }); }
 
@@ -101,6 +121,7 @@
     renderTabs();
     renderProject();
     renderEventForm();
+    if(state.tab === "board") renderBoard();
     if(state.tab === "pipeline") renderPipeline();
     if(state.tab === "timeline") renderTimeline();
     if(state.tab === "calendar") renderCalendar();
@@ -145,6 +166,75 @@
     document.querySelectorAll("[data-view]").forEach(function(s){ s.hidden = s.getAttribute("data-view") !== state.tab; });
   }
   function setTab(t){ state.tab = t; store("ritehome_stab", t); render(); }
+
+  // ---------- whiteboard ----------
+  // The office whiteboard, row for row: client, project type, person in charge, then a status per stage
+  // in the board's own words and marker colours. Tap a cell to change it (your own stages only).
+  var BOARD_STAGES = ["design", "cutlist", "bom", "final_cutlist", "fabrication", "installation"];
+  function people(){
+    var seen = {}, out = [];
+    (state.board.projects || []).forEach(function(p){ var n = (p.in_charge || "").trim(); if(n && !seen[n.toLowerCase()]){ seen[n.toLowerCase()] = 1; out.push(n); } });
+    return out.sort();
+  }
+  function types(){
+    var seen = {}, out = [];
+    (state.board.projects || []).forEach(function(p){ var n = (p.type || "").trim(); if(n && !seen[n.toLowerCase()]){ seen[n.toLowerCase()] = 1; out.push(n); } });
+    return out.sort();
+  }
+  function datalist(id, list){ return h("datalist", {id: id}, list.map(function(x){ return h("option", {value: x}); })); }
+  function boardCell(p, key){
+    var s = stageOf(p, key);
+    if(!s) return h("td");
+    var cls = "wb-cell " + INK[s.status || "not_started"];
+    var note = s.notes ? h("small", {class: "wb-note", text: s.notes}) : null;
+    if(!s.can_edit) return h("td", null, [h("span", {class: cls, text: s.status === "not_started" ? "" : statusWord(key, s.status)}), note]);
+    var sel = options(h("select", {class: cls, "aria-label": (p.client || p.name) + " " + stageLabel(key)}),
+      statusList(key).map(function(o){ return o[0] === "not_started" ? ["not_started", "—"] : o; }), s.status);
+    sel.addEventListener("change", function(){
+      sel.className = "wb-cell " + INK[sel.value];   // the marker colour changes at once
+      sel.disabled = true;
+      rpc("stage_save", {p_project: p.id, p_stage: key, p: {status: sel.value}})
+        .then(function(){ msg((p.client || p.name) + ": " + stageLabel(key).toLowerCase() + " " + statusWord(key, sel.value).toLowerCase() + "."); return load(); })
+        .catch(function(e){ sel.disabled = false; fail(e); });
+    });
+    return h("td", null, [sel, note]);
+  }
+  function renderBoard(){
+    var list = visibleProjects().slice().sort(function(a, b){
+      return String(a.created || "").localeCompare(String(b.created || "")) || String(a.name).localeCompare(String(b.name));
+    });
+    $("boardCount").textContent = String(list.length);
+    var head = h("tr", null, [h("th", {class: "wb-n", text: "#"}), h("th", {class: "wb-client", text: "Client's name"}), h("th", {text: "Project type"}), h("th", {text: "In charge"})]
+      .concat(BOARD_STAGES.map(function(k){ return h("th", null, [stDot(k), " ", stageLabel(k)]); })));
+    var rows = list.map(function(p, i){
+      return h("tr", {"data-project": p.id}, [
+        h("td", {class: "wb-n", text: String(i + 1)}),
+        h("td", {class: "wb-client"}, h("button", {type: "button", class: "wb-name", onclick: function(){ openProject(p.id); }, text: p.client || p.name || "Untitled"})),
+        h("td", {class: "wb-type", text: p.type || SYSTEM[p.system] || ""}),
+        h("td", {class: "wb-person", text: p.in_charge || ""})
+      ].concat(BOARD_STAGES.map(function(k){ return boardCell(p, k); })));
+    });
+    var foot = null;
+    if(isAdmin()){
+      var c = h("input", {type: "text", maxlength: "120", placeholder: "Client's name", "aria-label": "New row client's name"});
+      var t = h("input", {type: "text", maxlength: "80", placeholder: "Project type", list: "wbTypes", "aria-label": "New row project type"});
+      var who = h("input", {type: "text", maxlength: "80", placeholder: "In charge", list: "wbPeople", "aria-label": "New row in charge"});
+      var add = h("button", {class: "btn small", type: "button", text: "Add row"});
+      add.addEventListener("click", function(){
+        if(!c.value.trim()) return fail(new Error("Write the client's name."));
+        add.disabled = true;
+        rpc("board_project_save", {p: {clientName: c.value.trim(), projectType: t.value.trim(), inCharge: who.value.trim()}})
+          .then(function(){ msg("Row added for " + c.value.trim() + "."); return load(); })
+          .catch(function(e){ add.disabled = false; fail(e); });
+      });
+      foot = h("tfoot", null, h("tr", {class: "wb-add no-print"}, [h("td", {class: "wb-n", text: String(list.length + 1)}), h("td", {class: "wb-client"}, c), h("td", null, t), h("td", null, who),
+        h("td", {colspan: String(BOARD_STAGES.length)}, [add, h("span", {class: "muted small", style: "margin-left:10px", text: "Every stage starts empty; tap a cell to set it."})])]));
+    }
+    put("boardTable", h("div", {class: "wb-scroll"}, [
+      h("table", {class: "wb"}, [h("thead", null, head), h("tbody", null, rows.length ? rows : h("tr", null, h("td", {colspan: String(4 + BOARD_STAGES.length), class: "muted", text: isAdmin() ? "No rows yet. Add the first one below." : "No projects are assigned to you yet."}))), foot]),
+      datalist("wbPeople", people()), datalist("wbTypes", types())
+    ]));
+  }
 
   // ---------- pipeline ----------
   function renderPipeline(){
@@ -205,7 +295,7 @@
     var kids = [
       h("div", {class: "proj-head"}, [
         h("div", null, [h("h2", null, [p.name || "Untitled project", " ", pill(st)]),
-          h("div", {class: "facts"}, [[p.client, SYSTEM[p.system], p.address].filter(Boolean).join(" · "),
+          h("div", {class: "facts"}, [[p.client, p.type || SYSTEM[p.system], p.in_charge ? "In charge: " + p.in_charge : "", p.address].filter(Boolean).join(" · "),
             p.phone ? [" · ", h("a", {href: "tel:" + p.phone.replace(/[^\d+]/g, ""), text: p.phone})] : null])]),
         h("div", {class: "acct-actions no-print"}, [
           isAdmin() && !st.done ? h("button", {class: "btn ghost small", type: "button", onclick: function(){ startPlan(p); }, text: st.planned ? "Re-plan dates" : "Plan dates"}) : null,
@@ -215,11 +305,28 @@
       ]),
       h("p", {class: "proj-forecast", text: forecast}),
       state.plan && state.plan.id === p.id ? planner(p) : null,
+      isAdmin() ? labelsForm(p) : null,
       stageList(p, st, t)
     ];
     card.textContent = ""; kids.forEach(function(k){ if(k) card.appendChild(k); });
   }
 
+  function labelsForm(p){
+    var c = h("input", {type: "text", maxlength: "120", value: p.client || "", "aria-label": "Client's name"});
+    var t = h("input", {type: "text", maxlength: "80", value: p.type || "", list: "pcTypes", "aria-label": "Project type"});
+    var who = h("input", {type: "text", maxlength: "80", value: p.in_charge || "", list: "pcPeople", "aria-label": "In charge"});
+    var target = h("input", {type: "date", value: p.target || "", "aria-label": "Client's target date"});
+    var save = h("button", {class: "btn ghost small", type: "button", disabled: true, text: "Save"});
+    [c, t, who, target].forEach(function(i){ i.addEventListener("input", function(){ save.disabled = false; }); });
+    save.addEventListener("click", function(){
+      save.disabled = true;
+      rpc("board_project_save", {p: {id: p.id, clientName: c.value.trim(), projectType: t.value.trim(), inCharge: who.value.trim(), targetDate: target.value}})
+        .then(function(){ msg("Saved."); return load(); }).catch(function(e){ save.disabled = false; fail(e); });
+    });
+    return h("div", {class: "acct-grid labels no-print"}, [h("label", null, ["Client's name", c]), h("label", null, ["Project type", t]),
+      h("label", null, ["In charge", who]), h("label", null, ["Client's target", target]), h("div", {class: "acct-actions", style: "align-self:end;margin:0"}, save),
+      datalist("pcPeople", people()), datalist("pcTypes", types())]);
+  }
   function stageList(p, st, t){
     var head = h("div", {class: "stage-row head"}, ["Stage", "Status", "Planned start", "Planned finish", "Started", "Finished", "Assigned", ""].map(function(x){ return h("span", {text: x}); }));
     return h("div", {class: "stage-list"}, [head].concat(S.STAGES.map(function(d){ return stageRow(p, stageOf(p, d.key) || {stage: d.key}, d, t); })));
@@ -229,7 +336,7 @@
     var overdue = s.status !== "done" && s.planned_end && s.planned_end < t;
     function field(lbl, node){ return h("label", null, [h("span", {class: "lbl", text: lbl}), node]); }
     function date(key, can){ return can ? h("input", {type: "date", value: s[key] || "", "data-k": key, "aria-label": d.label + " " + key.replace("_", " ")}) : h("span", {class: "ro", text: s[key] ? fmt(s[key]) : "—"}); }
-    var status = edit ? options(h("select", {"data-k": "status", "aria-label": d.label + " status"}), STATUS, s.status) : h("span", {class: "ro", text: label(STATUS, s.status)});
+    var status = edit ? options(h("select", {"data-k": "status", "aria-label": d.label + " status"}), statusList(d.key), s.status) : h("span", {class: "ro", text: statusWord(d.key, s.status)});
     var who;
     if(admin){
       who = options(h("select", {"data-k": "assignee", "aria-label": d.label + " assigned to"}),
@@ -316,7 +423,7 @@
         if(!w || w.end < first || w.start > last) return;
         var l = pos(w.start), r = pos(S.addDays(w.end, 1));
         bars.push(h("div", {class: "g-bar " + (s.status || ""), style: "left:" + l + "%;width:" + Math.max(0.3, r - l) + "%;background-color:var(--st-" + d.key + ")",
-          title: d.label + " · " + short(w.start) + "–" + short(w.end) + " · " + label(STATUS, s.status)}));
+          title: d.label + " · " + short(w.start) + "–" + short(w.end) + " · " + statusWord(d.key, s.status)}));
       });
       var track = [weeksBg(false)].concat(holidayBands(), bars);
       if(!bars.length) track.push(h("span", {class: "g-none", text: st.planned ? "Outside this range" : "Not planned yet"}));
@@ -405,7 +512,7 @@
         isAdmin() ? h("button", {class: "btn ghost small no-print", type: "button", onclick: function(){ editEvent(e); }, text: "Edit"}) : h("span")]);
     }
     if(it.type === "due") return h("div", {class: "day-item"}, [dot, h("div", null, [h("button", {class: "link", type: "button", onclick: function(){ openProject(it.p.id); }, text: stageLabel(it.s.stage) + " due · " + it.p.name}),
-      h("span", {class: "sub" + (it.late ? " late" : ""), text: [label(STATUS, it.s.status), it.s.assignee ? staffName(it.s.assignee) : "Nobody assigned", it.late ? "overdue" : ""].filter(Boolean).join(" · ")})]), h("span")]);
+      h("span", {class: "sub" + (it.late ? " late" : ""), text: [statusWord(it.s.stage, it.s.status), it.s.assignee ? staffName(it.s.assignee) : "Nobody assigned", it.late ? "overdue" : ""].filter(Boolean).join(" · ")})]), h("span")]);
     if(it.type === "target") return h("div", {class: "day-item"}, [dot, h("div", null, [h("button", {class: "link", type: "button", onclick: function(){ openProject(it.p.id); }, text: "Client's target handover · " + it.p.name}),
       h("span", {class: "sub", text: "Forecast " + fmt(health(it.p).forecast, true)})]), h("span")]);
     var leadsHref = window.RitehomeLinks ? window.RitehomeLinks.href("leads") : "leads.html";
@@ -473,7 +580,7 @@
     document.body.classList.add("gated"); document.body.classList.remove("connecting");
   }
   function start(){
-    var t = store("ritehome_stab"); if(t === "pipeline" || t === "timeline" || t === "calendar") state.tab = t;
+    var t = store("ritehome_stab"); if(t === "board" || t === "pipeline" || t === "timeline" || t === "calendar") state.tab = t;
     var c = Number(keep("ritehome_capacity")); if(c >= 1) state.cap = c;
     $("fCap").value = state.cap; $("fSpan").value = String(state.span);
     document.querySelectorAll("[data-stab]").forEach(function(b){ b.addEventListener("click", function(){ setTab(b.getAttribute("data-stab")); }); });

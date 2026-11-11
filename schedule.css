@@ -113,3 +113,27 @@
   .cal-dots{display:flex}
   .g-row{grid-template-columns:130px minmax(0,1fr)}
 }
+
+/* Whiteboard: the office board as a table, marker colours and all. */
+.wb-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.wb{border-collapse:separate;border-spacing:0;font-size:13px;min-width:1040px;width:100%}
+.wb th{text-align:left;font:600 10.5px/1.25 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--accent);padding:9px 6px;border-bottom:2px solid var(--ink);white-space:nowrap;background:var(--surface)}
+.wb td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:middle;background:var(--surface)}
+.wb tbody tr:hover td{background:var(--surface-2)}
+.wb .wb-n{width:34px;color:var(--bad);font:600 12px/1 var(--f-mono);text-align:center}
+.wb .wb-client{position:sticky;left:0;z-index:1;min-width:130px;box-shadow:1px 0 0 var(--border)}
+.wb .wb-name{appearance:none;background:none;border:0;padding:0;font:700 13.5px/1.3 var(--f-body);color:var(--ink);text-transform:uppercase;letter-spacing:.02em;cursor:pointer;text-align:left}
+.wb .wb-name:hover{text-decoration:underline}
+.wb .wb-type{color:var(--st-cutlist);text-transform:uppercase;font-weight:600;font-size:12px}
+.wb .wb-person{text-transform:uppercase;font-weight:600;font-size:12px}
+.wb .wb-cell{font:700 11.5px/1.2 var(--f-body);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}
+.wb select.wb-cell{appearance:none;-webkit-appearance:none;border:1px solid transparent;background:transparent;padding:6px;min-height:32px;border-radius:6px;cursor:pointer;width:auto;max-width:none}
+.wb select.wb-cell:hover,.wb select.wb-cell:focus{border-color:var(--border);background:var(--surface)}
+.wb .ink-done{color:var(--good)}
+.wb .ink-moving{color:var(--bad)}
+.wb .ink-review{color:var(--st-cutlist)}
+.wb .ink-stuck{color:var(--ink)}
+.wb .ink-none{color:var(--ink-muted);font-weight:400}
+.wb-note{display:block;font-size:11px;color:var(--bad);text-transform:uppercase;padding:0 8px;line-height:1.3}
+.wb-add input{width:100%;min-height:32px;font-size:13px;padding:5px 7px}
+.sched .labels{margin:0 0 12px;padding:12px;border:1px solid var(--border);border-radius:10px}

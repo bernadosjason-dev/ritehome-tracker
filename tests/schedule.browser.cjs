@@ -37,10 +37,37 @@ const db = startLocalPg();
     const row = s => page.locator(`#projCard .stage-row[data-stage="${s}"]`);
     const stageDb = s => must('super', `select status || '|' || coalesce(actual_start::text, '-') || '|' || coalesce(actual_end::text, '-') from public.project_stages where project_id = 'p_k' and stage = '${s}'`);
 
-    // 1. The admin: both active projects wait in Consultation; the finished one is hidden.
+    // 1. The admin opens on the whiteboard: one row per active project, the finished one hidden.
     await page.goto('http://127.0.0.1:8000/schedule', {waitUntil: 'domcontentloaded'});
     await setSession('u-admin'); await page.reload({waitUntil: 'domcontentloaded'}); await ready();
     assert.equal(await page.locator('.side-link[aria-current="page"]').innerText(), 'Schedule');
+    assert.equal(await page.locator('[data-stab][aria-current="page"]').innerText(), 'Whiteboard');
+    assert.deepEqual((await page.locator('.wb thead th').allInnerTexts()).map(x => x.trim()),
+      ['#', "CLIENT'S NAME", 'PROJECT TYPE', 'IN CHARGE', 'DESIGN', 'INITIAL CUTLIST', 'BILL OF MATERIALS', 'FINAL CUTLIST', 'FABRICATION', 'INSTALLATION']);
+    assert.equal(await page.locator('.wb tbody tr').count(), 2);
+
+    // A new row, the way the office writes one on the board, then a status tapped straight into its cell.
+    await page.locator('.wb-add input[aria-label="New row client\'s name"]').fill('R. Sanchez');
+    await page.locator('.wb-add input[aria-label="New row project type"]').fill('Cabinet');
+    await page.locator('.wb-add input[aria-label="New row in charge"]').fill('Jane');
+    await page.locator('.wb-add button', {hasText: 'Add row'}).click();
+    await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Row added for R. Sanchez.');
+    const sanchez = page.locator('.wb tbody tr', {has: page.locator('.wb-name', {hasText: 'R. Sanchez'})});
+    assert.deepEqual(await sanchez.locator('td').evaluateAll(t => t.slice(1, 4).map(x => x.textContent)), ['R. Sanchez', 'Cabinet', 'Jane']);
+    await sanchez.locator('select[aria-label="R. Sanchez Initial cutlist"]').selectOption('in_progress');
+    await page.waitForFunction(() => /R\. Sanchez: initial cutlist in progress\./.test(document.getElementById('acctMsg').textContent));
+    const sid = must('admin', `select id from public.tracker_docs where data->>'clientName' = 'R. Sanchez'`);
+    assert.equal(must('super', `select status || '|' || actual_start from public.project_stages where project_id = '${sid}' and stage = 'cutlist'`), `in_progress|${today}`);
+    await page.waitForFunction(() => /ink-moving/.test(document.querySelector('select[aria-label="R. Sanchez Initial cutlist"]').className));
+    await sanchez.locator('select[aria-label="R. Sanchez Bill of materials"]').selectOption('submitted');
+    await page.waitForFunction(() => /bill of materials submitted/.test(document.getElementById('acctMsg').textContent));
+    assert.equal(await page.locator('.wb tbody tr', {has: page.locator('.wb-name', {hasText: 'R. Sanchez'})}).locator('select[aria-label="R. Sanchez Bill of materials"] option:checked').innerText(), 'Submitted');
+    must('admin', `select public.board_project_save('{"id":"${sid}"}'::jsonb)`);   // a no-op save keeps the row
+    must('super', `delete from public.tracker_docs where id = '${sid}'`);            // back to the two seeded projects
+    await page.reload({waitUntil: 'domcontentloaded'}); await ready();
+
+    // The pipeline: both active projects wait in Consultation.
+    await page.locator('[data-stab="pipeline"]').click();
     assert.match(await page.locator('#schedKpis').innerText(), /Active projects\s+2\s+2 not planned yet/i);
     const consult = page.locator('.pipe-col').first();
     assert.match(await consult.innerText(), /Consultation\s+2/);
@@ -54,7 +81,7 @@ const db = startLocalPg();
     const start = S.nextWorkday(today);
     assert.equal(await page.locator('#projCard input[aria-label="Plan start date"]').inputValue(), start);
     await page.locator('#projCard button', {hasText: 'Save this plan'}).click();
-    await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Planned 8 stages.');
+    await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Planned 9 stages.');
     const expected = S.plan(start).map(r => `${r.stage}|${r.planned_start}|${r.planned_end}`).join('\n');
     assert.equal(must('super', `select string_agg(stage || '|' || planned_start || '|' || planned_end, E'\\n' order by stage) from public.project_stages where project_id = 'p_k'`), expected);
     assert.match(await page.locator('#projCard h2 .pill').innerText(), /On track|Planned/);
@@ -74,7 +101,7 @@ const db = startLocalPg();
     await page.locator('[data-stab="timeline"]').click();
     const kRow = page.locator('.g-row', {has: page.locator('button', {hasText: 'Kitchen – Ana Reyes'})});
     await kRow.waitFor();
-    assert.equal(await kRow.locator('.g-bar').count(), 8);
+    assert.equal(await kRow.locator('.g-bar').count(), 9);
     assert.equal(await kRow.locator('.g-bar.done').count(), 1);
     assert.equal(await kRow.locator('.g-target').count(), 1);
     assert.match(await page.locator('.g-row', {has: page.locator('button', {hasText: 'Wardrobe'})}).innerText(), /Not planned yet/);
@@ -101,13 +128,13 @@ const db = startLocalPg();
 
     // 6. Phone width: nothing scrolls the page sideways (the board and timeline scroll inside their cards).
     await page.setViewportSize({width: 390, height: 844});
-    for (const tab of ['pipeline', 'timeline', 'calendar']) {
+    for (const tab of ['board', 'pipeline', 'timeline', 'calendar']) {
       await page.locator(`[data-stab="${tab}"]`).click();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no sideways scroll on a phone: ' + tab);
     }
     await page.screenshot({path: '/tmp/ritehome-schedule-phone.png', fullPage: true});
     await page.setViewportSize({width: 1280, height: 900});
-    for (const tab of ['pipeline', 'timeline', 'calendar']) {
+    for (const tab of ['board', 'pipeline', 'timeline', 'calendar']) {
       await page.locator(`[data-stab="${tab}"]`).click();
       await page.screenshot({path: `/tmp/ritehome-schedule-${tab}.png`, fullPage: true});
     }
@@ -115,6 +142,13 @@ const db = startLocalPg();
     // 7. The designer: only the kitchen, only Schedule in the menu, no planning, and only their own stages open.
     await page.evaluate(() => { history.replaceState(null, '', '/schedule'); });
     await setSession('u-designer'); await page.reload({waitUntil: 'domcontentloaded'}); await ready();
+    // On the whiteboard the designer can tap only their own stages.
+    await page.locator('[data-stab="board"]').click();
+    const kb = page.locator('.wb tbody tr[data-project="p_k"]');
+    assert.equal(await page.locator('.wb tbody tr').count(), 1);
+    assert.deepEqual(await kb.locator('select').evaluateAll(a => a.map(x => x.getAttribute('aria-label'))),
+      ['Ana Reyes Design', 'Ana Reyes Initial cutlist', 'Ana Reyes Bill of materials', 'Ana Reyes Final cutlist']);
+    assert.equal(await page.locator('.wb-add').count(), 0, 'only the admin adds rows');
     await page.locator('[data-stab="pipeline"]').click();
     assert.deepEqual(await page.locator('.pcard').evaluateAll(a => a.map(x => x.getAttribute('data-project'))), ['p_k']);
     assert.deepEqual(await page.locator('a.side-link:visible').evaluateAll(a => a.map(x => x.textContent)), ['Schedule']);

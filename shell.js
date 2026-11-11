@@ -39,7 +39,8 @@
   window.RitehomeLinks = {href: href};
   function brand(){
     var a = el('a', 'side-brand'); a.href = href('all');
-    a.appendChild(el('b'));
+    var logo = el('img', 'side-logo'); logo.src = 'brand/logo-mark-light.png'; logo.alt = ''; logo.width = 430; logo.height = 894;
+    a.appendChild(logo);
     var t = el('span'); t.appendChild(el('strong', null, 'RITEHOME')); t.appendChild(el('small', null, 'Staff portal'));
     a.appendChild(t);
     return a;

@@ -8,6 +8,9 @@
 <script src="portal.js?v=2026-11-13.1"></script>
 <script src="project-health.js?v=2026-11-13.1"></script>
 <title>Ritehome Project Tracker</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
@@ -484,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-13.2">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -497,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-13.1"></script>
+<script src="shell.js?v=2026-11-13.2"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -518,8 +521,19 @@
   </div>
 
   <div id="gateScreen" class="gate" hidden>
+    <aside class="gate-hero" aria-hidden="true">
+      <div class="gate-hero-brand"><img src="brand/logo-mark-light.png" alt="" width="430" height="894"><span><strong>RITEHOME</strong><small>Modular Systems</small></span></div>
+      <div>
+        <p class="gate-hero-k">Staff portal</p>
+        <p class="gate-hero-h">Every job, from first inquiry to handover, in one place.</p>
+        <ul class="gate-hero-list"><li>Whiteboard</li><li>Schedule</li><li>Leads</li><li>Projects</li><li>Procurement</li><li>Books</li></ul>
+      </div>
+      <p class="gate-hero-foot">We build kitchens and furniture that last, so you never pay for the same kitchen twice.</p>
+    </aside>
+    <div class="gate-main">
     <div class="card gate-card">
-      <span class="eyebrow">Ritehome</span>
+      <img class="gate-logo" src="brand/logo-mark.png" alt="" width="430" height="894">
+      <span class="eyebrow">Welcome back</span>
       <h1>Project Tracker</h1>
       <p id="gateMsg">Connecting…</p>
       <form id="gateForm" hidden>
@@ -536,14 +550,25 @@
         </div>
         <div class="field" style="margin:0;">
           <label for="gatePassword">Password</label>
-          <input id="gatePassword" type="password" autocomplete="current-password" required>
+          <div class="gate-pw"><input id="gatePassword" type="password" autocomplete="current-password" required><button type="button" id="gatePwToggle" aria-controls="gatePassword" aria-pressed="false">Show</button></div>
         </div>
         <button class="btn" type="submit" id="gateLoginBtn">Sign in</button>
       </form>
+      <p class="gate-help">Forgot your password? Ask the admin to reset it.<br>Office hours: Monday to Saturday, 9 AM to 5 PM.</p>
       <div id="gateAccount" class="gate-account" hidden><span id="gateWho"></span><a class="btn small" id="gateSchedule" href="schedule.html" hidden>Open my schedule</a><button class="btn ghost small" id="gateSignOut" type="button">Sign out</button></div>
       <div class="form-error" id="gateError" role="alert"></div>
     </div>
+    </div>
   </div>
+  <script data-part="gate-password">
+  (function(){   // Show / hide the password while typing it on a phone.
+    var b = document.getElementById("gatePwToggle"), i = document.getElementById("gatePassword");
+    b.addEventListener("click", function(){
+      var show = i.type === "password"; i.type = show ? "text" : "password";
+      b.textContent = show ? "Hide" : "Show"; b.setAttribute("aria-pressed", String(show)); i.focus();
+    });
+  })();
+  </script>
 
   <!-- ===================== DASHBOARD SCREEN ===================== -->
   <div id="dashboardScreen">
@@ -1407,7 +1432,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-13.1";
+  var PAGE_VERSION = "2026-11-13.2";
 
   // ---------- reference data ----------
 

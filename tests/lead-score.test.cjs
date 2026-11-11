@@ -42,22 +42,24 @@ test('won and lost leads are closed, not scored', () => {
   assert.equal(score({ stage: 'lost' }, NOW).label, 'Lost');
 });
 
-test('the 2-business-hour clock: Monday to Saturday, 8 to 5, Manila time', () => {
-  // Wed 08:30 → Wed 10:00 Manila = 1.5 h
-  assert.equal(businessHours('2026-11-12T00:30:00Z', NOW), 1.5);
-  // Sat 16:00 → Mon 09:00 Manila: 1 h Saturday + 0 Sunday + 1 h Monday = 2
-  assert.equal(businessHours('2026-11-14T08:00:00Z', '2026-11-16T01:00:00Z'), 2);
-  // Overnight: Tue 16:30 → Wed 08:30 = 0.5 + 0.5 = 1
-  assert.equal(businessHours('2026-11-11T08:30:00Z', '2026-11-12T00:30:00Z'), 1);
-  // A Sunday inquiry answered Monday 8:00 is on time
-  assert.equal(businessHours('2026-11-15T03:00:00Z', '2026-11-16T00:00:00Z'), 0);
-  assert.equal(replyClock({ stage: 'new', created_at: '2026-11-11T07:00:00Z' }, NOW).overdue, true, 'Tue 15:00 → Wed 10:00 is 4 h');
+test('the 2-business-hour clock: Monday to Saturday, 9 to 5, Manila time', () => {
+  // Wed 08:30 → Wed 10:00 Manila: the office opens at 9, so 1 h
+  assert.equal(businessHours('2026-11-12T00:30:00Z', NOW), 1);
+  // Sat 16:00 → Mon 10:00 Manila: 1 h Saturday + 0 Sunday + 1 h Monday = 2
+  assert.equal(businessHours('2026-11-14T08:00:00Z', '2026-11-16T02:00:00Z'), 2);
+  // Overnight: Tue 16:30 → Wed 09:30 = 0.5 + 0.5 = 1
+  assert.equal(businessHours('2026-11-11T08:30:00Z', '2026-11-12T01:30:00Z'), 1);
+  // Before opening counts nothing: Wed 07:00 → Wed 09:00 = 0
+  assert.equal(businessHours('2026-11-11T23:00:00Z', '2026-11-12T01:00:00Z'), 0);
+  // A Sunday inquiry answered Monday 9:00 is on time
+  assert.equal(businessHours('2026-11-15T03:00:00Z', '2026-11-16T01:00:00Z'), 0);
+  assert.equal(replyClock({ stage: 'new', created_at: '2026-11-11T07:00:00Z' }, NOW).overdue, true, 'Tue 15:00 → Wed 10:00 is 3 h');
   assert.equal(replyClock({ stage: 'new', created_at: '2026-11-11T07:00:00Z', first_response_at: '2026-11-11T07:30:00Z' }, NOW), null);
 });
 
 test('the board: waiting queue oldest first, follow-ups, pipeline, win rate, reply speed', () => {
   const leads = [
-    { id: 'a', stage: 'new', created_at: '2026-11-11T07:00:00Z', budget: 200000 },                          // 4 h waiting
+    { id: 'a', stage: 'new', created_at: '2026-11-11T07:00:00Z', budget: 200000 },                          // 3 h waiting
     { id: 'b', stage: 'new', created_at: '2026-11-12T01:30:00Z' },                                            // 0.5 h waiting
     { id: 'c', stage: 'contacted', created_at: '2026-11-10T01:00:00Z', first_response_at: '2026-11-10T02:00:00Z', next_action_at: '2026-11-12', expected_value: 150000 },
     { id: 'd', stage: 'quoted', created_at: '2026-11-03T01:00:00Z', first_response_at: '2026-11-03T04:00:00Z', expected_value: 300000, next_action_at: '2026-11-20' },

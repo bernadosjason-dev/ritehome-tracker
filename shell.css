@@ -42,7 +42,8 @@ h1,h2,h3{font-family:var(--f-display);font-weight:600;letter-spacing:-.015em}
 .app-side{position:fixed;inset:0 auto 0 0;width:var(--side-w);z-index:40;flex-direction:column;gap:2px;
   background:var(--side-bg);color:var(--side-ink);padding:calc(18px + env(safe-area-inset-top,0px)) 12px calc(14px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px));overflow-y:auto}
 .side-brand{display:flex;align-items:center;gap:10px;padding:4px 10px 20px;color:var(--side-ink);text-decoration:none}
-.side-brand b{width:24px;height:24px;border-radius:6px;background:var(--brand-red);display:block;flex:none}
+.side-brand .side-logo{width:auto;height:34px;display:block;flex:none}
+.app-top .side-brand .side-logo{height:28px}
 .side-brand span{display:flex;flex-direction:column;line-height:1.15}
 .side-brand strong{font:600 14px/1.1 var(--f-display);letter-spacing:.18em}
 .side-brand small{font:500 10px/1.4 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted)}
@@ -255,4 +256,43 @@ body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{an
 @media (max-width:640px){
   .budget-row.health-figs{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px}
   .health-figs .val{font-size:19px}
+}
+
+/* ---------- Sign-in (landing) page: a photo of our work beside the form ---------- */
+#gateScreen:not([hidden]){position:fixed;inset:0;z-index:60;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(380px,1fr);background:var(--bg);overflow-y:auto;min-height:0;align-items:stretch;justify-content:stretch}
+.gate-hero{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:28px;padding:40px 48px;color:#fff;background:#0d0d0f url("brand/hero.webp") center/cover no-repeat;min-height:100vh}
+.gate-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,12,.66) 0%,rgba(10,10,12,.5) 40%,rgba(10,10,12,.9) 100%)}
+.gate-hero>*{position:relative}
+.gate-hero-brand{display:flex;align-items:center;gap:12px}
+.gate-hero-brand img{height:46px;width:auto;display:block}
+.gate-hero-brand strong{display:block;font:600 18px/1.1 var(--f-display);letter-spacing:.24em}
+.gate-hero-brand small{display:block;font:500 10.5px/1.5 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+.gate-hero-k{margin:0 0 12px;font:600 11px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:#fff;display:flex;align-items:center;gap:10px}
+.gate-hero-k::before{content:"";width:22px;height:2px;background:var(--brand-red)}
+.gate-hero-h{margin:0 0 20px;font:500 clamp(28px,3vw,40px)/1.12 var(--f-display);max-width:17ch;letter-spacing:-.01em}
+.gate-hero-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.gate-hero-list li{font:500 12.5px/1 var(--f-body);padding:8px 12px;border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(0,0,0,.28);backdrop-filter:blur(4px)}
+.gate-hero-foot{margin:0;font-size:13.5px;line-height:1.5;color:rgba(255,255,255,.78);max-width:40ch}
+.gate-main{display:flex;align-items:center;justify-content:center;padding:40px 28px}
+#gateScreen .gate-card{max-width:420px;padding:32px 30px;gap:14px;border-radius:18px;background:var(--surface)}
+#gateScreen .gate-card .eyebrow::before{display:none}
+#gateScreen .gate-card h1{font-size:30px;margin:0}
+.gate-logo{height:52px;width:auto;align-self:flex-start;margin-bottom:4px}
+#gateScreen .gate-card input{min-height:46px;font-size:15px}
+#gateScreen .gate-card .btn{min-height:48px;font-size:15px}
+.gate-pw{position:relative}
+.gate-pw input{width:100%;padding-right:68px}
+.gate-pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);appearance:none;border:0;background:transparent;color:var(--ink-muted);font:600 12.5px/1 var(--f-body);padding:8px 10px;border-radius:8px;cursor:pointer}
+.gate-pw button:hover,.gate-pw button:focus-visible{color:var(--ink);background:var(--surface-2)}
+.gate-help{font-size:12.5px!important;line-height:1.6!important}
+#gateLogin[hidden] ~ .gate-help{display:none}
+@media (max-width:899px){
+  #gateScreen:not([hidden]){grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .gate-hero{min-height:0;padding:20px 20px 22px;gap:18px;background-image:url("brand/hero-sm.webp")}
+  .gate-hero-brand img{height:36px}
+  .gate-hero-h{font-size:22px;margin:0}
+  .gate-hero-list,.gate-hero-foot,.gate-logo{display:none}
+  .gate-main{align-items:flex-start;padding:20px 16px 32px}
+  #gateScreen .gate-card{padding:24px 20px;border-radius:16px}
+  #gateScreen .gate-card h1{font-size:26px}
 }

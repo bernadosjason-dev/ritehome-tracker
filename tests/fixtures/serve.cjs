@@ -14,7 +14,7 @@ const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'
 const ignored = new Set(fs.readFileSync(path.join(ROOT, '.vercelignore'), 'utf8').split('\n')
   .map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(l => '/' + l.replace(/^\//, '')));
 const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8'};
+  '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8'};
 
 // Vercel source patterns used in vercel.json: literal paths and /:name(a|b|c).
 function matches(source, pathname){

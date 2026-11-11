@@ -296,3 +296,44 @@ body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{an
   #gateScreen .gate-card{padding:24px 20px;border-radius:16px}
   #gateScreen .gate-card h1{font-size:26px}
 }
+
+/* ---------- Grainy gradients: the theme's backgrounds ----------
+   Soft Ritehome-red and peach glows under a fine film grain, on the page, the menu and the
+   sign-in page. Cards, tables and forms stay solid so figures read cleanly on top. The grain is
+   an SVG noise tile (feTurbulence), drawn once by the browser, no image download. */
+:root{
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grain-light:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --glow-a:rgba(255,84,48,.42); --glow-b:rgba(255,160,100,.50); --glow-c:rgba(217,35,22,.16);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--glow-a:rgba(255,72,48,.28); --glow-b:rgba(200,80,30,.22); --glow-c:rgba(255,45,32,.14); --grain:var(--grain-light)}}
+:root[data-theme="dark"]{--glow-a:rgba(255,72,48,.28); --glow-b:rgba(200,80,30,.22); --glow-c:rgba(255,45,32,.14); --grain:var(--grain-light)}
+
+body{
+  background-color:var(--bg);
+  background-image:var(--grain),
+    radial-gradient(65% 60% at 100% 0%,var(--glow-a),transparent 72%),
+    radial-gradient(60% 55% at 0% 100%,var(--glow-b),transparent 74%),
+    radial-gradient(45% 40% at 72% 80%,var(--glow-c),transparent 72%);
+  background-size:240px 240px,auto,auto,auto;
+  background-attachment:fixed;
+}
+/* The dark menu: charcoal with an ember glow rising from the bottom, and grain. */
+.app-side,.app-top{
+  background-color:var(--side-bg);
+  background-image:var(--grain-light),
+    radial-gradient(130% 55% at 0% 105%,rgba(217,35,22,.62),transparent 62%),
+    radial-gradient(90% 40% at 110% 30%,rgba(255,120,60,.16),transparent 70%);
+  background-size:240px 240px,auto,auto;
+}
+.app-top{background-image:var(--grain-light),radial-gradient(80% 160% at 0% 120%,rgba(217,35,22,.55),transparent 65%)}
+/* Sign-in: the form side gets the same glow as the app behind it. */
+.gate-main{
+  background-image:var(--grain),
+    radial-gradient(70% 60% at 100% 0%,var(--glow-a),transparent 70%),
+    radial-gradient(70% 55% at 0% 100%,var(--glow-b),transparent 72%);
+  background-size:240px 240px,auto,auto;
+}
+/* Solid surfaces on top of the grain, so it never sits under text. */
+.card,.kpi,.gate-card,.workspace-bar{background-color:var(--surface)}
+@media print{body,.gate-main{background:#fff!important}}

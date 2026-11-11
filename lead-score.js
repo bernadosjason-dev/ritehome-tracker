@@ -11,11 +11,11 @@
    Hot ≥ 65 · Warm 40-64 · Cold < 40. Won and lost leads are closed and not scored.
 
    The website promises a reply within 2 business hours; business hours here are Monday to
-   Saturday, 9 AM to 5 PM (the office hours on the Google Business Profile), Philippine time
-   (UTC+8, no daylight saving). */
+   Saturday, 8 AM to 5 PM, Philippine time (UTC+8, no daylight saving): the staff's working hours.
+   The website shows clients 9 AM to 5 PM; the team starts an hour earlier, so the clock does too. */
 (function(root){
   'use strict';
-  var HOT = 65, WARM = 40, REPLY_HOURS = 2, OPEN = 9, CLOSE = 17, PH = 8 * 3600000;
+  var HOT = 65, WARM = 40, REPLY_HOURS = 2, OPEN = 8, CLOSE = 17, PH = 8 * 3600000;
   var LOCAL = /\b(cagayan de oro|cdo|misamis oriental|opol|el salvador|tagoloan|villanueva|jasaan|laguindingan|alubijid|gitagum|balingasag|claveria|manticao|initao|naawan|lugait|carmen|lapasan|macasandig|bulua|kauswagan|gusa|cugman|agusan|puerto|iponan|canitoan|balulang|camaman-an|nazareth|patag|bugo|macabalan|consolacion|nazareth)\b/i;
   var REGION = /\b(bukidnon|malaybalay|valencia|manolo fortich|iligan|lanao|camiguin|misamis occidental|ozamiz|oroquieta|tangub|gingoog|el salvador)\b/i;
   var MEASURE = /\d+(\.\d+)?\s*(m\b|meter|metre|ft\b|feet|cm\b|x\s*\d|by\s*\d|sqm|sq\.?\s*m)/i;
@@ -58,7 +58,7 @@
     return {closed: false, total: total, label: total >= HOT ? 'Hot' : total >= WARM ? 'Warm' : 'Cold', parts: parts};
   }
 
-  // Business hours (Mon-Sat 9:00-17:00, Philippine time) between two instants.
+  // Business hours (Mon-Sat 8:00-17:00, Philippine time) between two instants.
   function businessHours(fromISO, toISO){
     var a = Date.parse(fromISO), b = Date.parse(toISO);
     if(!(b > a)) return 0;

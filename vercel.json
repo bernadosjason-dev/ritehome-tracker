@@ -13,6 +13,10 @@
     {
       "source": "/accounting",
       "destination": "/accounting.html"
+    },
+    {
+      "source": "/leads",
+      "destination": "/leads.html"
     }
   ],
   "redirects": [

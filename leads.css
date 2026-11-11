@@ -1,0 +1,47 @@
+/* Lead scoreboard (leads.html). Base pieces come from accounting.css; theme from shell.css. */
+.leads .score{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--f-mono);padding:5px 8px;border-radius:999px;white-space:nowrap}
+.leads .score.hot{background:var(--bad-bg);color:var(--bad)}
+.leads .score.warm{background:var(--warn-bg);color:var(--warn)}
+.leads .score.cold{background:var(--surface-2);color:var(--ink-muted)}
+.leads .score.closed{background:var(--good-bg);color:var(--good)}
+.leads .score.lost{background:var(--surface-2);color:var(--ink-muted)}
+.lead-stages{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.lead-stages button{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 12px;font:500 13px/1.25 var(--f-body);cursor:pointer;text-align:left;min-width:108px}
+.lead-stages button b{display:block;font:600 16px/1.2 var(--f-mono)}
+.lead-stages button small{display:block;color:var(--ink-muted);font-size:11.5px}
+.lead-stages button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.wait-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.wait-row:last-child{border-bottom:0}
+.wait-row .who strong{font-size:14.5px}
+.wait-row .who .meta{display:block;font-size:12.5px;color:var(--ink-muted);margin-top:2px}
+.wait-row .clock{font:600 12px/1 var(--f-mono);padding:4px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-muted);margin-left:6px;white-space:nowrap}
+.wait-row .clock.late{background:var(--bad-bg);color:var(--bad)}
+.contact-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.contact-btns .btn{min-height:34px}
+.lead-row-name{font-weight:600;cursor:pointer;color:var(--ink);text-decoration:none}
+.lead-row-name:hover{text-decoration:underline}
+.acct-table tr.overdue td.next{color:var(--bad);font-weight:600}
+.lead-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px}
+.lead-head h2{margin:0 0 4px}
+.lead-cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.lead-cols{grid-template-columns:1fr}}
+.lead-parts{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.lead-parts td{padding:6px 4px;border-bottom:1px solid var(--border);vertical-align:top}
+.lead-parts td.pts{text-align:right;font-family:var(--f-mono);white-space:nowrap}
+.lead-parts td.why{color:var(--ink-muted)}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:13.5px}
+.timeline li{border-left:2px solid var(--border);padding:2px 0 2px 12px}
+.timeline li.contact{border-left-color:var(--good)}
+.timeline li.inquiry{border-left-color:var(--accent)}
+.timeline .when{display:block;font:500 11px/1.4 var(--f-mono);color:var(--ink-muted);letter-spacing:.04em}
+.stage-btns{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.stage-btns button[aria-current="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.lead-rules{margin-top:14px}
+.lead-rules summary{cursor:pointer;font-weight:600;font-size:13.5px}
+.lead-rules p{margin-top:8px}
+@media (max-width:640px){
+  .wait-row{grid-template-columns:1fr}
+  .contact-btns{justify-content:flex-start}
+  .lead-stages button{min-width:0;flex:1 1 30%}
+}
+.leads .cell-sub{display:block;font-size:12px;color:var(--ink-muted);font-weight:400;margin-top:2px}

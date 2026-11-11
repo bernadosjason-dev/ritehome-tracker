@@ -86,3 +86,12 @@ their quote. `node --test tests/project-health.test.cjs` holds hand-worked figur
 The project page is tabbed (Overview · Expenses · Billing · Labor · Procurement · Details) by
 `data-ptab` on each section; the tab is remembered per browser tab in sessionStorage (`ritehome_ptab`).
 
+Leads (`leads.html`/`leads.js` at `/leads`, scoring in `lead-score.js`, data in
+`supabase/migrations/20261112000006_leads.sql`): admin only. The website Worker files leads through
+`ingest_lead(p, key)`; the key's SHA-256 lives in `app_secrets` (no policy: only SECURITY DEFINER code
+reads it), the key itself only in the Worker's `PORTAL_LEAD_KEY` secret. Never commit either. Repeat
+inquiries from the same phone or email within 30 days join the open lead. Contact (call, message, visit,
+quote) times the first reply for the 2-business-hour promise (Mon-Sat 8-17, Manila). Scores are computed,
+not stored. Tests: `node --test tests/leads.test.cjs tests/lead-score.test.cjs` and
+`node tests/leads.browser.cjs` (real SQL through `tests/fixtures/pg-rpc.cjs`).
+

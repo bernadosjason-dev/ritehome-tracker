@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Leads</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-12.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-12.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-12.1">
+<link rel="stylesheet" href="leads.css?v=2026-11-12.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "leads"};</script>
+<script src="lead-score.js?v=2026-11-12.1"></script>
+</head>
+<body class="acct leads">
+<main class="wrap">
+<script src="shell.js?v=2026-11-12.1"></script>
+  <header class="acct-head">
+    <div>
+      <div class="eyebrow">Leads &amp; prospects</div>
+      <h1>Lead scoreboard</h1>
+      <p class="sub">Every inquiry from the website, Hannah, Facebook, walk-ins and referrals, scored and followed up until it's won or lost.</p>
+    </div>
+    <div class="acct-head-actions no-print"><button class="btn" type="button" id="addLeadBtn">+ Add lead</button></div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="kpis" id="leadKpis"></div>
+
+    <section class="card" id="addCard" hidden>
+      <h2>Add a lead</h2>
+      <form id="addForm" class="acct-grid" novalidate>
+        <label>Name <input id="nName" maxlength="120" required></label>
+        <label>Phone <input id="nPhone" type="tel" maxlength="40"></label>
+        <label>Email <input id="nEmail" type="email" maxlength="160"></label>
+        <label>Came from <select id="nSource"><option value="facebook">Facebook / Messenger</option><option value="walk-in">Walk-in</option><option value="referral">Referral</option><option value="phone">Phone call</option><option value="website">Website</option><option value="other">Other</option></select></label>
+        <label>System <select id="nSystem" data-systems></select></label>
+        <label>When <select id="nTimeline" data-timelines></select></label>
+        <label>Budget (₱) <input id="nBudget" type="number" min="0" step="1000" inputmode="numeric"></label>
+        <label class="wide">Location <input id="nLocation" maxlength="300" placeholder="Barangay, city"></label>
+        <label class="wide">What they want <input id="nMessage" maxlength="2000" placeholder="e.g. L-shape kitchen, 4m by 3m, laminated"></label>
+        <div class="wide acct-actions"><button class="btn" type="submit">Save lead</button><button class="btn ghost" type="button" id="addCancel">Cancel</button></div>
+      </form>
+    </section>
+
+    <section class="card" id="waitCard" hidden>
+      <h2>Reply now <span class="count" id="waitCount"></span></h2>
+      <p class="muted small">The website promises a reply within 2 business hours (Monday to Saturday, 8 AM to 5 PM). Oldest first.</p>
+      <div id="waitList"></div>
+    </section>
+
+    <section class="card" id="leadCard" hidden></section>
+
+    <section class="card">
+      <h2>Scoreboard <span class="count" id="boardCount"></span></h2>
+      <div class="lead-stages no-print" id="stageBar"></div>
+      <div class="acct-bar no-print">
+        <label>Search <input type="search" id="fSearch" placeholder="name, phone, place, message"></label>
+        <label>Source <select id="fSource"><option value="">All sources</option><option value="website">Website</option><option value="site-visit">Site visit form</option><option value="hannah">Hannah chat</option><option value="facebook">Facebook</option><option value="walk-in">Walk-in</option><option value="referral">Referral</option><option value="phone">Phone</option><option value="other">Other</option></select></label>
+        <label class="inline"><input type="checkbox" id="fClosed"> Show won and lost</label>
+      </div>
+      <div id="boardTable"></div>
+      <details class="lead-rules">
+        <summary>How scores work</summary>
+        <p class="muted small">Out of 100, every point shown on the lead. <b>When they want it</b> (30): ASAP 30, 1–3 months 20, 3–6 months 8, later 0, not asked 10. <b>Job size</b> (25): ₱300k+ 25, ₱150k+ 20, ₱80k+ 12, smaller 5, not asked 8. <b>Where</b> (15): CDO and Misamis Oriental 15, rest of Northern Mindanao 8, not asked 5. <b>Fit</b> (15): system known 8, measurements or a real description 7. <b>Engagement</b> (15): site visit or quote 15, in conversation 6, phone and email +3. <b>Going cold</b>: −15 after 14 days without contact, −25 after 30. Hot 65+, Warm 40–64, Cold under 40. Asking about timeline, budget and location is what moves a lead.</p>
+      </details>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="leads.js?v=2026-11-12.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

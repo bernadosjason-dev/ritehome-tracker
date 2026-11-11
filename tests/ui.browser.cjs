@@ -38,7 +38,7 @@ const {createBackend}=require('./fuel.test.cjs');
   assert(await page.locator('[data-ui-target="procurementCard"]').isVisible());assert(!await page.locator('[data-ui-target="companyFuelCard"]').isVisible());
   await page.locator('[data-ui-target="procurementCard"]').click();
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
-  const background=await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor);assert.equal(background,'rgb(20, 27, 34)');
+  const background=await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor);assert.equal(background,'rgb(15, 15, 17)');
   await page.screenshot({path:'/tmp/ritehome-ui-dark.png'});
   assert.deepEqual(errors,[]);
   console.log('PASS UI audit: contextual navigation, accessible static/dynamic icons, fuel save, phone touch sizes, no page overflow, dark theme, reduced motion, no JS errors.');

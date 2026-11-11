@@ -1,0 +1,100 @@
+/* Builds the portal's left menu (shell.css) around the existing tracker page.
+   It only adds navigation: the four workspaces are the existing ?portal= modes of
+   tracker.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
+(function(){
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  var PATHS = {
+    dash: 'M3 3h8v10H3V3M13 3h8v6h-8V3M13 11h8v10h-8V11M3 15h8v6H3v-6',
+    projects: 'M3 7h18v13H3V7M8 7V4h8v3',
+    procurement: 'M3 6h11v12H3V6M14 10h4l3 4v4h-7M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
+    fuel: 'M4 21V3h10v18M3 21h12M7 6h4v5H7V6M14 12h3v6h3V9l-3-3',
+    pipeline: 'M3 5h5v14H3V5M10 5h5v9h-5V5M17 5h4v6h-4V5',
+    calendar: 'M4 5h16v16H4V5M4 10h16M9 3v4M15 3v4',
+    gantt: 'M4 6h9M7 12h11M5 18h7M3 3v18',
+    attendance: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2',
+    team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5',
+    menu: 'M4 7h16M4 12h16M4 17h16'
+  };
+  function icon(name){
+    var s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '1.7'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
+    s.setAttribute('aria-hidden', 'true'); s.setAttribute('focusable', 'false');
+    var p = document.createElementNS(NS, 'path'); p.setAttribute('d', PATHS[name]); s.appendChild(p);
+    return s;
+  }
+  function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+  function brand(){
+    var a = el('a', 'side-brand'); a.href = 'tracker.html';
+    a.appendChild(el('b'));
+    var t = el('span'); t.appendChild(el('strong', null, 'RITEHOME')); t.appendChild(el('small', null, 'Staff portal'));
+    a.appendChild(t);
+    return a;
+  }
+  // Who is signed in: supabase-js keeps the session under this key; best effort only.
+  function signedInEmail(){
+    try {
+      var raw = localStorage.getItem('sb-laxavfldivkhufeubgmb-auth-token');
+      var s = raw && JSON.parse(raw);
+      return (s && s.user && s.user.email) || '';
+    } catch(e){ return ''; }
+  }
+
+  function build(){
+    var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
+    var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
+    side.appendChild(brand());
+    side.appendChild(el('div', 'side-label', 'Workspaces'));
+    [['all', 'Dashboard', 'dash', 'tracker.html'],
+     ['projects', 'Projects', 'projects', 'tracker.html?portal=projects'],
+     ['procurement', 'Procurement', 'procurement', 'tracker.html?portal=procurement'],
+     ['fuel', 'Company fuel', 'fuel', 'tracker.html?portal=fuel']].forEach(function(n){
+      var a = el('a', 'side-link'); a.href = n[3]; a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
+      if(n[0] === mode) a.setAttribute('aria-current', 'page');
+      side.appendChild(a);
+    });
+    side.appendChild(el('div', 'side-label', 'Coming next'));
+    [['Pipeline & stages', 'pipeline'], ['Calendar', 'calendar'], ['Gantt timeline', 'gantt'], ['Attendance', 'attendance'], ['Team accounts', 'team']].forEach(function(n){
+      var d = el('div', 'side-link soon'); d.setAttribute('aria-disabled', 'true');
+      d.appendChild(icon(n[1])); d.appendChild(document.createTextNode(n[0])); d.appendChild(el('span', 'soon-tag', 'Soon'));
+      side.appendChild(d);
+    });
+    var foot = el('div', 'side-foot');
+    var who = el('div', 'side-who'); who.id = 'sideWho';
+    var out = el('button', 'side-out', 'Sign out'); out.type = 'button'; out.id = 'sideSignOut';
+    out.addEventListener('click', function(){ var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
+    foot.appendChild(who); foot.appendChild(out); side.appendChild(foot);
+
+    var top = el('div', 'app-top no-print');
+    var menuBtn = el('button'); menuBtn.type = 'button'; menuBtn.setAttribute('aria-label', 'Open menu');
+    menuBtn.setAttribute('aria-controls', 'appSide'); menuBtn.setAttribute('aria-expanded', 'false'); menuBtn.appendChild(icon('menu'));
+    top.appendChild(menuBtn); top.appendChild(brand());
+    var scrim = el('div', 'side-scrim');
+
+    function setOpen(open){
+      document.body.classList.toggle('side-open', open);
+      menuBtn.setAttribute('aria-expanded', String(open));
+    }
+    menuBtn.addEventListener('click', function(){ setOpen(!document.body.classList.contains('side-open')); });
+    scrim.addEventListener('click', function(){ setOpen(false); });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') setOpen(false); });
+
+    document.body.classList.add('has-side');
+    document.body.insertBefore(scrim, document.body.firstChild);
+    document.body.insertBefore(side, document.body.firstChild);
+    var wrap = document.querySelector('.wrap');
+    if(wrap) wrap.insertBefore(top, wrap.firstChild);
+
+    function refreshWho(){
+      var fk = document.getElementById('forgetKeyBtn');
+      out.textContent = fk && fk.textContent.trim() === 'Sign out' ? 'Sign out' : (fk ? fk.textContent.trim() || 'Sign out' : 'Sign out');
+      var email = signedInEmail();
+      who.textContent = email ? 'Signed in as ' + email : '';
+    }
+    refreshWho();
+    // the page sets the button label and the session after boot
+    new MutationObserver(refreshWho).observe(document.body, {attributes: true, attributeFilter: ['class']});
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+})();

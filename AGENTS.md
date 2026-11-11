@@ -54,3 +54,16 @@ migration, run `node --test tests/supabase-rls.test.cjs` (throwaway local
 PostgreSQL, Supabase auth/storage stubbed by `tests/fixtures/supabase-stub.sql`),
 and add a refused-side test for every new rule. Never edit a migration that has
 been applied to the live project: add a new, later-numbered one.
+
+Accounting (`accounting.html`, `accounting.js`, admin only): in-house management books, not the
+BIR-registered books (an external accounting firm keeps those). All figures are computed in SQL by
+`supabase/migrations/20261111000005_accounting.sql`; the page only formats and exports. Tracker
+expenses, company fuel and client payments post themselves through views (never copied), so
+editing a tracker record corrects the books; everything else is a journal entry, which must
+balance and is voided, never edited or deleted. After changing it, run
+`node --test tests/accounting.test.cjs` (expected figures in that file are worked out by hand: keep
+it that way) and `node tests/accounting.browser.cjs` (the page against the real SQL).
+
+Loading states: while a page checks the session and loads data, `body.connecting` shows the
+skeleton that `shell.js` builds (styles at the end of `shell.css`) instead of a "Connecting…" card.
+

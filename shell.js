@@ -14,6 +14,7 @@
     gantt: 'M4 6h9M7 12h11M5 18h7M3 3v18',
     attendance: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2',
     team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5',
+    books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
     menu: 'M4 7h16M4 12h16M4 17h16'
   };
   function icon(name){
@@ -41,6 +42,32 @@
     } catch(e){ return ''; }
   }
 
+  // Grey placeholders shaped like the page that's loading (body.connecting shows it; shell.css).
+  function buildSkeleton(mode){
+    var s = el('div', 'app-skeleton no-print'); s.setAttribute('role', 'status'); s.setAttribute('aria-live', 'polite');
+    s.appendChild(el('span', 'sk-sr', 'Loading…'));
+    function blk(cls){ var b = el('div', 'sk ' + cls); b.setAttribute('aria-hidden', 'true'); return b; }
+    function card(lines){
+      var c = el('div', 'sk-card'); c.setAttribute('aria-hidden', 'true');
+      c.appendChild(blk('sk-line w40 tall'));
+      for(var i = 0; i < lines; i++) c.appendChild(blk('sk-line ' + ['w100', 'w80', 'w90', 'w60'][i % 4]));
+      return c;
+    }
+    s.appendChild(blk('sk-title')); s.appendChild(blk('sk-line w60'));
+    if(mode === 'fuel' || mode === 'procurement'){
+      var form = el('div', 'sk-cards one'); form.appendChild(card(3)); s.appendChild(form);
+      var rows = el('div', 'sk-cards one'); rows.appendChild(card(7)); s.appendChild(rows);
+    } else {
+      var k = el('div', 'sk-kpis');
+      for(var i = 0; i < 4; i++) k.appendChild(blk('sk-kpi'));
+      s.appendChild(k);
+      var cards = el('div', 'sk-cards');
+      cards.appendChild(card(5)); cards.appendChild(card(5));
+      s.appendChild(cards);
+    }
+    return s;
+  }
+
   function build(){
     var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
@@ -49,7 +76,8 @@
     [['all', 'Dashboard', 'dash', 'tracker.html'],
      ['projects', 'Projects', 'projects', 'tracker.html?portal=projects'],
      ['procurement', 'Procurement', 'procurement', 'tracker.html?portal=procurement'],
-     ['fuel', 'Company fuel', 'fuel', 'tracker.html?portal=fuel']].forEach(function(n){
+     ['fuel', 'Company fuel', 'fuel', 'tracker.html?portal=fuel'],
+     ['accounting', 'Accounting', 'books', 'accounting.html']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = n[3]; a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
       side.appendChild(a);
@@ -71,6 +99,7 @@
     menuBtn.setAttribute('aria-controls', 'appSide'); menuBtn.setAttribute('aria-expanded', 'false'); menuBtn.appendChild(icon('menu'));
     top.appendChild(menuBtn); top.appendChild(brand());
     var scrim = el('div', 'side-scrim');
+    var skeleton = buildSkeleton(mode);
 
     function setOpen(open){
       document.body.classList.toggle('side-open', open);
@@ -84,7 +113,7 @@
     document.body.insertBefore(scrim, document.body.firstChild);
     document.body.insertBefore(side, document.body.firstChild);
     var wrap = document.querySelector('.wrap');
-    if(wrap) wrap.insertBefore(top, wrap.firstChild);
+    if(wrap){ wrap.insertBefore(top, wrap.firstChild); wrap.insertBefore(skeleton, top.nextSibling); }
 
     function refreshWho(){
       var fk = document.getElementById('forgetKeyBtn');

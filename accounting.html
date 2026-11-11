@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Accounting</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-11.3">
+<link rel="stylesheet" href="accounting.css?v=2026-11-11.3">
+<link rel="stylesheet" href="shell.css?v=2026-11-11.3">
+<script>window.RitehomePortal = {mode: "accounting"};</script>
+</head>
+<body class="acct">
+<main class="wrap">
+  <header class="acct-head">
+    <div>
+      <div class="eyebrow">In-house books</div>
+      <h1>Accounting</h1>
+      <p class="sub">Management figures for in-house audit, built from the tracker plus journal entries. The accounting firm keeps the BIR-registered books and files the returns.</p>
+    </div>
+    <div class="acct-head-actions no-print">
+      <button class="btn ghost" type="button" id="printBtn">Print / PDF</button>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="tracker.html">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <nav class="acct-tabs no-print" aria-label="Accounting sections">
+      <button type="button" data-tab="status">Status</button>
+      <button type="button" data-tab="tb">Trial balance</button>
+      <button type="button" data-tab="is">Income statement</button>
+      <button type="button" data-tab="bs">Balance sheet</button>
+      <button type="button" data-tab="vat">VAT &amp; tax</button>
+      <button type="button" data-tab="journal">Journal</button>
+      <button type="button" data-tab="ledger">Ledger</button>
+      <button type="button" data-tab="tags">VAT tags</button>
+      <button type="button" data-tab="settings">Settings</button>
+    </nav>
+
+    <section class="acct-tab" id="tab-status" hidden>
+      <div class="acct-bar no-print"><label>As of <input type="date" id="statusAsOf"></label></div>
+      <div class="kpis" id="statusKpis"></div>
+      <div class="acct-cols">
+        <div class="card"><h2>Needs attention <span class="count" id="issueCount"></span></h2><ul class="acct-issues" id="issueList"></ul></div>
+        <div class="card"><h2>Owed by clients</h2><p class="muted small">Contract price less payments received and tax withheld. Not in the ledger: sales are booked when paid.</p><div id="arTable"></div></div>
+      </div>
+    </section>
+
+    <section class="acct-tab" id="tab-tb" hidden>
+      <div class="acct-bar no-print"><label>As of <input type="date" id="tbAsOf"></label><button class="btn ghost" type="button" data-csv="tb">Download CSV</button><span id="tbCheck"></span></div>
+      <div class="card"><h2 class="print-title">Trial balance <span class="muted" id="tbTitleDate"></span></h2><div id="tbTable"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-is" hidden>
+      <div class="acct-bar no-print"><label>From <input type="date" id="isFrom"></label><label>To <input type="date" id="isTo"></label><button class="btn ghost" type="button" data-csv="is">Download CSV</button></div>
+      <div class="card"><h2 class="print-title">Income statement <span class="muted" id="isTitleDate"></span></h2><div id="isTable"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-bs" hidden>
+      <div class="acct-bar no-print"><label>As of <input type="date" id="bsAsOf"></label><button class="btn ghost" type="button" data-csv="bs">Download CSV</button><span id="bsCheck"></span></div>
+      <div class="card"><h2 class="print-title">Balance sheet <span class="muted" id="bsTitleDate"></span></h2><div id="bsTable"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-vat" hidden>
+      <div class="acct-bar no-print"><label>Year <select id="vatYear"></select></label><button class="btn ghost" type="button" data-csv="vat">Download CSV</button></div>
+      <div class="card"><h2 class="print-title">VAT by quarter <span class="muted" id="vatTitle"></span></h2>
+        <p class="muted small">Output VAT is 12/112 of each VATable payment (cash plus tax the client withheld). Input VAT counts only purchases tagged as backed by a VAT invoice. “Prepare entry” fills in the journal entry that settles a quarter, for you to check and post after filing.</p>
+        <div id="vatTable"></div></div>
+      <div class="card"><h2>Income tax estimate <span class="muted" id="taxTitle"></span></h2><div id="taxBox"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-journal" hidden>
+      <div class="card no-print" id="entryCard">
+        <h2>New journal entry</h2>
+        <p class="muted small">For what the tracker doesn't hold: opening balances, rent, office payroll, utilities, bank deposits, loans, equipment, owner's capital and drawings, VAT and tax payments. Posted entries can't be edited; void and re-enter instead.</p>
+        <form id="entryForm" novalidate>
+          <div class="acct-grid">
+            <label>Date <input type="date" id="entryDate" required></label>
+            <label>Reference <input type="text" id="entryRef" maxlength="60" placeholder="OR / check / invoice no."></label>
+            <label class="wide">What it's for <input type="text" id="entryMemo" maxlength="300" required placeholder="e.g. November office rent"></label>
+            <label>Project (optional) <select id="entryProject"><option value="">None</option></select></label>
+          </div>
+          <div class="acct-scroll"><table class="acct-table entry-lines"><thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Line note</th><th></th></tr></thead>
+            <tbody id="entryLines"></tbody>
+            <tfoot><tr><td><button class="btn ghost small" type="button" id="addLine">Add line</button></td><td class="num" id="entryDr"></td><td class="num" id="entryCr"></td><td colspan="2" id="entryDiff"></td></tr></tfoot>
+          </table></div>
+          <div class="acct-actions"><button class="btn" type="submit" id="postEntry" disabled>Post entry</button><button class="btn ghost" type="button" id="clearEntry">Clear</button></div>
+        </form>
+      </div>
+      <div class="acct-bar no-print"><label>From <input type="date" id="jFrom"></label><label>To <input type="date" id="jTo"></label><button class="btn ghost" type="button" data-csv="gl">General ledger CSV</button></div>
+      <div class="card"><h2>Journal entries <span class="count" id="jCount"></span></h2><div id="journalList"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-ledger" hidden>
+      <div class="acct-bar no-print"><label>Account <select id="ledAccount"></select></label><label>From <input type="date" id="ledFrom"></label><label>To <input type="date" id="ledTo"></label><button class="btn ghost" type="button" data-csv="ledger">Download CSV</button></div>
+      <div class="card"><h2 class="print-title" id="ledTitle">Ledger</h2><div id="ledTable"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-tags" hidden>
+      <div class="card"><h2>Projects: VAT treatment</h2>
+        <p class="muted small">Decides whether a project's payments are VATable sales (12/112 goes to output VAT) or non-VAT sales. Confirm each with the accounting firm: for a VAT-registered business a sale is VATable unless the law exempts it.</p>
+        <div id="tagProjects"></div></div>
+      <div class="card"><h2>Purchases: VAT invoices</h2>
+        <p class="muted small">Tick a purchase only if you hold a VAT invoice or official receipt for it in Ritehome's name and TIN. Leave the VAT box blank to use 12/112 of the amount, or type the VAT printed on the invoice.</p>
+        <div class="acct-bar no-print"><label>Search <input type="search" id="tagSearch" placeholder="item, vendor, project"></label><label class="inline"><input type="checkbox" id="tagUntagged"> Only untagged</label></div>
+        <div id="tagPurchases"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-settings" hidden>
+      <div class="card"><h2>Books</h2>
+        <form id="settingsForm" class="acct-grid">
+          <label>Books start <input type="date" id="sBooksStart"><span class="hint">Tracker records before this are left out. Post opening balances on this date.</span></label>
+          <label>Locked through <input type="date" id="sLocked"><span class="hint">Nothing on or before this date can be posted or voided. Set it after each quarter is filed.</span></label>
+          <label>Projects are VAT-able unless tagged <select id="sDefaultVat"><option value="vatable">Yes, VATable by default</option><option value="non_vat">No, non-VAT by default</option></select></label>
+          <label>Client payments go to <select id="sReceipts" data-account></select></label>
+          <label>Expenses and fuel are paid from <select id="sPaidFrom" data-account></select></label>
+          <label>Company fuel is charged to <select id="sFuel" data-account></select></label>
+          <fieldset class="wide"><legend>Tracker expense categories post to</legend><div class="acct-grid" id="sCategories"></div></fieldset>
+          <div class="wide acct-actions"><button class="btn" type="submit">Save settings</button></div>
+        </form>
+      </div>
+      <div class="card"><h2>Chart of accounts</h2>
+        <form id="accountForm" class="acct-grid">
+          <label>Code <input type="text" id="aCode" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required placeholder="6200"></label>
+          <label class="wide">Name <input type="text" id="aName" maxlength="80" required placeholder="Software subscriptions"></label>
+          <label>Type <select id="aType"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="revenue">Revenue</option><option value="cost_of_sales">Cost of sales</option><option value="expense" selected>Expense</option></select></label>
+          <label>Normal balance <select id="aSide"><option value="">From the type</option><option value="debit">Debit</option><option value="credit">Credit (contra)</option></select></label>
+          <div class="acct-actions"><button class="btn" type="submit">Add or update account</button></div>
+        </form>
+        <div id="accountsTable"></div>
+      </div>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="accounting.js?v=2026-11-11.3"></script>
+<script src="shell.js?v=2026-11-11.3"></script>
+</body>
+</html>

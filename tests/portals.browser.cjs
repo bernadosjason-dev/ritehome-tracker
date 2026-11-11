@@ -8,7 +8,7 @@ const {createBackend}=require('./fuel.test.cjs');
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://script.google.com/**',r=>r.fulfill({json:b.request(r.request().postDataJSON())}));
-  await page.goto('http://127.0.0.1:8000/',{waitUntil:'domcontentloaded'});assert.equal(await page.locator('.portal-card').count(),3);assert(!await page.locator('body').innerText().then(s=>s.includes('Client portal project')));
+  await page.goto('http://127.0.0.1:8000/',{waitUntil:'domcontentloaded'});assert.equal(await page.locator('.portal-card').count(),4);assert(!await page.locator('body').innerText().then(s=>s.includes('Client portal project')));
   await page.screenshot({path:'/tmp/ritehome-directory-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'/tmp/ritehome-directory-mobile.png',fullPage:true});
   await page.getByRole('link',{name:'Open fuel portal'}).click();await page.locator('#gateKey').waitFor();assert.equal(await page.locator('#gateScreen h1').innerText(),'Fuel tracker');
   await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());await page.waitForFunction(()=>!document.getElementById('cf-fields').disabled);

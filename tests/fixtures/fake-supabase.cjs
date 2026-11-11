@@ -44,7 +44,7 @@ const SHIM = String.raw`(function(){
         signOut: function(){ setSession(null, 'SIGNED_OUT'); return Promise.resolve({error: null}); },
         onAuthStateChange: function(cb){ listeners.push(cb); return {data: {subscription: {unsubscribe: function(){}}}}; }
       },
-      rpc: function(name){ return send({kind: 'rpc', name: name, session: session && session.access_token}); },
+      rpc: function(name, args){ return send({kind: 'rpc', name: name, args: args || {}, session: session && session.access_token}); },
       from: builder,
       storage: {from: function(bucket){ return {
         upload: function(path, file, opts){ return toBase64(file).then(function(b64){ return send({kind: 'upload', session: session && session.access_token, bucket: bucket, path: path, b64: b64, type: opts && opts.contentType}); }); },
@@ -54,7 +54,8 @@ const SHIM = String.raw`(function(){
   }};
 })();`;
 
-function createFakeSupabase() {
+// opts.rpc(name, args, user) answers any function but my_role (e.g. from a real local PostgreSQL).
+function createFakeSupabase(opts = {}) {
   const users = [
     {id: 'u-admin', email: 'admin@ritehome.test', password: 'admin-pass', role: 'admin', active: true},
     {id: 'u-designer', email: 'designer@ritehome.test', password: 'designer-pass', role: 'designer', active: true},
@@ -111,6 +112,7 @@ function createFakeSupabase() {
     if (m.kind === 'rpc') {
       const u = who(m.session);
       if (m.name === 'my_role') return {data: u && u.active ? u.role : null, error: null};
+      if (opts.rpc) return opts.rpc(m.name, m.args, u);
       return {data: null, error: {message: 'unknown function'}};
     }
     if (m.kind === 'query') return query(m.session, m.q);

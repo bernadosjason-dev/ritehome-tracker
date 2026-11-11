@@ -152,3 +152,35 @@ body.gated{padding-left:16px}
 .ar-actions .btn:not(.ghost){background:var(--surface);color:var(--ink);border:1px solid var(--border)}
 .ar-actions .btn:not(.ghost) .action-icon{color:var(--accent)}
 .ar-actions .btn:not(.ghost):hover:not(:disabled){border-color:var(--ink);filter:none}
+
+/* ---------- loading: a skeleton of the page, not a "Connecting…" card ----------
+   body.connecting is set while the page checks the session and fetches data. The menu stays
+   where it is, so moving between workspaces doesn't flash a different screen. */
+.app-skeleton{display:none}
+body.connecting .app-skeleton{display:block}
+body.gated.connecting #gateScreen{display:none!important}
+@media (min-width:960px){
+  body.has-side.connecting{padding-left:calc(var(--side-w) + 28px)}
+  body.has-side.connecting .app-side{display:flex}
+  body.has-side.gated.connecting .app-top{display:none}
+}
+@media (max-width:959px){ body.gated.connecting .app-top{display:flex} }
+.sk-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sk{position:relative;overflow:hidden;background:var(--surface-2);border-radius:8px}
+.sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:sk-shine 1.3s ease-in-out infinite}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sk::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)}}
+:root[data-theme="dark"] .sk::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)}
+@keyframes sk-shine{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){.sk::after{animation:none}}
+.sk-title{height:30px;width:min(340px,70%);margin:6px 0 10px}
+.sk-line{height:12px;margin:9px 0}
+.sk-line.tall{height:16px;margin-bottom:16px}
+.sk-line.w100{width:100%}.sk-line.w90{width:90%}.sk-line.w80{width:80%}.sk-line.w60{width:min(420px,60%)}.sk-line.w40{width:40%}
+.sk-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin:22px 0 16px}
+.sk-kpi{height:92px;border-radius:12px}
+.sk-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px}
+.sk-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+.sk-rows .sk-line{height:14px;margin:12px 0}
+.kpi.sk-kpi-box .sk-line{margin:6px 0}
+body.connecting .workspace-bar{display:none}

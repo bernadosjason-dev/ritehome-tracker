@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Inventory</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-15.1">
+<link rel="stylesheet" href="inventory.css?v=2026-11-15.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "inventory"};</script>
+</head>
+<body class="acct inv">
+<main class="wrap">
+<script src="shell.js?v=2026-11-15.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1>Inventory</h1>
+      <p class="sub">What's on the shelf right now. Add stock when a delivery arrives, minus it when it goes out to a job; every change is kept with who made it.</p>
+    </div>
+    <div class="acct-head-actions no-print"><button class="btn" type="button" id="addItemBtn">+ Add item</button></div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="kpis" id="invKpis"></div>
+
+    <section class="card" id="moveCard" hidden></section>
+
+    <section class="card" id="itemCard" hidden>
+      <h2 id="itemTitle">Add an item</h2>
+      <form id="itemForm" class="acct-grid" novalidate>
+        <label>Item <input id="iName" maxlength="120" required autocomplete="off" placeholder="e.g. Marine plywood"></label>
+        <label>Size or spec <input id="iSpec" maxlength="200" autocomplete="off" placeholder="e.g. 18 mm, 4×8"></label>
+        <label>Kind <select id="iCategory"></select></label>
+        <label>Counted in <input id="iUnit" maxlength="20" autocomplete="off" list="iUnits" placeholder="sheet, pc, roll, box"></label>
+        <label>Where it's kept <input id="iLocation" maxlength="80" autocomplete="off" placeholder="e.g. Rack A"></label>
+        <label>Reorder when down to <input id="iReorder" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+          <span class="hint">The item shows as Low at this number or below.</span></label>
+        <label id="iStartWrap">Stock on hand now <input id="iStart" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+          <span class="hint">Leave empty to start at zero.</span></label>
+        <div class="wide acct-actions"><button class="btn" type="submit" id="iSave">Save item</button><button class="btn ghost" type="button" id="iCancel">Cancel</button>
+          <button class="btn ghost danger" type="button" id="iRemove" hidden>Remove from list</button></div>
+        <datalist id="iUnits"><option value="sheet"><option value="pc"><option value="pair"><option value="set"><option value="roll"><option value="m"><option value="box"><option value="can"><option value="kg"></datalist>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Stock <span class="count" id="stockCount"></span></h2>
+      <div class="inv-cats no-print" id="catBar"></div>
+      <div class="acct-bar no-print">
+        <label>Search <input type="search" id="fSearch" placeholder="item, spec or place"></label>
+        <label class="inline"><input type="checkbox" id="fLow"> Only low or out</label>
+      </div>
+      <div id="stockTable"></div>
+    </section>
+
+    <section class="card">
+      <h2>Stock added and used <span class="count" id="moveCount"></span></h2>
+      <div id="moveTable"></div>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="inventory.js?v=2026-11-15.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

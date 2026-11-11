@@ -15,7 +15,7 @@
     {key: 'cutlist', label: 'Initial cutlist', days: 2, owner: 'Designer'},
     {key: 'bom', label: 'Bill of materials', days: 1, owner: 'Designer'},
     {key: 'final_cutlist', label: 'Final cutlist', days: 1, owner: 'Designer'},
-    {key: 'procurement', label: 'Procurement', days: 6, owner: 'Admin'},
+    {key: 'procurement', label: 'Procurement', days: 6, owner: 'Purchaser'},
     {key: 'fabrication', label: 'Fabrication', days: 15, owner: 'Workshop'},
     {key: 'installation', label: 'Installation', days: 5, owner: 'Installers'},
     {key: 'handover', label: 'Handover', days: 1, owner: 'Installers'}

@@ -1,7 +1,7 @@
 // What PostgREST does for supabase.rpc(name, args), against tests/fixtures/local-pg.cjs: call the
 // function by named arguments as the signed-in user, and answer like supabase-js would.
 // Pass it to createFakeSupabase({rpc: pgRpc(db)}).
-function pgRpc(db, actors = {'u-admin': 'admin', 'u-designer': 'designer'}) {
+function pgRpc(db, actors = {'u-admin': 'admin', 'u-designer': 'designer', 'u-purchaser': 'purchaser'}) {
   const kind = {};
   const literal = v => v === null || v === undefined ? 'null'
     : "'" + String(typeof v === 'object' ? JSON.stringify(v) : v).replace(/'/g, "''") + "'";

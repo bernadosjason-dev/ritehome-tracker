@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -141,3 +141,16 @@ decoration; nested corners follow inner radius = outer − padding; buttons that
 `RitehomeBusy(button, true)` (shell.js) so they spin until it settles; a saved row or whiteboard cell gets
 `just-saved` for a one-off green glow. Page stylesheets (schedule.css, team.css, leads.css) load after shell.css, so a
 shell.css rule meant to override one of them needs the `body ` prefix.
+
+Purchaser and Inventory (`inventory.html`/`inventory.js`/`inventory.css` at `/inventory`; SQL in
+`supabase/migrations/20261115000011_purchaser_role.sql` and `…12_inventory.sql`): `purchaser` is one role for the
+person who buys materials and keeps the stock. `can_stock()` (admin or purchaser) guards everything. Stock has no
+quantity column: every change is an `inventory_moves` row (+ receive, − issue, ± adjust from a count) and on-hand
+is the sum, so the page always shows who took what for which job; movements can't be edited or deleted, and a
+trigger refuses any row that would take an item below zero. `inventory_board()` is definer only because it names
+people and offers open job names (never prices). The purchaser also gets the Procurement workspace: a second
+`tracker_docs` policy for the `procurementJobs` and `procurement` collections only, and tracker.html's gate admits a
+purchaser in procurement mode and sends them to `/inventory` from anywhere else on that page. They own the
+`procurement` stage on the Schedule (`role_owns_stage`). Role lists live in four places that must agree: the enum,
+`team.js` ROLES, `schedule.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change).
+Tests: `node --test tests/inventory.test.cjs` and `node tests/inventory.browser.cjs`.

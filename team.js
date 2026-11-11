@@ -7,6 +7,7 @@
   var SUPABASE_URL = "https://laxavfldivkhufeubgmb.supabase.co";
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var ROLES = [["designer", "Designer", "Design, initial cutlist, BOM and final cutlist on their own projects."],
+    ["purchaser", "Purchaser", "Inventory (add and minus stock), procurement jobs and purchase orders, and the procurement stage."],
     ["fabrication", "Workshop", "The fabrication stage on their own projects."],
     ["installer", "Installer", "Installation and handover on their own projects."],
     ["admin", "Admin", "Everything, including prices, billing, expenses, the books and this page."]];

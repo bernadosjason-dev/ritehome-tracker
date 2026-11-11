@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-14.2">
+<link rel="stylesheet" href="shell.css?v=2026-11-15.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-14.2"></script>
+<script src="shell.js?v=2026-11-15.1"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -1440,7 +1440,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-14.2";
+  var PAGE_VERSION = "2026-11-15.1";
 
   // ---------- reference data ----------
 
@@ -5273,7 +5273,7 @@
     return supabaseClient;
   }
 
-  // Signed in, active and an admin? Otherwise shows the right gate and resolves false.
+  // Signed in, active and an admin (or the purchaser, in Procurement)? Otherwise shows the right gate and resolves false.
   function checkSignIn(){
     var client = supabaseApi();
     return client.auth.getSession().then(function(r){
@@ -5285,8 +5285,12 @@
       return client.rpc("my_role").then(function(r2){
         if(r2.error) throw {code: "unavailable", message: "Couldn’t check your account (" + (r2.error.message || "network error") + ")."};
         var userId = (session.user && session.user.id) || "", w = warmGet();
-        if(r2.data === "admin"){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
+        // The purchaser works in the Procurement workspace (row-level security gives them its documents
+        // and nothing else); anywhere else on this page, send them to Inventory, their home.
+        var purchasing = r2.data === "purchaser" && (window.RitehomePortal || {}).mode === "procurement";
+        if(r2.data === "admin" || purchasing){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
         warmPut(null);
+        if(r2.data === "purchaser" && window.RitehomeLinks){ location.replace(window.RitehomeLinks.href("inventory")); return false; }
         showGate(r2.data ? "staff" : "inactive");
         return false;
       });

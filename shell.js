@@ -1,6 +1,6 @@
 /* Builds the portal's left menu (shell.css) around the existing tracker page.
    It only adds navigation: the workspaces are tracker.html's portal modes (short addresses
-   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, accounting.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
+   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, inventory.html, accounting.html, team.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
 (function(){
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
@@ -17,7 +17,8 @@
     leads: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M12 12h.01',
     books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
     menu: 'M4 7h16M4 12h16M4 17h16',
-    plus: 'M12 5v14M5 12h14'
+    plus: 'M12 5v14M5 12h14',
+    box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8'
   };
   function icon(name){
     var s = document.createElementNS(NS, 'svg');
@@ -35,6 +36,7 @@
     if(mode === 'leads') return CLEAN ? '/leads' : 'leads.html';
     if(mode === 'schedule') return CLEAN ? '/schedule' : 'schedule.html';
     if(mode === 'team') return CLEAN ? '/team' : 'team.html';
+    if(mode === 'inventory') return CLEAN ? '/inventory' : 'inventory.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
@@ -86,7 +88,7 @@
     var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
-    [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['procurement', 'Procurement', 'procurement'],
+    [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
      ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');

@@ -1,0 +1,33 @@
+/* Inventory (inventory.html). Base pieces come from accounting.css; theme from shell.css. */
+.inv .pill{display:inline-flex;align-items:center;font:600 11.5px/1 var(--f-body);padding:4px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-muted)}
+.inv .pill.good{background:var(--good-bg);color:var(--good)}
+.inv .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.inv .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.inv-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.inv-cats button{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font:500 13px/1.1 var(--f-body);cursor:pointer}
+.inv-cats button b{font-weight:600;color:var(--ink-muted);margin-left:5px;font-variant-numeric:tabular-nums}
+.inv-cats button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.inv-cats button[aria-pressed="true"] b{color:inherit}
+.stock td{vertical-align:middle}
+.stock .what strong{display:block;font-size:14px}
+.stock .what small{display:block;color:var(--ink-muted);font-size:12.5px}
+.stock .qty{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stock .qty small{font-size:12.5px;font-weight:400;color:var(--ink-muted);margin-left:4px}
+.stock tr.out .qty{color:var(--bad)}
+.stock .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.stock .acts .btn{min-width:74px}
+.move-now{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin:2px 0 14px;font-size:14px;color:var(--ink-muted)}
+.move-now b{font-size:22px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.move-now .after.bad b{color:var(--bad)}
+.moves .plus{color:var(--good);font-weight:600}
+.moves .minus{color:var(--bad);font-weight:600}
+.moves .chg{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:760px){
+  .stock thead{display:none}
+  .stock tr{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .stock td{border:0;padding:0}
+  .stock td.where,.stock td.acts-cell{grid-column:1 / -1}
+  .stock td.where:empty{display:none}
+  .stock .acts{justify-content:flex-start}
+  .stock .acts .btn{flex:1 1 30%;min-height:44px}
+}

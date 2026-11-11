@@ -25,6 +25,10 @@
     {
       "source": "/team",
       "destination": "/team.html"
+    },
+    {
+      "source": "/inventory",
+      "destination": "/inventory.html"
     }
   ],
   "redirects": [

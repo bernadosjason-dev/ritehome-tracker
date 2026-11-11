@@ -34,7 +34,7 @@
     ["partition", "Partition system", ["CR partition", "Office partition", "Reception partition"]],
     ["workspace", "Workstation system", ["Office workstation", "Cubicle", "Desk"]]
   ];
-  var ROLE = {admin: "Admin", designer: "Designer", fabrication: "Workshop", installer: "Installer"};
+  var ROLE = {admin: "Admin", designer: "Designer", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
   function label(list, v){ var f = list.filter(function(x){ return x[0] === v; })[0]; return f ? f[1] : v; }
   function stageLabel(k){ return S.STAGES[S.INDEX[k]].label; }
 

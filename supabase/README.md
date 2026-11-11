@@ -83,6 +83,29 @@ admin to check.
    This is the only time SQL is needed: every later account is activated from
    the portal by an admin.
 
+## Website lead intake key
+
+The website's Cloudflare Worker (repo `ritehome-website`) sends every form
+submission and every phone/email Hannah captures to `ingest_lead(p, p_key)`.
+That function refuses any `p_key` whose SHA-256 isn't in `app_secrets` under
+`lead_ingest`. No API role can read that table. The key itself exists only as the
+Worker secret `PORTAL_LEAD_KEY`. Never commit the key or its hash.
+
+To set or rotate it:
+
+1. Make a new key: `openssl rand -hex 32`.
+2. Store its hash, in the SQL Editor (or through the Supabase connector):
+   ```sql
+   insert into public.app_secrets (name, sha256)
+   values ('lead_ingest', encode(sha256(convert_to('<the key>', 'UTF8')), 'hex'))
+   on conflict (name) do update set sha256 = excluded.sha256;
+   ```
+3. Put the same key in Cloudflare: Workers & Pages → ritehome-hannah →
+   Settings → Variables and Secrets → `PORTAL_LEAD_KEY` (type Secret).
+
+Website leads stop reaching the portal between steps 2 and 3, though they still
+reach Telegram, so do both together.
+
 ## Moving the data from the Google Sheet
 
 1. Export each tab's values (Sheets API `values.get`, or have Claude read them

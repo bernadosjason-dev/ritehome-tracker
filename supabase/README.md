@@ -59,6 +59,11 @@ admin to check.
   preflight. It uses the `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` that Supabase
   gives every function; no secret needs setting. Redeploy it after any change to
   `core.js` (upload both files).
+- `purchaser_role`, `inventory` (2026-11-15, `20261115000011` and `…12`): applied as two
+  migrations (the enum value first), comment-stripped; all seven functions md5-checked against
+  a local load and matched; row-level security on both inventory tables; anon can't call
+  `inventory_board()`. `team-admin` redeployed as version 2 the same day (its role list gained
+  `purchaser`), still with JWT verification off.
 - Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
   `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
   2 procurement jobs, 1 procurement record). Totals checked against the Sheet.

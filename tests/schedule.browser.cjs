@@ -44,19 +44,27 @@ const db = startLocalPg();
     assert.equal(await page.locator('[data-stab][aria-current="page"]').innerText(), 'Whiteboard');
     assert.deepEqual((await page.locator('.wb thead th').allInnerTexts()).map(x => x.trim()),
       ['#', "CLIENT'S NAME", 'PROJECT TYPE', 'IN CHARGE', 'DESIGN', 'INITIAL CUTLIST', 'BILL OF MATERIALS', 'FINAL CUTLIST', 'FABRICATION', 'INSTALLATION']);
-    assert.equal(await page.locator('.wb tbody tr').count(), 2);
+    assert.equal(await page.locator('.wb tbody tr[data-project]').count(), 2);
+    // Broken down by system: Kitchen (the kitchen) and Storage (the wardrobe), each under its own heading.
+    assert.deepEqual(await page.locator('.wb tbody tr.wb-group').evaluateAll(r => r.map(x => x.getAttribute('data-group'))), ['kitchen', 'storage']);
+    assert.match(await page.locator('.wb-systems').innerText(), /All systems\s+2[\s\S]*Kitchen system\s+1[\s\S]*Storage system\s+1[\s\S]*Partition system\s+0[\s\S]*Workstation system\s+0/);
+    await page.locator('.wb-systems button[data-system="storage"]').click();
+    assert.deepEqual(await page.locator('.wb tbody tr[data-project]').evaluateAll(r => r.map(x => x.getAttribute('data-project'))), ['p_w']);
+    await page.locator('.wb-systems button', {hasText: 'All systems'}).click();
 
     // A new row, the way the office writes one on the board, then a status tapped straight into its cell.
     await page.locator('.wb-add input[aria-label="New row client\'s name"]').fill('R. Sanchez');
+    await page.locator('.wb-add select[aria-label="New row system"]').selectOption('storage');
     await page.locator('.wb-add input[aria-label="New row project type"]').fill('Cabinet');
     await page.locator('.wb-add input[aria-label="New row in charge"]').fill('Jane');
     await page.locator('.wb-add button', {hasText: 'Add row'}).click();
-    await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Row added for R. Sanchez.');
+    await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Row added for R. Sanchez under Storage.');
     const sanchez = page.locator('.wb tbody tr', {has: page.locator('.wb-name', {hasText: 'R. Sanchez'})});
     assert.deepEqual(await sanchez.locator('td').evaluateAll(t => t.slice(1, 4).map(x => x.textContent)), ['R. Sanchez', 'Cabinet', 'Jane']);
     await sanchez.locator('select[aria-label="R. Sanchez Initial cutlist"]').selectOption('in_progress');
     await page.waitForFunction(() => /R\. Sanchez: initial cutlist in progress\./.test(document.getElementById('acctMsg').textContent));
     const sid = must('admin', `select id from public.tracker_docs where data->>'clientName' = 'R. Sanchez'`);
+    assert.equal(must('admin', `select data->>'system' from public.tracker_docs where id = '${sid}'`), 'storage');
     assert.equal(must('super', `select status || '|' || actual_start from public.project_stages where project_id = '${sid}' and stage = 'cutlist'`), `in_progress|${today}`);
     await page.waitForFunction(() => /ink-moving/.test(document.querySelector('select[aria-label="R. Sanchez Initial cutlist"]').className));
     await sanchez.locator('select[aria-label="R. Sanchez Bill of materials"]').selectOption('submitted');
@@ -145,7 +153,7 @@ const db = startLocalPg();
     // On the whiteboard the designer can tap only their own stages.
     await page.locator('[data-stab="board"]').click();
     const kb = page.locator('.wb tbody tr[data-project="p_k"]');
-    assert.equal(await page.locator('.wb tbody tr').count(), 1);
+    assert.equal(await page.locator('.wb tbody tr[data-project]').count(), 1);
     assert.deepEqual(await kb.locator('select').evaluateAll(a => a.map(x => x.getAttribute('aria-label'))),
       ['Ana Reyes Design', 'Ana Reyes Initial cutlist', 'Ana Reyes Bill of materials', 'Ana Reyes Final cutlist']);
     assert.equal(await page.locator('.wb-add').count(), 0, 'only the admin adds rows');

@@ -138,6 +138,14 @@ test('the whiteboard: rows added by the admin, the office\'s own words, "submitt
   must('admin', `select public.board_project_save(${j({ id: 'p_k', inCharge: 'Paula', projectType: 'Kitchen' })})`);
   const k = JSON.parse(must('admin', `select data from public.tracker_docs where id = 'p_k'`));
   assert.deepEqual([k.inCharge, k.projectType, k.price, k.clientName], ['Paula', 'Kitchen', 250000, 'Ana Reyes']);
+  // The system is picked on the board, and can be changed later; a bad one is refused.
+  const pantry2 = must('admin', `select public.board_project_save(${j({ clientName: 'Ms. Cruz', system: 'storage', projectType: 'Walk-in pantry' })})`);
+  assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${pantry2}'`)).system, 'storage', 'explicit system wins over the guess');
+  must('admin', `select public.board_project_save(${j({ id: pantry2, system: 'kitchen' })})`);
+  assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${pantry2}'`)).system, 'kitchen');
+  const desk = must('admin', `select public.board_project_save(${j({ clientName: 'BPO', projectType: 'Cubicle' })})`);
+  assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${desk}'`)).system, 'workspace');
+  refused('admin', `select public.board_project_save(${j({ clientName: 'X', system: 'garage' })})`, /Pick Kitchen, Storage, Partition or Workstation/);
   refused('designer', `select public.board_project_save(${j({ clientName: 'X' })})`, /Only an admin/);
   refused('admin', `select public.board_project_save(${j({ clientName: '' })})`, /client's name/);
   refused('admin', `select public.board_project_save(${j({ id: 'nope', inCharge: 'X' })})`, /No project/);

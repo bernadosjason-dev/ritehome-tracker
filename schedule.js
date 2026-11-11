@@ -26,13 +26,20 @@
   var INK = {done: "ink-done", in_progress: "ink-moving", submitted: "ink-review", waiting_client: "ink-stuck", blocked: "ink-stuck", not_started: "ink-none"};
   var KINDS = [["site_visit", "Site visit"], ["delivery", "Delivery"], ["installation", "Installation"], ["meeting", "Meeting"], ["holiday", "Holiday (no work)"], ["other", "Other"]];
   var KIND_COLOR = {site_visit: "var(--st-design)", delivery: "var(--st-procurement)", installation: "var(--st-installation)", meeting: "var(--st-cutlist)", holiday: "var(--warn)", other: "var(--st-consultation)"};
-  var SYSTEM = {kitchen: "Kitchen", storage: "Storage", partition: "Partition", workspace: "Workspace"};
+  var SYSTEM = {kitchen: "Kitchen", storage: "Storage", partition: "Partition", workspace: "Workstation"};
+  // The four systems, in the board's order, with the project types the office writes under each.
+  var SYSTEMS = [
+    ["kitchen", "Kitchen system", ["Kitchen", "Kitchen with island", "Walk-in pantry"]],
+    ["storage", "Storage system", ["Cabinet", "TV console", "Wardrobe", "Walk-in closet", "Bedroom headboard", "Shelving"]],
+    ["partition", "Partition system", ["CR partition", "Office partition", "Reception partition"]],
+    ["workspace", "Workstation system", ["Office workstation", "Cubicle", "Desk"]]
+  ];
   var ROLE = {admin: "Admin", designer: "Designer", fabrication: "Workshop", installer: "Installer"};
   function label(list, v){ var f = list.filter(function(x){ return x[0] === v; })[0]; return f ? f[1] : v; }
   function stageLabel(k){ return S.STAGES[S.INDEX[k]].label; }
 
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}});
-  var state = {board: null, cal: {events: [], leads: []}, holidays: new Set(), tab: "board", open: null, plan: null,
+  var state = {board: null, cal: {events: [], leads: []}, holidays: new Set(), tab: "board", open: null, plan: null, sys: "",
     month: null, day: null, showDone: false, span: 13, cap: 2, editEvent: null};
 
   // ---------- helpers ----------
@@ -199,40 +206,81 @@
     });
     return h("td", null, [sel, note]);
   }
+  function systemSelect(value, label){
+    return options(h("select", {"aria-label": label}), SYSTEMS.map(function(x){ return [x[0], SYSTEM[x[0]]]; }), value || "kitchen");
+  }
+  function typesFor(sys){
+    var seen = {}, out = [];
+    (SYSTEMS.filter(function(x){ return x[0] === sys; })[0] || [0, 0, []])[2].concat(types()).forEach(function(t){
+      if(!seen[t.toLowerCase()]){ seen[t.toLowerCase()] = 1; out.push(t); }
+    });
+    return out;
+  }
   function renderBoard(){
-    var list = visibleProjects().slice().sort(function(a, b){
+    var all = visibleProjects().slice().sort(function(a, b){
       return String(a.created || "").localeCompare(String(b.created || "")) || String(a.name).localeCompare(String(b.name));
     });
+    var count = function(k){ return all.filter(function(p){ return (p.system || "") === k; }).length; };
+    if(state.sys && !count(state.sys)) state.sys = "";
+    var list = state.sys ? all.filter(function(p){ return p.system === state.sys; }) : all;
     $("boardCount").textContent = String(list.length);
+    // Breakdown by system: a button per system with its count; the table groups rows under each system.
+    var groups = SYSTEMS.map(function(x){ return {key: x[0], name: x[1]}; });
+    if(all.some(function(p){ return !SYSTEM[p.system]; })) groups.push({key: "", name: "No system yet"});
+    var chips = h("div", {class: "lead-stages wb-systems no-print", role: "group", "aria-label": "Systems"}, [
+      h("button", {type: "button", "aria-pressed": state.sys ? "false" : "true", onclick: function(){ state.sys = ""; renderBoard(); }}, ["All systems", h("b", {text: String(all.length)})])
+    ].concat(groups.filter(function(g){ return g.key; }).map(function(g){
+      return h("button", {type: "button", "data-system": g.key, "aria-pressed": state.sys === g.key ? "true" : "false",
+        onclick: function(){ state.sys = state.sys === g.key ? "" : g.key; renderBoard(); }}, [g.name, h("b", {text: String(count(g.key))})]);
+    })));
+    var cols = 4 + BOARD_STAGES.length, n = 0;
     var head = h("tr", null, [h("th", {class: "wb-n", text: "#"}), h("th", {class: "wb-client", text: "Client's name"}), h("th", {text: "Project type"}), h("th", {text: "In charge"})]
       .concat(BOARD_STAGES.map(function(k){ return h("th", null, [stDot(k), " ", stageLabel(k)]); })));
-    var rows = list.map(function(p, i){
-      return h("tr", {"data-project": p.id}, [
-        h("td", {class: "wb-n", text: String(i + 1)}),
-        h("td", {class: "wb-client"}, h("button", {type: "button", class: "wb-name", onclick: function(){ openProject(p.id); }, text: p.client || p.name || "Untitled"})),
-        h("td", {class: "wb-type", text: p.type || SYSTEM[p.system] || ""}),
-        h("td", {class: "wb-person", text: p.in_charge || ""})
-      ].concat(BOARD_STAGES.map(function(k){ return boardCell(p, k); })));
+    var rows = [];
+    groups.forEach(function(g){
+      var inGroup = list.filter(function(p){ return g.key ? p.system === g.key : !SYSTEM[p.system]; });
+      if(!inGroup.length) return;
+      rows.push(h("tr", {class: "wb-group", "data-group": g.key || "none"}, h("td", {colspan: String(cols)}, [g.name, h("span", {class: "count", text: String(inGroup.length)})])));
+      inGroup.forEach(function(p){
+        n++;
+        rows.push(h("tr", {"data-project": p.id}, [
+          h("td", {class: "wb-n", text: String(n)}),
+          h("td", {class: "wb-client"}, h("button", {type: "button", class: "wb-name", onclick: function(){ openProject(p.id); }, text: p.client || p.name || "Untitled"})),
+          h("td", {class: "wb-type", text: p.type || SYSTEM[p.system] || ""}),
+          h("td", {class: "wb-person", text: p.in_charge || ""})
+        ].concat(BOARD_STAGES.map(function(k){ return boardCell(p, k); }))));
+      });
     });
     var foot = null;
     if(isAdmin()){
       var c = h("input", {type: "text", maxlength: "120", placeholder: "Client's name", "aria-label": "New row client's name"});
+      var sys = systemSelect(state.sys || "kitchen", "New row system");
       var t = h("input", {type: "text", maxlength: "80", placeholder: "Project type", list: "wbTypes", "aria-label": "New row project type"});
       var who = h("input", {type: "text", maxlength: "80", placeholder: "In charge", list: "wbPeople", "aria-label": "New row in charge"});
+      var dl = datalist("wbTypes", typesFor(sys.value));
+      sys.addEventListener("change", function(){ var fresh = datalist("wbTypes", typesFor(sys.value)); dl.replaceWith(fresh); dl = fresh; });
       var add = h("button", {class: "btn small", type: "button", text: "Add row"});
       add.addEventListener("click", function(){
         if(!c.value.trim()) return fail(new Error("Write the client's name."));
         add.disabled = true;
-        rpc("board_project_save", {p: {clientName: c.value.trim(), projectType: t.value.trim(), inCharge: who.value.trim()}})
-          .then(function(){ msg("Row added for " + c.value.trim() + "."); return load(); })
+        rpc("board_project_save", {p: {clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim()}})
+          .then(function(){ msg("Row added for " + c.value.trim() + " under " + SYSTEM[sys.value] + "."); return load(); })
           .catch(function(e){ add.disabled = false; fail(e); });
       });
-      foot = h("tfoot", null, h("tr", {class: "wb-add no-print"}, [h("td", {class: "wb-n", text: String(list.length + 1)}), h("td", {class: "wb-client"}, c), h("td", null, t), h("td", null, who),
-        h("td", {colspan: String(BOARD_STAGES.length)}, [add, h("span", {class: "muted small", style: "margin-left:10px", text: "Every stage starts empty; tap a cell to set it."})])]));
+      foot = h("tfoot", null, h("tr", {class: "wb-add no-print"}, [h("td", {class: "wb-n", text: String(n + 1)}), h("td", {class: "wb-client"}, c), h("td", null, [sys, t]), h("td", null, who),
+        h("td", {colspan: String(BOARD_STAGES.length)}, [add, h("span", {class: "muted small", style: "margin-left:10px", text: "Pick the system, then the type. Every stage starts empty; tap a cell to set it."})])]));
+      put("boardTable", null);
+      $("boardTable").appendChild(chips);
+      $("boardTable").appendChild(h("div", {class: "wb-scroll"}, [
+        h("table", {class: "wb"}, [h("thead", null, head), h("tbody", null, rows.length ? rows : h("tr", null, h("td", {colspan: String(cols), class: "muted", text: "No rows yet. Add the first one below."}))), foot]),
+        datalist("wbPeople", people()), dl
+      ]));
+      return;
     }
-    put("boardTable", h("div", {class: "wb-scroll"}, [
-      h("table", {class: "wb"}, [h("thead", null, head), h("tbody", null, rows.length ? rows : h("tr", null, h("td", {colspan: String(4 + BOARD_STAGES.length), class: "muted", text: isAdmin() ? "No rows yet. Add the first one below." : "No projects are assigned to you yet."}))), foot]),
-      datalist("wbPeople", people()), datalist("wbTypes", types())
+    put("boardTable", null);
+    $("boardTable").appendChild(chips);
+    $("boardTable").appendChild(h("div", {class: "wb-scroll"}, [
+      h("table", {class: "wb"}, [h("thead", null, head), h("tbody", null, rows.length ? rows : h("tr", null, h("td", {colspan: String(cols), class: "muted", text: "No projects are assigned to you yet."})))])
     ]));
   }
 
@@ -313,19 +361,20 @@
 
   function labelsForm(p){
     var c = h("input", {type: "text", maxlength: "120", value: p.client || "", "aria-label": "Client's name"});
+    var sys = systemSelect(p.system, "System");
     var t = h("input", {type: "text", maxlength: "80", value: p.type || "", list: "pcTypes", "aria-label": "Project type"});
     var who = h("input", {type: "text", maxlength: "80", value: p.in_charge || "", list: "pcPeople", "aria-label": "In charge"});
     var target = h("input", {type: "date", value: p.target || "", "aria-label": "Client's target date"});
     var save = h("button", {class: "btn ghost small", type: "button", disabled: true, text: "Save"});
-    [c, t, who, target].forEach(function(i){ i.addEventListener("input", function(){ save.disabled = false; }); });
+    [c, sys, t, who, target].forEach(function(i){ i.addEventListener(i.tagName === "SELECT" ? "change" : "input", function(){ save.disabled = false; }); });
     save.addEventListener("click", function(){
       save.disabled = true;
-      rpc("board_project_save", {p: {id: p.id, clientName: c.value.trim(), projectType: t.value.trim(), inCharge: who.value.trim(), targetDate: target.value}})
+      rpc("board_project_save", {p: {id: p.id, clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim(), targetDate: target.value}})
         .then(function(){ msg("Saved."); return load(); }).catch(function(e){ save.disabled = false; fail(e); });
     });
-    return h("div", {class: "acct-grid labels no-print"}, [h("label", null, ["Client's name", c]), h("label", null, ["Project type", t]),
+    return h("div", {class: "acct-grid labels no-print"}, [h("label", null, ["Client's name", c]), h("label", null, ["System", sys]), h("label", null, ["Project type", t]),
       h("label", null, ["In charge", who]), h("label", null, ["Client's target", target]), h("div", {class: "acct-actions", style: "align-self:end;margin:0"}, save),
-      datalist("pcPeople", people()), datalist("pcTypes", types())]);
+      datalist("pcPeople", people()), datalist("pcTypes", typesFor(p.system))]);
   }
   function stageList(p, st, t){
     var head = h("div", {class: "stage-row head"}, ["Stage", "Status", "Planned start", "Planned finish", "Started", "Finished", "Assigned", ""].map(function(x){ return h("span", {text: x}); }));

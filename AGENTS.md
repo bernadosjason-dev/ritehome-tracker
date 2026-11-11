@@ -104,7 +104,11 @@ and marker colours, tapped to change), pipeline board, timeline (Gantt) with wor
 board's vocabulary is `stage_key` 'final_cutlist' and `stage_status` 'waiting_client' / 'submitted', added on their
 own in `20261113000007_stage_vocabulary.sql` (Postgres can't use a new enum value in the transaction that adds it).
 Project type and person in charge are `projectType`/`inCharge` in the project document, read through
-`project_labels()` and written by `board_project_save()`; never put client data from the real board in tests. Admin sees every
+`project_labels()` and written by `board_project_save()`; never put client data from the real board in tests.
+The board is broken down by system (Kitchen / Storage / Partition / Workstation, stored as the project's `system`;
+Storage covers cabinets, TV consoles, wardrobes, closets, headboards; Workstation is stored as 'workspace'), with a
+filter per system and rows grouped under each; `board_project_save()` takes the system explicitly
+(`20261113000009_board_system.sql`) and only guesses it from the type when none is sent. Admin sees every
 project, plans dates and assigns people; assigning someone to a stage also assigns them the project. Staff see only
 assigned projects through `my_projects()` (never money or client email) and change status, actual dates and notes of
 their own stages; the stage guard trigger refuses planned dates and assignees from anyone but an admin. A status

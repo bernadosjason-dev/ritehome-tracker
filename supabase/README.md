@@ -64,6 +64,10 @@ admin to check.
   a local load and matched; row-level security on both inventory tables; anon can't call
   `inventory_board()`. `team-admin` redeployed as version 2 the same day (its role list gained
   `purchaser`), still with JWT verification off.
+- `attendance` (2026-11-16, `20261116000013_attendance.sql`): applied comment-stripped; all 15
+  functions md5-checked against a local load (`prepare_punch` against the stripped text, since the
+  file keeps two comment lines inside its body). The `attendance-selfies` bucket is private with its
+  three policies; anon can't call `attendance_me()`. No punches existed before it went live.
 - Data: imported from the "Ritehome Tracker Data" Sheet on 2026-11-08 with
   `import-from-sheet.cjs` (1 project, 11 expenses, 1 vehicle, 7 fuel purchases,
   2 procurement jobs, 1 procurement record). Totals checked against the Sheet.

@@ -89,15 +89,15 @@ test('by hand, lost with a reason, won into a tracker project', () => {
   assert.equal(doc.budget, 160000);
   assert.equal(doc.leadId, walkIn);
   assert.equal(must('admin', `select stage || '|' || project_id || '|' || expected_value from public.leads where id = '${walkIn}'`), `won|${pid}|210000.00`);
-  assert.equal(must('admin', `select count(*) from public.project_stages where project_id = '${pid}'`), '9', 'the pipeline starts');
+  assert.equal(must('admin', `select count(*) from public.project_stages where project_id = '${pid}'`), '10', 'the pipeline starts');
 });
 
 test('staff never see leads', () => {
   const { must, refused } = db;
   assert.equal(must('designer', 'select count(*) from public.leads'), '0');
   assert.equal(must('designer', 'select public.leads_list()'), '[]');
-  refused('designer', `select public.lead_save('{"name":"x","phone":"1"}')`, /Only an admin/);
-  refused('designer', `select public.lead_log(gen_random_uuid(), 'call', 'x')`, /Only an admin/);
+  refused('designer', `select public.lead_save('{"name":"x","phone":"1"}')`, /Only sales or an admin/);
+  refused('designer', `select public.lead_log(gen_random_uuid(), 'call', 'x')`, /Only sales or an admin/);
   const someLead = must('super', 'select id from public.leads limit 1');
   refused('designer', `insert into public.lead_activity (lead_id, kind) values ('${someLead}', 'note')`, /row-level security/);
   assert.equal(must('designer', "update public.leads set stage = 'won' returning id"), '');

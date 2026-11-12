@@ -10,7 +10,7 @@
   var KINDS = [["am_in", "Morning in", "Clock in · morning"], ["am_out", "Morning out", "Clock out · lunch"],
     ["pm_in", "Afternoon in", "Clock in · afternoon"], ["pm_out", "Afternoon out", "Clock out · end of day"]];
   var KIND = {}; KINDS.forEach(function(k){ KIND[k[0]] = k; });
-  var ROLE = {admin: "Admin", designer: "Designer", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
+  var ROLE = {admin: "Admin", designer: "Designer", sales: "Sales", bookkeeper: "Bookkeeper", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
 
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}});
   var state = {me: null, tab: "mine", day: null, month: [], flash: null};
@@ -364,8 +364,10 @@
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then open Attendance from the menu.", true); }
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password. Open the staff portal to set your own.", true); }
-    return rpc("my_role").then(function(role){
-      if(!role) return gate("Your account isn't active yet", "Ask the admin to switch it on.");
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(!roles.length) return gate("Your account isn't active yet", "Ask the admin to switch it on.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open attendance", e && e.message ? e.message : String(e)); });

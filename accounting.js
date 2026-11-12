@@ -592,8 +592,10 @@
   client.auth.getSession().then(function(r){
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then come back to Accounting from the menu.", true); }
-    return rpc("my_role").then(function(role){
-      if(role !== "admin") return gate("Accounting is for admins", role ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(roles.indexOf("admin") < 0) return gate("Accounting is for admins", roles.length ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the books", e && e.message ? e.message : String(e)); });

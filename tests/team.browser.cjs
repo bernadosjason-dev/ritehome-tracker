@@ -116,6 +116,17 @@ const q = s => String(s).replace(/'/g, "''");
     await row('dina@example.com').locator('select').selectOption('installer');
     await msg('Dina is now Installer.');
     assert.equal(must('super', `select role from public.profiles where id = '${U.designer}'`), 'installer');
+    // One person, several roles: Dina also does sales and the books.
+    await row('dina@example.com').locator('details.also summary').click();
+    await row('dina@example.com').getByLabel('Sales as an extra role for Dina').check();
+    await msg('Dina also has Sales.');
+    await row('dina@example.com').locator('details.also summary').click();
+    await row('dina@example.com').getByLabel('Bookkeeper as an extra role for Dina').check();
+    await msg('Dina also has Sales, Bookkeeper.');
+    assert.equal(must('super', `select role || '|' || array_to_string(extra_roles, ',') from public.profiles where id = '${U.designer}'`), 'installer|sales,bookkeeper');
+    assert.match(await row('dina@example.com').locator('details.also summary').innerText(), /Also Sales, Bookkeeper/);
+    // The admin's own row has no extra roles to give: admin already has everything.
+    assert.equal(await page.locator('.people tr', {hasText: 'Jason (you)'}).locator('details.also').count(), 0);
 
     // 6. Phone width.
     await page.setViewportSize({width: 390, height: 844});
@@ -143,6 +154,6 @@ const q = s => String(s).replace(/'/g, "''");
     assert.deepEqual([temp2.password, temp2.meta.must_change_password], ['my-own-pass-1', false]);
 
     assert.deepEqual(errors, []);
-    console.log('PASS team: staff turned away, own account protected, create with temporary password + handover, whiteboard rows assigned, reset password, switch off/on, role change, phone width, first sign-in forces a new password.');
+    console.log('PASS team: staff turned away, own account protected, create with temporary password + handover, whiteboard rows assigned, reset password, switch off/on, role change, extra roles, phone width, first sign-in forces a new password.');
   } finally { await browser.close(); db.stop(); }
 })().catch(e => { console.error(e); db.stop(); process.exit(1); });

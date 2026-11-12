@@ -14,10 +14,13 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
 
 (async () => {
   const {U, must} = db;
+  U.sales = '00000000-0000-4000-8000-000000000005';
   must('super', `insert into auth.users (id, email, raw_user_meta_data) values ('${U.admin}', 'owner@example.com', '{"full_name":"Jason"}'),
     ('${U.designer}', 'designer@example.com', '{}');
     update public.profiles set role = 'admin', active = true where id = '${U.admin}';
     update public.profiles set role = 'designer', active = true where id = '${U.designer}';
+    insert into auth.users (id, email) values ('${U.sales}', 'sales@example.com');
+    update public.profiles set role = 'sales', full_name = 'Sam', active = true where id = '${U.sales}';
     insert into public.app_secrets (name, sha256) values ('lead_ingest', '${crypto.createHash('sha256').update(KEY).digest('hex')}');`);
   // Two website leads through the Worker's door. Ana came in a week ago and nobody has replied.
   const ana = JSON.parse(ingest({source: 'site-visit', name: 'Ana Reyes', phone: '0917 555 0142', line: 'Kitchen', address: 'Carmen, Cagayan de Oro',
@@ -25,7 +28,8 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
   ingest({source: 'hannah', name: 'Hannah lead (0918 222 3344)', phone: '0918 222 3344', notes: 'Visitor: how much for a wardrobe?'});
   must('super', `update public.leads set created_at = now() - interval '7 days' where id = '${ana}'`);
 
-  const sb = createFakeSupabase({rpc: pgRpc(db)});
+  const sb = createFakeSupabase({rpc: pgRpc(db, {'u-admin': 'admin', 'u-designer': 'designer', 'u-sales': 'sales'}),
+    users: [{id: 'u-sales', email: 'sales@ritehome.test', password: 'sales-pass', role: 'sales', active: true}]});
   const browser = await chromium.launch({executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-dev-shm-usage']});
   try {
     const page = await browser.newPage({viewport: {width: 1280, height: 900}}), errors = [];
@@ -39,7 +43,7 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
     // 1. Staff are turned away.
     await page.goto('http://127.0.0.1:8000/leads', {waitUntil: 'domcontentloaded'});
     await setSession('u-designer'); await page.reload({waitUntil: 'domcontentloaded'});
-    await page.waitForFunction(() => document.getElementById('gateTitle').textContent === 'Leads are for admins');
+    await page.waitForFunction(() => document.getElementById('gateTitle').textContent === 'Leads are for sales and the admin');
 
     // 2. The admin: Ana is waiting past the 2-hour promise, at the top of "Reply now".
     await setSession('u-admin'); await page.reload({waitUntil: 'domcontentloaded'});
@@ -77,6 +81,22 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
     await page.locator('#addForm button[type="submit"]').click();
     await page.waitForFunction(() => document.getElementById('leadCard').textContent.includes('Clinic owner'));
 
+    // 5b. Sales works the same lead, sees only the workspaces it can open, and can't mark it won.
+    const clinic = must('admin', `select id from public.leads where name = 'Clinic owner'`);
+    await setSession('u-sales');
+    await page.goto('http://127.0.0.1:8000/leads#lead=' + clinic, {waitUntil: 'domcontentloaded'});
+    await page.reload({waitUntil: 'domcontentloaded'});   // a hash-only change doesn't reload the page
+    await page.waitForFunction(() => !document.getElementById('leadCard').hidden && document.getElementById('leadCard').textContent.includes('Clinic owner'));
+    const menu = await page.$$eval('a.side-link', as => as.filter(a => !a.hidden).map(a => a.textContent.trim()));
+    assert.deepEqual(menu, ['Leads', 'Schedule', 'Attendance']);
+    await page.locator('#leadCard .stage-btns button', {hasText: 'Won'}).click();
+    await page.waitForFunction(() => /Only the admin marks a lead won/.test(document.getElementById('acctMsg').textContent));
+    assert.equal(must('admin', `select stage || '|' || (project_id is null) from public.leads where id = '${clinic}'`), 'contacted|true', 'still open, no project');
+    await setSession('u-admin');
+    await page.goto('http://127.0.0.1:8000/leads#lead=' + clinic, {waitUntil: 'domcontentloaded'});
+    await page.reload({waitUntil: 'domcontentloaded'});   // a hash-only change doesn't reload the page
+    await page.waitForFunction(() => !document.getElementById('leadCard').hidden && document.getElementById('leadCard').textContent.includes('Clinic owner'));
+
     // 6. Won: the tracker project is created with the client's details and linked.
     dialogs.answers = ['210000', '160000'];
     await page.locator('#leadCard .stage-btns button', {hasText: 'Won'}).click();
@@ -105,6 +125,6 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
     await page.screenshot({path: '/tmp/ritehome-leads-desktop.png', fullPage: true});
 
     assert.deepEqual(errors, []);
-    console.log('PASS leads: staff gate, Worker leads in the reply queue past 2 h, WhatsApp link, log reply -> contacted, score from answers, walk-in by hand, won -> tracker project, lost with reason, win rate, phone width.');
+    console.log('PASS leads: staff gate, sales works leads but cannot mark won, Worker leads in the reply queue past 2 h, WhatsApp link, log reply -> contacted, score from answers, walk-in by hand, won -> tracker project, lost with reason, win rate, phone width.');
   } finally { await browser.close(); db.stop(); }
 })().catch(e => { console.error(e); db.stop(); process.exit(1); });

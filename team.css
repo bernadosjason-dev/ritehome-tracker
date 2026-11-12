@@ -9,6 +9,14 @@
 .people .who strong{display:block;font-size:14px}
 .people .who small{display:block;color:var(--ink-muted);font-size:12.5px}
 .people select{min-height:34px;font-size:13px;padding:5px 8px}
+.people .role-cell{min-width:150px}
+.people .also{margin-top:6px;font-size:12.5px}
+.people .also summary{cursor:pointer;color:var(--ink-muted);list-style:none}
+.people .also summary::-webkit-details-marker{display:none}
+.people .also summary::after{content:" ▾"}
+.people .also[open] summary::after{content:" ▴"}
+.people .also-list{display:grid;gap:4px;margin-top:6px}
+.people .also-list label{display:flex;align-items:center;gap:6px;font-size:13px;min-height:28px}
 .people .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .people tr.off td{opacity:.62}
 .handover-box{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:14px;margin:10px 0 14px;padding:14px;border:1px dashed var(--border);border-radius:12px;background:var(--surface-2)}

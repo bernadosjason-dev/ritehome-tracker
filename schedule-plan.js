@@ -10,7 +10,8 @@
 (function(root){
   'use strict';
   var STAGES = [
-    {key: 'consultation', label: 'Consultation', days: 2, owner: 'Admin'},
+    {key: 'consultation', label: 'Consultation', days: 1, owner: 'Sales'},
+    {key: 'site_visit', label: 'Site visit', days: 1, owner: 'Sales'},
     {key: 'design', label: 'Design', days: 7, owner: 'Designer'},
     {key: 'cutlist', label: 'Initial cutlist', days: 2, owner: 'Designer'},
     {key: 'bom', label: 'Bill of materials', days: 1, owner: 'Designer'},

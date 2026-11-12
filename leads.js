@@ -235,6 +235,11 @@
 
   function setStage(l, stage){
     if(stage === l.stage) return;
+    if(stage === "won" && !state.admin){
+      // Winning opens the project with its contract price and budget: that's the admin's call.
+      msg("Only the admin marks a lead won, because it opens the project with its price. Move it to Quoted and tell the admin.");
+      return refreshDetail();
+    }
     if(stage === "won"){
       var price = window.prompt("Won! Contract price (₱) for the new project?", l.expected_value || l.budget || "");
       if(price == null) return;
@@ -304,8 +309,11 @@
   client.auth.getSession().then(function(r){
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then come back to Leads from the menu.", true); }
-    return rpc("my_role").then(function(role){
-      if(role !== "admin") return gate("Leads are for admins", role ? "Your account can use the project tools, not the leads." : "This account hasn't been activated yet.");
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(roles.indexOf("admin") < 0 && roles.indexOf("sales") < 0) return gate("Leads are for sales and the admin", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
+      state.admin = roles.indexOf("admin") >= 0;
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the leads", e && e.message ? e.message : String(e)); });

@@ -11,7 +11,7 @@
 // Both set user_metadata.must_change_password, so the person picks their own password at
 // their next sign-in (tracker.html asks before anything else).
 
-const ROLES = ['admin', 'designer', 'purchaser', 'fabrication', 'installer'];
+const ROLES = ['admin', 'designer', 'sales', 'bookkeeper', 'purchaser', 'fabrication', 'installer'];
 const ORIGINS = ['https://portal.ritehomemodular.com', 'https://ritehome-portal.vercel.app',
   'http://127.0.0.1:8000', 'http://localhost:8000'];
 const PREVIEW = /^https:\/\/ritehome-portal-[a-z0-9-]+\.vercel\.app$/;

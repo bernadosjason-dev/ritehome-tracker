@@ -24,7 +24,8 @@ test('working days skip Sundays and holidays', () => {
 test('the default plan from a Monday, and the same plan around two holidays', () => {
   const plain = S.plan('2026-11-16').map((r) => `${r.stage} ${r.planned_start} ${r.planned_end}`);
   assert.deepEqual(plain, [
-    'consultation 2026-11-16 2026-11-17',
+    'consultation 2026-11-16 2026-11-16',
+    'site_visit 2026-11-17 2026-11-17',
     'design 2026-11-18 2026-11-25',
     'cutlist 2026-11-26 2026-11-27',
     'bom 2026-11-28 2026-11-28',
@@ -37,7 +38,7 @@ test('the default plan from a Monday, and the same plan around two holidays', ()
   assert.equal(S.diffDays('2026-11-26', '2026-12-31'), 35);
   // Bonifacio Day pushes the final cutlist to Tue Dec 1; Christmas falls inside fabrication (15 working days
   // Dec 9-26: 9-12, 14-19, 21-24, 26); installation Dec 28-Jan 1; handover Sat Jan 2.
-  const hol = S.plan('2026-11-16', HOLIDAYS).slice(4).map((r) => `${r.stage} ${r.planned_start} ${r.planned_end}`);
+  const hol = S.plan('2026-11-16', HOLIDAYS).slice(5).map((r) => `${r.stage} ${r.planned_start} ${r.planned_end}`);
   assert.deepEqual(hol, [
     'final_cutlist 2026-12-01 2026-12-01',
     'procurement 2026-12-02 2026-12-08',
@@ -53,7 +54,7 @@ const planned = (overrides) => S.plan('2026-11-16').map((r) => Object.assign({ s
 
 test('forecast: on plan, behind plan, and never planned', () => {
   const done = { status: 'done' };
-  const onPlan = { target: '2026-12-31', stages: planned({ consultation: done, design: done, cutlist: done, bom: done, final_cutlist: done,
+  const onPlan = { target: '2026-12-31', stages: planned({ consultation: done, site_visit: done, design: done, cutlist: done, bom: done, final_cutlist: done,
     procurement: done, fabrication: { status: 'in_progress', actual_start: '2026-12-08' } }) };
   let s = S.status(onPlan, '2026-12-10');
   assert.deepEqual([s.current, s.forecast, s.slip, s.label, s.severity, s.overdue, s.hold], ['fabrication', '2026-12-31', 0, 'On track', 'good', [], null]);
@@ -61,7 +62,7 @@ test('forecast: on plan, behind plan, and never planned', () => {
   // Fabrication was due Dec 8 and isn't done on Dec 10. Installation (planned Dec 9-14, 5 days) can start Dec 11:
   // Dec 11, 12, 14, 15, 16. Handover Dec 17, two days past the planned Dec 15.
   const late = { stages: [
-    { stage: 'consultation', status: 'done' }, { stage: 'design', status: 'done' }, { stage: 'cutlist', status: 'done' },
+    { stage: 'consultation', status: 'done' }, { stage: 'site_visit', status: 'done' }, { stage: 'design', status: 'done' }, { stage: 'cutlist', status: 'done' },
     { stage: 'bom', status: 'done' }, { stage: 'final_cutlist', status: 'done' }, { stage: 'procurement', status: 'done' },
     { stage: 'fabrication', status: 'in_progress', planned_start: '2026-11-24', planned_end: '2026-12-08' },
     { stage: 'installation', status: 'not_started', planned_start: '2026-12-09', planned_end: '2026-12-14' },
@@ -75,7 +76,7 @@ test('forecast: on plan, behind plan, and never planned', () => {
   s = S.status(Object.assign({ target: '2026-12-31' }, late), '2026-12-10');
   assert.deepEqual([s.slip, s.label, s.severity], [-14, 'Behind on fabrication', 'warn']);
 
-  // Nothing planned: forecast from the defaults starting today (Wed Nov 11). The nine stages add up to
+  // Nothing planned: forecast from the defaults starting today (Wed Nov 11). The ten stages add up to
   // 40 working days: Nov 11-14, 16-21, 23-28, 30 (17) and Dec 1-5, 7-12, 14-19, 21-26 (23) -> Sat Dec 26.
   s = S.status({ stages: [] }, '2026-11-11');
   assert.deepEqual([s.current, s.forecast, s.label, s.planned], ['consultation', '2026-12-26', 'Not planned', false]);
@@ -83,14 +84,14 @@ test('forecast: on plan, behind plan, and never planned', () => {
   assert.equal(S.STAGES.reduce((n, x) => n + x.days, 0), 40);
 
   // Stuck rather than slow: the stage in front is on hold, or the client hasn't answered the design proposal.
-  assert.equal(S.status({ stages: planned({ consultation: done, design: { status: 'waiting_client' } }) }, '2026-11-20').hold, 'waiting_client');
-  assert.equal(S.status({ stages: planned({ consultation: done, design: done, cutlist: { status: 'blocked' } }) }, '2026-11-20').hold, 'blocked');
-  assert.equal(S.status({ stages: planned({ consultation: done, design: done, cutlist: done, bom: { status: 'submitted' } }) }, '2026-11-20').current, 'bom');
+  assert.equal(S.status({ stages: planned({ consultation: done, site_visit: done, design: { status: 'waiting_client' } }) }, '2026-11-20').hold, 'waiting_client');
+  assert.equal(S.status({ stages: planned({ consultation: done, site_visit: done, design: done, cutlist: { status: 'blocked' } }) }, '2026-11-20').hold, 'blocked');
+  assert.equal(S.status({ stages: planned({ consultation: done, site_visit: done, design: done, cutlist: done, bom: { status: 'submitted' } }) }, '2026-11-20').current, 'bom');
 });
 
 test('pushing the rest after a slip keeps each stage\'s planned length', () => {
   // Planned around the holidays (procurement Dec 2-8 is 6 working days, installation Dec 28-Jan 1 is 5).
-  const stages = S.plan('2026-11-16', HOLIDAYS).map((x) => Object.assign({ status: ['consultation', 'design'].includes(x.stage) ? 'done' : 'not_started' }, x));
+  const stages = S.plan('2026-11-16', HOLIDAYS).map((x) => Object.assign({ status: ['consultation', 'site_visit', 'design'].includes(x.stage) ? 'done' : 'not_started' }, x));
   // Initial cutlist (2 days) restarts Thu Dec 3 -> Dec 3-4, BOM Sat Dec 5, final cutlist Mon Dec 7, procurement
   // Dec 8-14, fabrication 15 days Dec 15-Jan 1 (Christmas skipped), installation Jan 2, 4, 5, 6, 7, handover Jan 8.
   const rows = S.pushRest(stages, 'cutlist', '2026-12-03', HOLIDAYS).map((r) => `${r.stage} ${r.planned_start} ${r.planned_end}`);

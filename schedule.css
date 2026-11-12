@@ -1,7 +1,7 @@
 /* Schedule (schedule.html). Base pieces come from accounting.css; theme from shell.css. */
-:root{--st-consultation:#8a96a3;--st-design:#6d5bd0;--st-cutlist:#3f7fd1;--st-bom:#2a9bb3;--st-procurement:#c48a1d;--st-fabrication:#c2562f;--st-installation:#2f8f5b;--st-handover:#1f6f4a}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--st-consultation:#9aa6b2;--st-design:#9d8ff0;--st-cutlist:#74a8ef;--st-bom:#5cc3d9;--st-procurement:#e0ac45;--st-fabrication:#ec8158;--st-installation:#5cc08a;--st-handover:#47b07c}}
-:root[data-theme="dark"]{--st-consultation:#9aa6b2;--st-design:#9d8ff0;--st-cutlist:#74a8ef;--st-bom:#5cc3d9;--st-procurement:#e0ac45;--st-fabrication:#ec8158;--st-installation:#5cc08a;--st-handover:#47b07c}
+:root{--st-consultation:#8a96a3;--st-site_visit:#5f7a8f;--st-design:#6d5bd0;--st-cutlist:#3f7fd1;--st-bom:#2a9bb3;--st-procurement:#c48a1d;--st-fabrication:#c2562f;--st-installation:#2f8f5b;--st-handover:#1f6f4a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--st-consultation:#9aa6b2;--st-site_visit:#8fa9bd;--st-design:#9d8ff0;--st-cutlist:#74a8ef;--st-bom:#5cc3d9;--st-procurement:#e0ac45;--st-fabrication:#ec8158;--st-installation:#5cc08a;--st-handover:#47b07c}}
+:root[data-theme="dark"]{--st-consultation:#9aa6b2;--st-site_visit:#8fa9bd;--st-design:#9d8ff0;--st-cutlist:#74a8ef;--st-bom:#5cc3d9;--st-procurement:#e0ac45;--st-fabrication:#ec8158;--st-installation:#5cc08a;--st-handover:#47b07c}
 
 .sched .pill{display:inline-flex;align-items:center;gap:5px;font:600 11.5px/1 var(--f-mono);padding:4px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-muted)}
 .sched .pill.good{background:var(--good-bg);color:var(--good)}

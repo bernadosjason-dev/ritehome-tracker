@@ -30,10 +30,10 @@ test.before(() => {
 });
 test.after(() => db && db.stop());
 
-test('every project gets all nine stages, and only an admin plans dates, all or nothing', () => {
+test('every project gets all ten stages, and only an admin plans dates, all or nothing', () => {
   const { must, refused } = db;
   assert.equal(must('super', `select string_agg(stage::text, ',' order by stage) from public.project_stages where project_id = 'p_k'`),
-    'consultation,design,cutlist,bom,final_cutlist,procurement,fabrication,installation,handover');
+    'consultation,site_visit,design,cutlist,bom,final_cutlist,procurement,fabrication,installation,handover');
   assert.equal(must('admin', `select public.stage_plan('p_k', ${j([
     { stage: 'design', planned_start: '2026-11-16', planned_end: '2026-11-23' },
     { stage: 'cutlist', planned_start: '2026-11-24', planned_end: '2026-11-25' },
@@ -61,8 +61,8 @@ test('staff see only the projects they are assigned to, and never the money or t
   const text = JSON.stringify(b);
   for (const secret of ['250000', '160000', 'ana@example.com', 'price', 'budget']) assert.ok(!text.includes(secret), `staff board leaks ${secret}`);
   const can = Object.fromEntries(b.projects[0].stages.map((s) => [s.stage, s.can_edit]));
-  assert.deepEqual(can, { consultation: false, design: true, cutlist: true, bom: true, final_cutlist: true, procurement: false, fabrication: false, installation: false, handover: false });
-  assert.deepEqual(b.projects[0].stages.map((s) => s.stage), ['consultation', 'design', 'cutlist', 'bom', 'final_cutlist', 'procurement', 'fabrication', 'installation', 'handover']);
+  assert.deepEqual(can, { consultation: false, site_visit: false, design: true, cutlist: true, bom: true, final_cutlist: true, procurement: false, fabrication: false, installation: false, handover: false });
+  assert.deepEqual(b.projects[0].stages.map((s) => s.stage), ['consultation', 'site_visit', 'design', 'cutlist', 'bom', 'final_cutlist', 'procurement', 'fabrication', 'installation', 'handover']);
   assert.equal(board('admin').projects.length, 2);
   assert.deepEqual(board('admin').staff.map((s) => s.full_name), ['Dina Designer', 'Jason', 'Rudy']);
   refused('fab', `select public.stage_save('p_k', 'fabrication', ${j({ status: 'in_progress' })})`, /isn't yours to change/);   // not assigned
@@ -131,7 +131,7 @@ test('the whiteboard: rows added by the admin, the office\'s own words, "submitt
   assert.match(id, /^p_[0-9a-f]{16}$/);
   const doc = JSON.parse(must('admin', `select data from public.tracker_docs where id = '${id}'`));
   assert.deepEqual([doc.name, doc.clientName, doc.projectType, doc.inCharge, doc.system, doc.status], ['TV console – Dr. Dy', 'Dr. Dy', 'TV console', 'Jane', 'storage', 'active']);
-  assert.equal(must('super', `select count(*) from public.project_stages where project_id = '${id}'`), '9');
+  assert.equal(must('super', `select count(*) from public.project_stages where project_id = '${id}'`), '10');
   const pantry = must('admin', `select public.board_project_save(${j({ clientName: 'Ar. Amerol', projectType: 'Walk-in pantry', inCharge: 'Yhna' })})`);
   assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${pantry}'`)).system, 'kitchen');
   // Changing the person in charge leaves the price and everything else alone.

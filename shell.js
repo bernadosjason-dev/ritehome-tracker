@@ -42,6 +42,35 @@
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
   window.RitehomeLinks = {href: href};
+
+  // Who may open which workspace. The database decides every read and write; this only keeps the
+  // menu to the doors a person can actually open. null = every active account.
+  var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
+    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin']};
+  var ROLES_KEY = 'ritehome_roles_v1';
+  function canOpen(mode, roles){
+    if(!roles || !roles.length) return false;
+    var a = ACCESS[mode];
+    return !a || roles.some(function(r){ return a.indexOf(r) >= 0; });
+  }
+  // Where a person starts: the admin on the dashboard, sales on the leads, the purchaser on the stock.
+  function homeFor(roles){
+    roles = roles || [];
+    return roles.indexOf('admin') >= 0 ? 'all' : roles.indexOf('sales') >= 0 ? 'leads'
+      : roles.indexOf('purchaser') >= 0 ? 'inventory' : 'schedule';
+  }
+  function storedRoles(){
+    try { var v = JSON.parse(sessionStorage.getItem(ROLES_KEY)); return Array.isArray(v) ? v : null; } catch(e){ return null; }
+  }
+  // Called by each page once my_roles() answers (null on sign-out). Remembered for this tab so the
+  // next page draws the right menu before its own check comes back.
+  function applyRoles(roles){
+    try { if(roles) sessionStorage.setItem(ROLES_KEY, JSON.stringify(roles)); else sessionStorage.removeItem(ROLES_KEY); } catch(e){}
+    document.querySelectorAll('a.side-link[data-mode]').forEach(function(a){
+      a.hidden = !!roles && a.getAttribute('aria-current') !== 'page' && !canOpen(a.getAttribute('data-mode'), roles);
+    });
+  }
+  window.RitehomeAccess = {canOpen: canOpen, home: homeFor, apply: applyRoles, roles: storedRoles};
   function brand(){
     var a = el('a', 'side-brand'); a.href = href('all');
     var logo = el('img', 'side-logo'); logo.src = 'brand/logo-mark-light.png'; logo.alt = ''; logo.width = 430; logo.height = 894;
@@ -89,16 +118,18 @@
     var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
+    var known = storedRoles();
     [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['attendance', 'Attendance', 'attendance'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
      ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
-      var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
+      var a = el('a', 'side-link'); a.href = href(n[0]); a.setAttribute('data-mode', n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
+      else if(known && !canOpen(n[0], known)) a.hidden = true;
       side.appendChild(a);
     });
     var foot = el('div', 'side-foot');
     var who = el('div', 'side-who'); who.id = 'sideWho';
     var out = el('button', 'side-out', 'Sign out'); out.type = 'button'; out.id = 'sideSignOut';
-    out.addEventListener('click', function(){ var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
+    out.addEventListener('click', function(){ applyRoles(null); var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
     foot.appendChild(who); foot.appendChild(out); side.appendChild(foot);
 
     var top = el('div', 'app-top no-print');

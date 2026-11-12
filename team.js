@@ -1,12 +1,16 @@
 /* Team accounts: lists people through team_list() (supabase/migrations/20261114000010_team.sql),
    changes roles and switches accounts on and off through team_update(), hands people their
    whiteboard rows through team_assign_in_charge(), and creates sign-ins / resets passwords
-   through the team-admin Edge Function (the only place the service role key exists). Admin only. */
+   through the team-admin Edge Function (the only place the service role key exists). Admin only.
+   One person can hold several roles: a main role plus extra roles (team_update's extra_roles).
+   Admin is only ever a main role. */
 (function(){
   'use strict';
   var SUPABASE_URL = "https://laxavfldivkhufeubgmb.supabase.co";
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
-  var ROLES = [["designer", "Designer", "Design, initial cutlist, BOM and final cutlist on their own projects."],
+  var ROLES = [["sales", "Sales", "The leads (add, follow up, quote; the admin marks a lead won), and consultation and site visit on their own projects."],
+    ["designer", "Designer", "Design, initial cutlist, BOM and final cutlist on their own projects."],
+    ["bookkeeper", "Bookkeeper", "Their own attendance for now. The books, attendance corrections and the company profile open to this role next."],
     ["purchaser", "Purchaser", "Inventory (add and minus stock), procurement jobs and purchase orders, and the procurement stage."],
     ["fabrication", "Workshop", "The fabrication stage on their own projects."],
     ["installer", "Installer", "Installation and handover on their own projects."],
@@ -111,6 +115,8 @@
     role.addEventListener("change", function(){
       rpc("team_update", {p_user: p.id, p: {role: role.value}}).then(function(){ msg(p.full_name + " is now " + roleName(role.value) + "."); return load(); }).catch(function(e){ role.value = p.role; fail(e); });
     });
+    var roleCell = [role];
+    if(p.role !== "admin") roleCell.push(extraRoles(p));
     var status = !p.active ? h("span", {class: "pill bad", text: "Switched off"})
       : p.must_change_password ? h("span", {class: "pill warn", text: "Temporary password"})
       : h("span", {class: "pill good", text: "Active"});
@@ -123,11 +129,34 @@
     if(!p.me) acts.push(h("button", {class: "btn ghost small" + (p.active ? " danger" : ""), type: "button", onclick: function(){ toggle(p); }, text: p.active ? "Switch off" : "Switch on"}));
     return h("tr", {class: p.active ? "" : "off", "data-person": p.email || p.id}, [
       h("td", {class: "who"}, [h("strong", {text: (p.full_name || "No name") + (p.me ? " (you)" : "")}), h("small", {text: p.email || "—"})]),
-      h("td", null, role), h("td", null, status),
+      h("td", {class: "role-cell"}, roleCell), h("td", null, status),
       h("td", {class: "muted", text: when(p.last_sign_in_at)}),
       h("td", {class: "num", text: String(p.projects || 0)}),
       h("td", {class: "acts-cell"}, h("div", {class: "acts"}, acts))
     ]);
+  }
+
+  // Extra roles: a small "Also" list under the main role. Each tick saves at once.
+  function extraRoles(p){
+    var extra = p.extra_roles || [];
+    var others = ROLES.filter(function(r){ return r[0] !== "admin" && r[0] !== p.role; });
+    var box = h("details", {class: "also"}, [
+      h("summary", {text: extra.length ? "Also " + extra.map(roleName).join(", ") : "Add a role"}),
+      h("div", {class: "also-list"}, others.map(function(r){
+        var cb = h("input", {type: "checkbox", value: r[0], "aria-label": r[1] + " as an extra role for " + p.full_name});
+        cb.checked = extra.indexOf(r[0]) >= 0;
+        cb.addEventListener("change", function(){
+          var next = Array.prototype.filter.call(box.querySelectorAll("input:checked"), function(x){ return true; }).map(function(x){ return x.value; });
+          var all = box.querySelectorAll("input"); Array.prototype.forEach.call(all, function(x){ x.disabled = true; });
+          rpc("team_update", {p_user: p.id, p: {extra_roles: next}}).then(function(){
+            msg(p.full_name + (next.length ? " also has " + next.map(roleName).join(", ") + "." : " has only the " + roleName(p.role).toLowerCase() + " role now."));
+            return load();
+          }).catch(function(e){ cb.checked = !cb.checked; Array.prototype.forEach.call(all, function(x){ x.disabled = false; }); fail(e); });
+        });
+        return h("label", null, [cb, " " + r[1]]);
+      }))
+    ]);
+    return box;
   }
 
   // ---------- actions ----------
@@ -213,8 +242,10 @@
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then open Team from the menu.", true); }
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password. Open the portal's front page to choose your own.", true); }
-    return rpc("my_role").then(function(role){
-      if(role !== "admin") return gate("Team accounts are for admins", role ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(roles.indexOf("admin") < 0) return gate("Team accounts are for admins", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the team page", e && e.message ? e.message : String(e)); });

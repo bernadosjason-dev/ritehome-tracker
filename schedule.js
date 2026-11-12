@@ -34,7 +34,7 @@
     ["partition", "Partition system", ["CR partition", "Office partition", "Reception partition"]],
     ["workspace", "Workstation system", ["Office workstation", "Cubicle", "Desk"]]
   ];
-  var ROLE = {admin: "Admin", designer: "Designer", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
+  var ROLE = {admin: "Admin", designer: "Designer", sales: "Sales", bookkeeper: "Bookkeeper", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
   function label(list, v){ var f = list.filter(function(x){ return x[0] === v; })[0]; return f ? f[1] : v; }
   function stageLabel(k){ return S.STAGES[S.INDEX[k]].label; }
 
@@ -666,10 +666,10 @@
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then open Schedule from the menu.", true); }
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password the admin gave you. Open the portal's front page to choose your own.", true); }
-    return rpc("my_role").then(function(role){
-      if(!role) return gate("Your account isn't active yet", "Ask the admin to activate your account and set your role.");
-      // Staff can't open the other workspaces (the database refuses them), so don't offer them.
-      if(role !== "admin") document.querySelectorAll("a.side-link:not([aria-current])").forEach(function(a){ a.hidden = true; });
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(!roles.length) return gate("Your account isn't active yet", "Ask the admin to activate your account and set your role.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the schedule", e && e.message ? e.message : String(e)); });

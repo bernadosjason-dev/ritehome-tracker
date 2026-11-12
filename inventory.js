@@ -221,8 +221,10 @@
     var session = r && r.data && r.data.session;
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then open Inventory from the menu.", true); }
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password. Open the staff portal to set your own.", true); }
-    return rpc("my_role").then(function(role){
-      if(role !== "admin" && role !== "purchaser") return gate("Inventory is for the purchaser and the admin", role ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
+    return rpc("my_roles").then(function(roles){
+      roles = roles || [];
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(roles.indexOf("admin") < 0 && roles.indexOf("purchaser") < 0) return gate("Inventory is for the purchaser and the admin", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the inventory", e && e.message ? e.message : String(e)); });

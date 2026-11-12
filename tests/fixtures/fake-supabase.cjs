@@ -59,7 +59,7 @@ const SHIM = String.raw`(function(){
   }};
 })();`;
 
-// opts.rpc(name, args, user) answers any function but my_role (e.g. from a real local PostgreSQL).
+// opts.rpc(name, args, user) answers any function but my_role / my_roles (e.g. from a real local PostgreSQL).
 // opts.delayMs holds every answer back that long.
 function createFakeSupabase(opts = {}) {
   const users = [
@@ -127,6 +127,7 @@ function createFakeSupabase(opts = {}) {
     if (m.kind === 'rpc') {
       const u = who(m.session);
       if (m.name === 'my_role') return {data: u && u.active ? u.role : null, error: null};
+      if (m.name === 'my_roles') return {data: u && u.active && u.role ? [u.role].concat(u.extraRoles || []) : [], error: null};
       if (opts.rpc) return opts.rpc(m.name, m.args, u);
       return {data: null, error: {message: 'unknown function'}};
     }

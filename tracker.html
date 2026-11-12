@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-16.1"></script>
+<script src="shell.js?v=2026-11-17.1"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -1440,7 +1440,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-16.1";
+  var PAGE_VERSION = "2026-11-17.1";
 
   // ---------- reference data ----------
 
@@ -5273,7 +5273,9 @@
     return supabaseClient;
   }
 
-  // Signed in, active and an admin (or the purchaser, in Procurement)? Otherwise shows the right gate and resolves false.
+  // Signed in, active and an admin (or holding the purchaser role, in Procurement)? Otherwise sends sales and
+  // purchasers to their own workspace, shows the right gate to everyone else, and resolves false.
+  // An account can hold several roles (my_roles(): main role first).
   function checkSignIn(){
     var client = supabaseApi();
     return client.auth.getSession().then(function(r){
@@ -5282,16 +5284,19 @@
       signedInEmail = session.user && session.user.email || "";
       // An account made by the admin starts with a temporary password: replace it first.
       if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ warmPut(null); showGate("newpassword"); return false; }
-      return client.rpc("my_role").then(function(r2){
+      return client.rpc("my_roles").then(function(r2){
         if(r2.error) throw {code: "unavailable", message: "Couldn’t check your account (" + (r2.error.message || "network error") + ")."};
-        var userId = (session.user && session.user.id) || "", w = warmGet();
+        var userId = (session.user && session.user.id) || "", w = warmGet(), roles = r2.data || [];
+        var A = window.RitehomeAccess;
+        if(A) A.apply(roles);
         // The purchaser works in the Procurement workspace (row-level security gives them its documents
-        // and nothing else); anywhere else on this page, send them to Inventory, their home.
-        var purchasing = r2.data === "purchaser" && (window.RitehomePortal || {}).mode === "procurement";
-        if(r2.data === "admin" || purchasing){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
+        // and nothing else); anywhere else on this page, send them to their home (Inventory, or Leads for sales).
+        var purchasing = roles.indexOf("purchaser") >= 0 && (window.RitehomePortal || {}).mode === "procurement";
+        if(roles.indexOf("admin") >= 0 || purchasing){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
         warmPut(null);
-        if(r2.data === "purchaser" && window.RitehomeLinks){ location.replace(window.RitehomeLinks.href("inventory")); return false; }
-        showGate(r2.data ? "staff" : "inactive");
+        var home = A ? A.home(roles) : "schedule";
+        if((home === "inventory" || home === "leads") && window.RitehomeLinks){ location.replace(window.RitehomeLinks.href(home)); return false; }
+        showGate(roles.length ? "staff" : "inactive");
         return false;
       });
     });

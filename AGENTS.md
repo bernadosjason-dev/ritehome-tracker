@@ -3,6 +3,12 @@
 Follow the application rules in README.md, including `track()` for database writes
 and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
+Owner's standing rule (2026-11-12): every update to the portal also updates the agents' knowledge
+in the same commit. When a change adds or alters a workspace, role, stage, table, RPC, test or deploy
+step, update this file (and any skill under `.claude/skills/`, if one exists) so the next Claude Code
+or Codex session knows it without being told. A portal change whose instructions here are stale is
+not finished.
+
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
 write permission, sharing permission, file limits and error handling. This tracker
@@ -87,7 +93,7 @@ The project page is tabbed (Overview · Expenses · Billing · Labor · Procurem
 `data-ptab` on each section; the tab is remembered per browser tab in sessionStorage (`ritehome_ptab`).
 
 Leads (`leads.html`/`leads.js` at `/leads`, scoring in `lead-score.js`, data in
-`supabase/migrations/20261112000006_leads.sql`): admin only. The website Worker files leads through
+`supabase/migrations/20261112000006_leads.sql`): admin and sales (see Roles; only the admin converts a lead). The website Worker files leads through
 `ingest_lead(p, key)`; the key's SHA-256 lives in `app_secrets` (no policy: only SECURITY DEFINER code
 reads it), the key itself only in the Worker's `PORTAL_LEAD_KEY` secret. Never commit either. Repeat
 inquiries from the same phone or email within 30 days join the open lead. Contact (call, message, visit,
@@ -98,7 +104,7 @@ not stored. Tests: `node --test tests/leads.test.cjs tests/lead-score.test.cjs` 
 
 Schedule (`schedule.html`/`schedule.js` at `/schedule`, arithmetic in `schedule-plan.js`, data in
 `supabase/migrations/20261113000008_schedule.sql` on the `project_stages`/`project_events` tables from portal_core):
-the one workspace staff can use. Whiteboard (the office board as a table: client, project type, person in
+the one workspace every staff role can use. Whiteboard (the office board as a table: client, project type, person in
 charge, then Design / Initial cutlist / BOM / Final cutlist / Fabrication / Installation in the board's own words
 and marker colours, tapped to change), pipeline board, timeline (Gantt) with workshop load, and calendar. The
 board's vocabulary is `stage_key` 'final_cutlist' and `stage_status` 'waiting_client' / 'submitted', added on their
@@ -151,8 +157,7 @@ trigger refuses any row that would take an item below zero. `inventory_board()` 
 people and offers open job names (never prices). The purchaser also gets the Procurement workspace: a second
 `tracker_docs` policy for the `procurementJobs` and `procurement` collections only, and tracker.html's gate admits a
 purchaser in procurement mode and sends them to `/inventory` from anywhere else on that page. They own the
-`procurement` stage on the Schedule (`role_owns_stage`). Role lists live in four places that must agree: the enum,
-`team.js` ROLES, `schedule.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change).
+`procurement` stage on the Schedule (`role_owns_stage`). Where role lists live: see Roles below.
 Tests: `node --test tests/inventory.test.cjs` and `node tests/inventory.browser.cjs`.
 
 Attendance (`attendance.html`/`attendance.js`/`attendance.css` at `/attendance`, every active role; SQL in
@@ -172,3 +177,18 @@ payroll summary (hours from matched in/out pairs). Tests: `node --test tests/att
 `node tests/attendance.browser.cjs` (fake camera and location; the face template is a stand-in there, and the last
 step loads the real library and models). `tests/fixtures/pg-rpc.cjs` now turns JSON arrays into Postgres arrays
 for array-typed arguments, as PostgREST does.
+
+Roles (`supabase/migrations/20261117000014_sales_bookkeeper.sql`, `…15_multi_role.sql`): seven roles, and one
+person can hold several: a main role (`profiles.role`) plus `profiles.extra_roles`. Admin is only ever a main
+role (a check constraint refuses it as an extra; making someone admin clears their extras). `my_role()` still
+returns the main role (null when inactive); every permission question uses `my_roles()` / `has_role()`, and
+`can_work_stage()` lets a person work a stage when any of their roles owns it. Sales: the Leads workspace
+(`can_sell()`; converting a lead into a project stays admin-only because it sets price and budget) and the
+consultation and site visit stages. Bookkeeper: the role exists, nothing opens to it yet beyond its own
+attendance (books, attendance corrections and company profile come in phase 5). The site visit stage sits
+between consultation and design (consultation 1 day + site visit 1 day in `schedule-plan.js`; the total stays
+40 working days). Role lists must agree in five places: the enum, `team.js` ROLES, `schedule.js` ROLE,
+`attendance.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change). The menu is
+filtered by role in `shell.js` (`RitehomeAccess`: ACCESS map, `home(roles)`, roles remembered per tab in
+sessionStorage `ritehome_roles_v1`); every page calls `RitehomeAccess.apply(roles)` after `my_roles()`.
+Hiding a link is never the security: row-level security is. Tests: `node --test tests/roles.test.cjs`.

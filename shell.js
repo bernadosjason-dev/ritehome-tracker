@@ -19,7 +19,9 @@
     menu: 'M4 7h16M4 12h16M4 17h16',
     plus: 'M12 5v14M5 12h14',
     box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8',
-    history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2'
+    history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2',
+    bell: 'M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0',
+    close: 'M6 6l12 12M18 6L6 18'
   };
   function icon(name){
     var s = document.createElementNS(NS, 'svg');
@@ -66,7 +68,8 @@
   }
   // Called by each page once my_roles() answers (null on sign-out). Remembered for this tab so the
   // next page draws the right menu before its own check comes back.
-  function applyRoles(roles){
+  function applyRoles(roles, client){
+    if(roles && client && roles.indexOf('admin') >= 0 && window.RitehomeBell) window.RitehomeBell.start(client);
     try { if(roles) sessionStorage.setItem(ROLES_KEY, JSON.stringify(roles)); else sessionStorage.removeItem(ROLES_KEY); } catch(e){}
     document.querySelectorAll('a.side-link[data-mode]').forEach(function(a){
       a.hidden = !!roles && a.getAttribute('aria-current') !== 'page' && !canOpen(a.getAttribute('data-mode'), roles);
@@ -140,13 +143,19 @@
       side.appendChild(a);
     });
     var foot = el('div', 'side-foot');
+    // The admin's bell (bell() below); hidden until a page starts it.
+    var bellBtn = el('button', 'side-link side-bell'); bellBtn.type = 'button'; bellBtn.id = 'bellBtn'; bellBtn.hidden = true;
+    bellBtn.setAttribute('aria-haspopup', 'dialog'); bellBtn.setAttribute('aria-controls', 'bellPanel');
+    bellBtn.appendChild(icon('bell')); bellBtn.appendChild(document.createTextNode('Notifications'));
+    var badge = el('span', 'bell-count'); badge.id = 'bellCount'; badge.hidden = true; bellBtn.appendChild(badge);
+    foot.appendChild(bellBtn);
     var who = el('div', 'side-who'); who.id = 'sideWho';
     var out = el('button', 'side-out', 'Sign out'); out.type = 'button'; out.id = 'sideSignOut';
     out.addEventListener('click', function(){ applyRoles(null); var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
     foot.appendChild(who); foot.appendChild(out); side.appendChild(foot);
 
     var top = el('div', 'app-top no-print');
-    var menuBtn = el('button'); menuBtn.type = 'button'; menuBtn.setAttribute('aria-label', 'Open menu');
+    var menuBtn = el('button'); menuBtn.type = 'button'; menuBtn.setAttribute('aria-label', 'Open menu'); menuBtn.id = 'menuBtn';
     menuBtn.setAttribute('aria-controls', 'appSide'); menuBtn.setAttribute('aria-expanded', 'false'); menuBtn.appendChild(icon('menu'));
     top.appendChild(menuBtn); top.appendChild(brand());
     var scrim = el('div', 'side-scrim');
@@ -177,6 +186,104 @@
     // the page sets the button label and the session after boot
     new MutationObserver(refreshWho).observe(document.body, {attributes: true, attributeFilter: ['class']});
   }
+  // ---------- the admin's bell ----------
+  // notify_list() / notify_read() / notify_settings_save() (supabase/migrations/20261120000017_notifications.sql).
+  // Started by RitehomeAccess.apply(roles, client) for admins only; the database refuses anyone else.
+  // New events arrive through Supabase Realtime when the page's client supports it, and every minute
+  // while the tab is visible either way.
+  var TG = [['important', 'Alerts and handoffs'], ['alerts', 'Alerts only'], ['all', 'Everything'], ['off', 'Off']];
+  var bell = {client: null, data: null, panel: null, timer: null};
+  function ago(iso){
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if(s < 60) return 'just now';
+    if(s < 3600) return Math.floor(s / 60) + ' min ago';
+    if(s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return new Intl.DateTimeFormat('en-PH', {timeZone: 'Asia/Manila', month: 'short', day: 'numeric'}).format(new Date(iso));
+  }
+  function bellRpc(name, args){
+    return bell.client.rpc(name, args || {}).then(function(r){ if(r.error) throw new Error(r.error.message || 'The request failed.'); return r.data; });
+  }
+  function bellCount(n){
+    var b = document.getElementById('bellCount'), m = document.getElementById('menuBtn');
+    if(b){ b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n); }
+    if(m) m.classList.toggle('has-unread', n > 0);
+    var btn = document.getElementById('bellBtn');
+    if(btn) btn.setAttribute('aria-label', 'Notifications' + (n ? ', ' + n + ' unread' : ''));
+  }
+  function bellLoad(){
+    return bellRpc('notify_list', {p_limit: 30}).then(function(d){ bell.data = d; bellCount(d.unread); if(bell.panel && !bell.panel.hidden) bellDraw(); });
+  }
+  function bellHref(link){
+    var m = /^\/(leads|schedule|inventory|attendance|activity|procurement|projects)(.*)$/.exec(link || '');
+    return m ? href(m[1]) + m[2] : href('activity');
+  }
+  function bellDraw(){
+    var p = bell.panel, d = bell.data || {events: [], unread: 0};
+    var list = p.querySelector('.bell-list'); list.textContent = '';
+    if(!d.events.length) list.appendChild(el('p', 'bell-empty', 'Nothing yet. What your team does shows up here.'));
+    d.events.forEach(function(e){
+      var a = el('a', 'bell-item ' + e.level + (e.read ? '' : ' unread')); a.href = bellHref(e.link);
+      a.appendChild(el('span', 'bell-dot')); 
+      var t = el('span', 'bell-text'); t.appendChild(el('strong', null, e.title));
+      if(e.body) t.appendChild(el('span', 'bell-body', e.body));
+      t.appendChild(el('span', 'bell-when', ago(e.at) + ' · ' + e.module));
+      a.appendChild(t);
+      a.addEventListener('click', function(){ if(!e.read) bellRpc('notify_read', {p_ids: [e.id]}).catch(function(){}); });
+      list.appendChild(a);
+    });
+    p.querySelector('.bell-all').disabled = !d.unread;
+    var sel = p.querySelector('select'); if(d.telegram) sel.value = d.telegram;
+  }
+  function bellPanel(){
+    if(bell.panel) return bell.panel;
+    var p = el('aside', 'bell-panel no-print'); p.id = 'bellPanel'; p.hidden = true;
+    p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Notifications');
+    var head = el('div', 'bell-head'); head.appendChild(el('h2', null, 'Notifications'));
+    var all = el('button', 'bell-all', 'Mark all read'); all.type = 'button';
+    all.addEventListener('click', function(){ bellRpc('notify_read', {p_ids: null}).then(bellLoad).catch(function(){}); });
+    var x = el('button', 'bell-close'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.appendChild(icon('close'));
+    x.addEventListener('click', function(){ bellOpen(false); });
+    head.appendChild(all); head.appendChild(x); p.appendChild(head);
+    p.appendChild(el('div', 'bell-list'));
+    var foot = el('div', 'bell-foot');
+    var lab = el('label', null, 'Send to Telegram'); var sel = el('select');
+    TG.forEach(function(o){ var op = el('option', null, o[1]); op.value = o[0]; sel.appendChild(op); });
+    sel.addEventListener('change', function(){
+      sel.disabled = true;
+      bellRpc('notify_settings_save', {p_telegram: sel.value}).then(function(){ sel.disabled = false; if(bell.data) bell.data.telegram = sel.value; })
+        .catch(function(){ sel.disabled = false; if(bell.data) sel.value = bell.data.telegram; });
+    });
+    lab.appendChild(sel); foot.appendChild(lab);
+    var more = el('a', 'bell-more', 'Everything in the activity log'); more.href = href('activity'); foot.appendChild(more);
+    p.appendChild(foot);
+    document.body.appendChild(p);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !p.hidden) bellOpen(false); });
+    document.addEventListener('click', function(e){ if(!p.hidden && !p.contains(e.target) && !e.target.closest('#bellBtn')) bellOpen(false); });
+    bell.panel = p;
+    return p;
+  }
+  function bellOpen(on){
+    var p = bellPanel(); p.hidden = !on;
+    var btn = document.getElementById('bellBtn'); if(btn) btn.setAttribute('aria-expanded', String(on));
+    if(on){ bellDraw(); bellLoad().catch(function(){}); }
+  }
+  window.RitehomeBell = {
+    start: function(client){
+      if(bell.client || !client || !client.rpc) return;
+      bell.client = client;
+      var btn = document.getElementById('bellBtn');
+      if(btn){ btn.hidden = false; btn.addEventListener('click', function(){ bellOpen(bellPanel().hidden); }); }
+      bellLoad().catch(function(){});
+      try {
+        if(client.channel) client.channel('ritehome-notify')
+          .on('postgres_changes', {event: 'INSERT', schema: 'public', table: 'notify_events'}, function(){ bellLoad().catch(function(){}); })
+          .subscribe();
+      } catch(e){}
+      bell.timer = setInterval(function(){ if(document.visibilityState === 'visible') bellLoad().catch(function(){}); }, 60000);
+      document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') bellLoad().catch(function(){}); });
+    }
+  };
+
   // Shared behaviour for the pages built on accounting.css (leads, schedule, team, accounting);
   // tracker.html has its own versions in ui.js.
   //  - Busy buttons: RitehomeBusy(button, true) disables it and shows a spinner (shell.css) until

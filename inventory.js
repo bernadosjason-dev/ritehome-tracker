@@ -226,7 +226,7 @@
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password. Open the staff portal to set your own.", true); }
     return rpc("my_roles").then(function(roles){
       roles = roles || [];
-      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
       if(roles.indexOf("admin") < 0 && roles.indexOf("purchaser") < 0) return gate("Inventory is for the purchaser and the admin", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
       return start();
     });

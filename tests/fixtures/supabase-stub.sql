@@ -26,3 +26,21 @@ grant select, insert, update, delete on storage.objects to anon, authenticated;
 -- Supabase grants every new public table and function to both API roles.
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant execute on functions to anon, authenticated;
+
+-- The service role the Edge Functions use (PostgREST switches to it and sets the JWT claims).
+create role service_role nologin bypassrls;
+grant usage on schema auth, storage, public to service_role;
+grant execute on function auth.uid() to service_role;
+
+-- pg_net stand-in: records each request instead of sending it, so tests can see the database
+-- asked for one. The real extension sends it after the transaction commits.
+create schema net;
+create table net.http_requests (id bigint generated always as identity primary key, url text, body jsonb,
+  headers jsonb, at timestamptz not null default now());
+create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
+  headers jsonb default '{}'::jsonb, timeout_milliseconds integer default 5000) returns bigint
+language sql as $$ insert into net.http_requests (url, body, headers) values (url, body, headers) returning id $$;
+grant usage on schema net to anon, authenticated, service_role;
+-- Supabase grants every new public table and function to the service role too.
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant execute on functions to service_role;

@@ -218,7 +218,7 @@
     if(session.user && session.user.user_metadata && session.user.user_metadata.must_change_password){ $("gateLink").href = home(); return gate("Choose your password first", "Your account still has the temporary password. Open the portal's front page to choose your own.", true); }
     return rpc("my_roles").then(function(roles){
       roles = roles || [];
-      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
       if(roles.indexOf("admin") < 0) return gate("The activity log is for admins", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
       return start();
     });

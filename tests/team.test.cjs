@@ -28,7 +28,14 @@ function fakeSupabase(url, init = {}) {
   }
   if (u.pathname === '/rest/v1/profiles' && method === 'PATCH') {
     const id = u.searchParams.get('id').replace('eq.', ''), b = JSON.parse(init.body);
-    db.must('super', `update public.profiles set full_name = '${q(b.full_name)}', role = '${b.role}', active = ${b.active} where id = '${q(id)}'`);
+    // As PostgREST would: the service role, with the request's headers.
+    db.must('service', `set request.headers = '${q(JSON.stringify({ 'x-ritehome-actor': h['x-ritehome-actor'] || '' }))}';
+      update public.profiles set full_name = '${q(b.full_name)}', role = '${b.role}', active = ${b.active} where id = '${q(id)}'`);
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }
+  if (u.pathname === '/rest/v1/rpc/audit_service_note' && method === 'POST') {
+    const b = JSON.parse(init.body);
+    db.must('service', `select public.audit_service_note('${q(b.p_actor)}', '${q(b.p_module)}', '${q(b.p_what)}', '${q(b.p_record)}')`);
     return Promise.resolve(new Response(null, { status: 204 }));
   }
   if (u.pathname === '/auth/v1/admin/users' && method === 'POST') {
@@ -82,7 +89,7 @@ test('only a signed-in, active admin can call the function', async () => {
 });
 
 test('the admin creates a working account in one step; the person must replace the password', async () => {
-  const { must } = db;
+  const { U, must, refused } = db;
   for (const [bad, msg] of [[{ email: 'nope', full_name: 'Jane', role: 'designer', password: 'long-enough-1' }, /email address/],
     [{ email: 'jane@example.com', full_name: '', role: 'designer', password: 'long-enough-1' }, /name/],
     [{ email: 'jane@example.com', full_name: 'Jane', role: 'boss', password: 'long-enough-1' }, /role/],
@@ -102,6 +109,14 @@ test('the admin creates a working account in one step; the person must replace t
   assert.equal(reset.status, 200);
   assert.equal(must('super', `select raw_user_meta_data ->> 'must_change_password' from auth.users where id = '${r.body.id}'`), 'true');
   assert.equal((await call('tok-admin', { action: 'reset_password', user_id: 'not-an-id', password: 'oak-hinge-drawer-7' })).status, 400);
+  // The activity log credits the admin, not "System": the profile switched on, the sign-in made, the reset.
+  assert.equal(must('super', `select actor_name || '|' || array_to_string(changed, ',') from public.audit_log
+    where table_name = 'profiles' and record_id = '${r.body.id}' and action = 'update' order by id limit 1`), 'Jason|active,role');
+  assert.equal(must('super', `select string_agg(actor_name || ': ' || label, ' / ' order by id) from public.audit_log where table_name = 'auth.users'`),
+    'Jason: Made a sign-in for Jane Dela Cruz (jane@example.com) / Jason: Reset a password');
+  // Nobody else can borrow the header or the note: only the service role is believed.
+  must('designer', `set request.headers = '{"x-ritehome-actor":"${U.admin}"}'; select public.my_role()`);
+  refused('designer', `select public.audit_service_note('${U.admin}', 'Team', 'forged', '')`, /permission denied/);
   assert.equal((await call('tok-admin', { action: 'promote', password: 'oak-hinge-drawer-7' })).status, 400);
 });
 

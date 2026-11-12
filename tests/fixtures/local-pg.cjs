@@ -43,9 +43,10 @@ function startLocalPg() {
       ["-h", dir, "-p", port, "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], args),
     { encoding: "utf8" });
 
-  // Runs SQL as an actor ("super", "anon", or a key of U). Returns {ok, out} or {ok:false, err}.
+  // Runs SQL as an actor ("super", "anon", "service" (the Edge Functions' role), or a key of U). Returns {ok, out} or {ok:false, err}.
   function sql(actor, query) {
     const prefix = actor === "super" ? "" : actor === "anon" ? "set role anon;\n"
+      : actor === "service" ? "set role service_role;\nset request.jwt.claims = '{\"role\":\"service_role\"}';\n"
       : `set role authenticated;\nset request.jwt.claim.sub = '${U[actor]}';\n`;
     const res = psql(["-At", "-c", prefix + query]);
     return res.status === 0 ? { ok: true, out: res.stdout.trim() } : { ok: false, err: res.stderr.trim() };

@@ -594,7 +594,7 @@
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then come back to Accounting from the menu.", true); }
     return rpc("my_roles").then(function(roles){
       roles = roles || [];
-      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
       if(roles.indexOf("admin") < 0) return gate("Accounting is for admins", roles.length ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
       return start();
     });

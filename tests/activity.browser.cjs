@@ -40,6 +40,7 @@ const j = v => `'${q(JSON.stringify(v))}'::jsonb`;
     await page.goto('http://127.0.0.1:8000/activity', {waitUntil: 'domcontentloaded'});
     await setSession('u-designer'); await page.reload({waitUntil: 'domcontentloaded'});
     await page.waitForFunction(() => document.getElementById('gateTitle').textContent === 'The activity log is for admins');
+    assert.ok(await page.locator('#bellBtn').isHidden(), 'staff have no bell');
     // A refusal a page reports lands in the log under the person's name.
     await page.evaluate(() => window.RitehomeRefused(window.supabase.createClient('https://laxavfldivkhufeubgmb.supabase.co', 'k'),
       'Leads', 'lead_save', {code: '42501', message: 'Only sales or an admin can change leads.'}));
@@ -55,6 +56,29 @@ const j = v => `'${q(JSON.stringify(v))}'::jsonb`;
     assert.match(list, /Jason · Admin\s+added project Kitchen – Ana Reyes/);
     assert.match(list, /Dina · Designer\s+was refused: lead_save \(Only sales or an admin can change leads\.\)/);
     assert.ok(await page.locator('a.side-link', {hasText: 'Activity'}).isVisible());
+
+    // 2b. The bell: Sam's new lead, his stage change and Dina's refusal are waiting, newest first.
+    const unread = Number(must('super', 'select count(*) from public.notify_events'));
+    assert.ok(unread >= 3, 'events: ' + unread);
+    await page.waitForFunction(n => document.getElementById('bellCount').textContent === String(n), unread);
+    await page.locator('#bellBtn').click();
+    await page.locator('#bellPanel .bell-item').first().waitFor();
+    const first = await page.locator('#bellPanel .bell-item').first().innerText();
+    assert.match(first, /Dina was refused: lead_save\s+Only sales or an admin can change leads\.\s+just now · Leads/);
+    assert.ok(await page.locator('#bellPanel .bell-item.alert.unread').count() >= 1);
+    assert.match(await page.locator('#bellPanel').innerText(), /New lead: Carlo Diaz/);
+    assert.equal(await page.locator('#bellPanel select').inputValue(), 'important');
+    await page.locator('#bellPanel select').selectOption('alerts');
+    await page.waitForFunction(() => !document.querySelector('#bellPanel select').disabled);
+    assert.equal(must('super', 'select telegram from public.notify_settings'), 'alerts');
+    await page.locator('#bellPanel select').selectOption('important');
+    await page.waitForFunction(() => !document.querySelector('#bellPanel select').disabled);
+    await page.screenshot({path: '/tmp/ritehome-bell.png'});
+    await page.locator('#bellPanel .bell-all').click();
+    await page.waitForFunction(() => document.getElementById('bellCount').hidden);
+    assert.equal(await page.locator('#bellPanel .bell-item.unread').count(), 0);
+    await page.keyboard.press('Escape');
+    assert.ok(await page.locator('#bellPanel').isHidden());
 
     // 3. Open a change: before and after, field by field.
     const change = page.locator('.act-row', {hasText: 'changed lead Carlo Diaz'}).first();
@@ -91,6 +115,6 @@ const j = v => `'${q(JSON.stringify(v))}'::jsonb`;
     await page.screenshot({path: '/tmp/ritehome-activity-desktop.png', fullPage: true});
 
     assert.deepEqual(errors, []);
-    console.log('PASS activity: staff gate, page-reported refusal logged, refused first, who/what/before-after, record history, filters, phone width.');
+    console.log('PASS activity: staff gate (no bell), page-reported refusal logged, refused first, bell (unread count, newest first, Telegram setting, mark all read), who/what/before-after, record history, filters, phone width.');
   } finally { await browser.close(); db.stop(); }
 })().catch(e => { console.error(e); db.stop(); process.exit(1); });

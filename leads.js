@@ -314,7 +314,7 @@
     if(!session){ $("gateLink").href = home(); return gate("Sign in first", "Sign in on the staff portal, then come back to Leads from the menu.", true); }
     return rpc("my_roles").then(function(roles){
       roles = roles || [];
-      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles);
+      if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
       if(roles.indexOf("admin") < 0 && roles.indexOf("sales") < 0) return gate("Leads are for sales and the admin", roles.length ? "Your account can use the Schedule." : "This account hasn't been activated yet.");
       state.admin = roles.indexOf("admin") >= 0;
       return start();

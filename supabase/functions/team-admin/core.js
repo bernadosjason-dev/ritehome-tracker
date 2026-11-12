@@ -10,6 +10,9 @@
 //   POST {action: "reset_password", user_id, password}         -> {ok: true}
 // Both set user_metadata.must_change_password, so the person picks their own password at
 // their next sign-in (tracker.html asks before anything else).
+// The activity log credits the admin: profile writes carry x-ritehome-actor (believed from the
+// service role only, see public.acting_user()), and what happens in Supabase Auth (a sign-in made,
+// a password reset) is noted through public.audit_service_note(). A failed note never fails the request.
 
 const ROLES = ['admin', 'designer', 'sales', 'bookkeeper', 'purchaser', 'fabrication', 'installer'];
 const ORIGINS = ['https://portal.ritehomemodular.com', 'https://ritehome-portal.vercel.app',
@@ -43,6 +46,9 @@ export function makeHandler({ env, fetch }) {
     const prof = await fetch(base + '/rest/v1/profiles?select=role,active&id=eq.' + encodeURIComponent(caller.id), { headers: admin });
     const rows = prof.ok ? await prof.json() : [];
     if (!rows[0] || rows[0].role !== 'admin' || !rows[0].active) return reply(403, { error: 'Only an admin can manage team accounts.' });
+    const acting = { ...admin, 'x-ritehome-actor': caller.id };
+    const note = (what, record) => fetch(base + '/rest/v1/rpc/audit_service_note', { method: 'POST', headers: acting,
+      body: JSON.stringify({ p_actor: caller.id, p_module: 'Team', p_what: what, p_record: record || '' }) }).catch(() => null);
 
     let body;
     try { body = await req.json(); } catch (e) { return reply(400, { error: 'Send JSON.' }); }
@@ -67,7 +73,8 @@ export function makeHandler({ env, fetch }) {
       const user = await made.json();
       // The sign-up trigger made an inactive profile; turn it on with the chosen role.
       const set = await fetch(base + '/rest/v1/profiles?id=eq.' + encodeURIComponent(user.id), { method: 'PATCH',
-        headers: { ...admin, Prefer: 'return=minimal' }, body: JSON.stringify({ full_name: name, role, active: true }) });
+        headers: { ...acting, Prefer: 'return=minimal' }, body: JSON.stringify({ full_name: name, role, active: true }) });
+      await note('Made a sign-in for ' + name + ' (' + email + ')', user.id);
       if (!set.ok) return reply(502, { error: 'The sign-in was made but the profile wasn\'t switched on. Activate it on the Team page.', id: user.id });
       return reply(200, { id: user.id });
     }
@@ -78,6 +85,7 @@ export function makeHandler({ env, fetch }) {
       const done = await fetch(base + '/auth/v1/admin/users/' + id, { method: 'PUT', headers: admin,
         body: JSON.stringify({ password, user_metadata: { must_change_password: true } }) });
       if (!done.ok) return reply(502, { error: 'Supabase refused the new password (' + done.status + ').' });
+      await note('Reset a password', id);
       return reply(200, { ok: true });
     }
     return reply(400, { error: 'Unknown action.' });

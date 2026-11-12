@@ -208,5 +208,24 @@ Refusals: Postgres undoes a refused transaction, log row included, so pages repo
 `audit_refused()` (source 'page', active accounts only, 30 an hour): every page's `rpc()` calls
 `RitehomeRefused(client, module, name, error)` from `shell.js` on an error. A page's report is evidence of a
 mistake, not tamper-proof: someone calling the API directly won't report themselves (their refused writes still
-change nothing). Accounts made by the team-admin Edge Function show as "System or website" (it uses the service
-role). Tests: `node --test tests/audit.test.cjs` and `node tests/activity.browser.cjs`.
+change nothing). The team-admin Edge Function credits the admin (see Notifications). Tests: `node --test tests/audit.test.cjs` and `node tests/activity.browser.cjs`.
+
+Notifications (`supabase/migrations/20261120000017_notifications.sql`, the bell in `shell.js`/`shell.css`, the
+`notify-telegram` Edge Function in `supabase/functions/notify-telegram/`): a trigger on `audit_log` makes one
+`notify_events` row per log row (unique `audit_id`: never twice) for everything an employee does; the admin's own
+actions notify nobody, and with nobody signed in only a website lead does. Levels: 'alert' (refused, deleted, stage
+blocked, stock crossing its reorder level or out, a selfie that doesn't match), 'handoff' (new lead, lead won, stage
+submitted or done), 'info' (the rest; an ordinary punch is not news). `notify_settings.telegram` ('off', 'alerts',
+'important' = alerts + handoffs, the default, 'all') decides which go to Telegram; admins change it in the bell. The
+bell: `RitehomeAccess.apply(roles, client)` starts `RitehomeBell` for admins (every page passes its client);
+`notify_list()`/`notify_read()` keep a per-admin unread count; new events arrive by Supabase Realtime (`notify_events`
+is in the `supabase_realtime` publication) and a one-minute poll. Telegram: `notify_ping()` posts an empty request
+through pg_net to the function, which claims the queue with the service role (`notify_claim_telegram()`, rows
+'pending' → 'sending'), sends, and reports (`notify_telegram_done()`: failures go back, five tries then 'failed').
+The bot token and chat id are Edge Function secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), set by the owner in
+the Supabase dashboard; without them the function answers 503 and events wait. Deploy it with JWT verification off
+(the request carries nothing and is not trusted). Attribution: the team-admin function sends `x-ritehome-actor`
+(believed only from the service role, `acting_user()`) and notes Auth-side actions with `audit_service_note()`.
+Tests: `node --test tests/notify.test.cjs` (rules, bell, queue, and the function under Node against a stand-in
+Telegram; `tests/fixtures/supabase-stub.sql` stubs pg_net as `net.http_requests` and the service role, run as the
+"service" actor) and the bell steps in `node tests/activity.browser.cjs`.

@@ -1,6 +1,6 @@
 /* Builds the portal's left menu (shell.css) around the existing tracker page.
    It only adds navigation: the workspaces are tracker.html's portal modes (short addresses
-   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, attendance.html, inventory.html, accounting.html, team.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
+   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, attendance.html, inventory.html, accounting.html, team.html, activity.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
 (function(){
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
@@ -18,7 +18,8 @@
     books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
     menu: 'M4 7h16M4 12h16M4 17h16',
     plus: 'M12 5v14M5 12h14',
-    box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8'
+    box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8',
+    history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2'
   };
   function icon(name){
     var s = document.createElementNS(NS, 'svg');
@@ -38,6 +39,7 @@
     if(mode === 'team') return CLEAN ? '/team' : 'team.html';
     if(mode === 'inventory') return CLEAN ? '/inventory' : 'inventory.html';
     if(mode === 'attendance') return CLEAN ? '/attendance' : 'attendance.html';
+    if(mode === 'activity') return CLEAN ? '/activity' : 'activity.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
@@ -46,7 +48,7 @@
   // Who may open which workspace. The database decides every read and write; this only keeps the
   // menu to the doors a person can actually open. null = every active account.
   var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
-    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin']};
+    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin']};
   var ROLES_KEY = 'ritehome_roles_v1';
   function canOpen(mode, roles){
     if(!roles || !roles.length) return false;
@@ -71,6 +73,17 @@
     });
   }
   window.RitehomeAccess = {canOpen: canOpen, home: homeFor, apply: applyRoles, roles: storedRoles};
+
+  // A refused request goes into the admin's activity log (audit_refused). The database can't log its
+  // own refusals (a refused transaction is undone, log row included), so the page reports them.
+  // Best effort: never throws, never waits.
+  window.RitehomeRefused = function(client, module, what, error){
+    try {
+      var code = error && error.code, text = String(error && error.message || '');
+      if(!client || !(code === '42501' || /permission denied|row-level security|only an admin|only sales|isn.t yours/i.test(text))) return;
+      client.rpc('audit_refused', {p_module: module || '', p_what: String(what || ''), p_detail: text.slice(0, 500)}).then(function(){}, function(){});
+    } catch(e){}
+  };
   function brand(){
     var a = el('a', 'side-brand'); a.href = href('all');
     var logo = el('img', 'side-logo'); logo.src = 'brand/logo-mark-light.png'; logo.alt = ''; logo.width = 430; logo.height = 894;
@@ -120,7 +133,7 @@
     side.appendChild(brand());
     var known = storedRoles();
     [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['attendance', 'Attendance', 'attendance'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
-     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
+     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team'], ['activity', 'Activity', 'history']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = href(n[0]); a.setAttribute('data-mode', n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');
       else if(known && !canOpen(n[0], known)) a.hidden = true;

@@ -36,7 +36,10 @@
   }
   function put(id, node){ var el = typeof id === "string" ? $(id) : id; el.textContent = ""; if(node) el.appendChild(node); }
   function rpc(name, args){
-    return client.rpc(name, args || {}).then(function(r){ if(r.error) throw new Error(r.error.message || "The request failed."); return r.data; });
+    return client.rpc(name, args || {}).then(function(r){
+      if(r.error){ if(window.RitehomeRefused) window.RitehomeRefused(client, "Attendance", name, r.error); throw new Error(r.error.message || "The request failed."); }
+      return r.data;
+    });
   }
   function msg(text, bad){
     var m = $("acctMsg"); m.textContent = text; m.hidden = !text; m.classList.toggle("bad", !!bad);

@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`, activity.html at `/activity`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 Owner's standing rule (2026-11-12): every update to the portal also updates the agents' knowledge
 in the same commit. When a change adds or alters a workspace, role, stage, table, RPC, test or deploy
@@ -192,3 +192,21 @@ between consultation and design (consultation 1 day + site visit 1 day in `sched
 filtered by role in `shell.js` (`RitehomeAccess`: ACCESS map, `home(roles)`, roles remembered per tab in
 sessionStorage `ritehome_roles_v1`); every page calls `RitehomeAccess.apply(roles)` after `my_roles()`.
 Hiding a link is never the security: row-level security is. Tests: `node --test tests/roles.test.cjs`.
+
+Activity log (`activity.html`/`activity.js`/`activity.css` at `/activity`, admin only; SQL in
+`supabase/migrations/20261118000016_audit_log.sql`): a `zz_audit` AFTER trigger (`audit_row()`, SECURITY DEFINER)
+on every business table writes `audit_log`: who (id, name and roles at that moment), workspace (`audit_module()`),
+table and record key (the trigger's arguments name the key columns), project, insert/update/delete, only the
+changed fields with before and after (a tracker document's `data` is opened up into `data.<key>`), and the IP and
+browser from PostgREST's `request.headers`. Every new table gets a `zz_audit` trigger in the migration that makes
+it. Never copied: `face_descriptor`, a punch's `lat`/`lng`/`accuracy_m`/`selfie_path` (shown as "(hidden)" when they
+change). Not logged: saves that only touch `updated_at`/`updated_by`/`revision`/`data.updatedAt`, and rows written by
+another trigger (`pg_trigger_depth() > 1`: seeded stages, the lead's automatic notes, cascaded deletes). Nobody,
+admin included, can insert, change or delete log rows (no write policies, privileges revoked); admins read through
+`audit_search(p)` (filters actor, module, action, project, table, record, from/to Manila dates, q, before, limit).
+Refusals: Postgres undoes a refused transaction, log row included, so pages report their own through
+`audit_refused()` (source 'page', active accounts only, 30 an hour): every page's `rpc()` calls
+`RitehomeRefused(client, module, name, error)` from `shell.js` on an error. A page's report is evidence of a
+mistake, not tamper-proof: someone calling the API directly won't report themselves (their refused writes still
+change nothing). Accounts made by the team-admin Edge Function show as "System or website" (it uses the service
+role). Tests: `node --test tests/audit.test.cjs` and `node tests/activity.browser.cjs`.

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Activity</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-18.1">
+<link rel="stylesheet" href="activity.css?v=2026-11-18.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "activity"};</script>
+</head>
+<body class="acct activity">
+<main class="wrap">
+<script src="shell.js?v=2026-11-18.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1 id="actTitle">Activity</h1>
+      <p class="sub" id="actSub">Every change anyone makes, with who, when, and what it was before.</p>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="kpis" id="actKpis"></div>
+
+    <section class="card">
+      <form id="actFilters" class="act-filters" novalidate>
+        <label>Person <select id="fActor"><option value="">Everyone</option></select></label>
+        <label>Workspace <select id="fModule"><option value="">All</option></select></label>
+        <label>What <select id="fAction">
+          <option value="">Any change</option><option value="insert">Added</option><option value="update">Changed</option>
+          <option value="delete">Deleted</option><option value="refused">Refused</option></select></label>
+        <label>Project <select id="fProject"><option value="">Any project</option></select></label>
+        <label>From <input id="fFrom" type="date"></label>
+        <label>To <input id="fTo" type="date"></label>
+        <label class="wide">Search <input id="fQ" type="search" placeholder="Client, item, person…" autocomplete="off"></label>
+        <div class="act-filter-actions"><button class="btn ghost small" type="button" id="fClear">Clear filters</button></div>
+      </form>
+      <p class="muted small" id="recordNote" hidden></p>
+    </section>
+
+    <section class="card">
+      <div id="actList" class="act-list"></div>
+      <p class="act-more"><button class="btn ghost" type="button" id="moreBtn" hidden>Show older</button></p>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="activity.js?v=2026-11-18.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

@@ -1,0 +1,34 @@
+/* Activity log (activity.html). Base pieces come from accounting.css; theme from shell.css. */
+.act-filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 12px;align-items:end}
+.act-filters label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-muted)}
+.act-filters .wide{grid-column:span 2}
+.act-filters select,.act-filters input{min-height:36px;font-size:13.5px;padding:6px 9px}
+.act-filter-actions{display:flex;justify-content:flex-end}
+#recordNote{margin:12px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+.act-day + .act-day{margin-top:18px}
+.act-day-head{font-size:13px;font-weight:600;color:var(--ink-muted);margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.act-items{list-style:none;margin:0;padding:0}
+.act-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;width:100%;padding:10px 8px;
+  border-bottom:1px solid var(--border);cursor:pointer;border-radius:8px}
+.act-row:hover{background:var(--surface-2)}
+.act-row:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.act-time{font-size:12.5px;color:var(--ink-muted);font-variant-numeric:tabular-nums;padding-top:1px}
+.act-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.act-who strong{font-size:14px}
+.act-who small{color:var(--ink-muted);font-size:12.5px}
+.act-what{font-size:13.5px;line-height:1.45;overflow-wrap:anywhere}
+.act-row.delete .act-what{color:var(--warn)}
+.act-row.refused .act-what{color:var(--bad);font-weight:500}
+.act-detail{padding:8px 8px 14px 92px;border-bottom:1px solid var(--border)}
+.act-diff th[scope="row"]{font:500 13px/1.3 var(--f-body);letter-spacing:0;text-transform:none;color:var(--ink);white-space:normal;width:28%}
+.act-diff td{overflow-wrap:anywhere;font-size:13px}
+.act-diff td.was{color:var(--ink-muted);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink-muted) 50%,transparent)}
+.act-meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0}
+.act-more{text-align:center;margin:14px 0 0}
+@media (max-width:760px){
+  .act-filters .wide{grid-column:auto}
+  .act-row{grid-template-columns:56px minmax(0,1fr);gap:8px}
+  .act-detail{padding-left:8px}
+  .act-diff th[scope="row"]{width:auto}
+}

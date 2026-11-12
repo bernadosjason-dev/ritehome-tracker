@@ -74,6 +74,13 @@
     document.querySelectorAll('a.side-link[data-mode]').forEach(function(a){
       a.hidden = !!roles && a.getAttribute('aria-current') !== 'page' && !canOpen(a.getAttribute('data-mode'), roles);
     });
+    groupHeads();
+  }
+  // A group heading shows only when at least one of its links does.
+  function groupHeads(){
+    document.querySelectorAll('.side-group[data-group]').forEach(function(g){
+      g.hidden = !document.querySelector('a.side-link[data-group="' + g.getAttribute('data-group') + '"]:not([hidden])');
+    });
   }
   window.RitehomeAccess = {canOpen: canOpen, home: homeFor, apply: applyRoles, roles: storedRoles};
 
@@ -135,13 +142,28 @@
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
     var known = storedRoles();
-    [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['attendance', 'Attendance', 'attendance'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
-     ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team'], ['activity', 'Activity', 'history']].forEach(function(n){
-      var a = el('a', 'side-link'); a.href = href(n[0]); a.setAttribute('data-mode', n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
-      if(n[0] === mode) a.setAttribute('aria-current', 'page');
-      else if(known && !canOpen(n[0], known)) a.hidden = true;
-      side.appendChild(a);
+    // Grouped by who owns the work: the admin sees every group; staff see only the groups they can open.
+    var GROUPS = [
+      ['Overview', [['all', 'Dashboard', 'dash'], ['activity', 'Activity', 'history']]],
+      ['Sales', [['leads', 'Leads', 'leads']]],
+      ['Design and production', [['schedule', 'Schedule', 'gantt'], ['projects', 'Projects', 'projects']]],
+      ['Purchasing', [['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box']]],
+      ['Office and finance', [['accounting', 'Accounting', 'books'], ['fuel', 'Company fuel', 'fuel']]],
+      ['People', [['attendance', 'Attendance', 'attendance'], ['team', 'Team', 'team']]]
+    ];
+    var nav = el('nav', 'side-nav'); nav.setAttribute('aria-label', 'Workspaces');
+    GROUPS.forEach(function(g, gi){
+      var head = el('div', 'side-group', g[0]); head.setAttribute('data-group', String(gi));
+      nav.appendChild(head);
+      g[1].forEach(function(n){
+        var a = el('a', 'side-link'); a.href = href(n[0]); a.setAttribute('data-mode', n[0]); a.setAttribute('data-group', String(gi));
+        a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
+        if(n[0] === mode) a.setAttribute('aria-current', 'page');
+        else if(known && !canOpen(n[0], known)) a.hidden = true;
+        nav.appendChild(a);
+      });
     });
+    side.appendChild(nav);
     var foot = el('div', 'side-foot');
     // The admin's bell (bell() below); hidden until a page starts it.
     var bellBtn = el('button', 'side-link side-bell'); bellBtn.type = 'button'; bellBtn.id = 'bellBtn'; bellBtn.hidden = true;
@@ -153,6 +175,7 @@
     var out = el('button', 'side-out', 'Sign out'); out.type = 'button'; out.id = 'sideSignOut';
     out.addEventListener('click', function(){ applyRoles(null); var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
     foot.appendChild(who); foot.appendChild(out); side.appendChild(foot);
+    if(known) setTimeout(groupHeads, 0);
 
     var top = el('div', 'app-top no-print');
     var menuBtn = el('button'); menuBtn.type = 'button'; menuBtn.setAttribute('aria-label', 'Open menu'); menuBtn.id = 'menuBtn';

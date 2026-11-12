@@ -189,7 +189,8 @@ attendance (books, attendance corrections and company profile come in phase 5). 
 between consultation and design (consultation 1 day + site visit 1 day in `schedule-plan.js`; the total stays
 40 working days). Role lists must agree in five places: the enum, `team.js` ROLES, `schedule.js` ROLE,
 `attendance.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change). The menu is
-filtered by role in `shell.js` (`RitehomeAccess`: ACCESS map, `home(roles)`, roles remembered per tab in
+grouped and filtered by role in `shell.js` (GROUPS: Overview · Sales · Design and production · Purchasing · Office
+and finance · People, each heading hidden when none of its links shows; `RitehomeAccess`: ACCESS map, `home(roles)`, roles remembered per tab in
 sessionStorage `ritehome_roles_v1`); every page calls `RitehomeAccess.apply(roles)` after `my_roles()`.
 Hiding a link is never the security: row-level security is. Tests: `node --test tests/roles.test.cjs`.
 

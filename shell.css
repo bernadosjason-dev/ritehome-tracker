@@ -48,6 +48,11 @@ h1,h2,h3{font-family:var(--f-display);font-weight:600;letter-spacing:-.015em}
 .side-brand strong{font:600 14px/1.1 var(--f-display);letter-spacing:.18em}
 .side-brand small{font:500 10px/1.4 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted)}
 .side-label{font:500 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--side-muted);padding:14px 10px 6px}
+.side-nav{display:flex;flex-direction:column;gap:1px;overflow-y:auto;min-height:0;margin:0 -4px;padding:0 4px}
+.side-group{font:500 11.5px/1.2 var(--f-body);color:var(--side-muted);opacity:.75;padding:12px 10px 4px}
+.side-group:first-child{padding-top:4px}
+.side-group[hidden]{display:none}
+.side-nav .side-link{padding:7px 10px}
 .side-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--side-muted);text-decoration:none;font:500 13.5px/1.2 var(--f-body)}
 .side-link svg{width:17px;height:17px;flex:none}
 .side-link:hover{color:var(--side-ink);background:rgba(255,255,255,.05)}

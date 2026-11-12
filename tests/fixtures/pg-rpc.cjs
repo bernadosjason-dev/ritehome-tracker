@@ -17,7 +17,12 @@ function pgRpc(db, actors = {'u-admin': 'admin', 'u-designer': 'designer', 'u-pu
     const q = kind[name] === 'set' ? `select coalesce(json_agg(t), '[]'::json) from ${call} t`
       : kind[name] === 'void' ? `select ${call}` : `select to_json(${call})`;
     const r = db.sql(user && actors[user.id] ? actors[user.id] : 'anon', q);
-    if (!r.ok) return {data: null, error: {message: r.err.split('\n')[0].replace(/^ERROR:\s+/, '')}};
+    if (!r.ok) {
+      // Like PostgREST: the SQLSTATE as code, and the hint. (psql runs with VERBOSITY=verbose.)
+      const first = r.err.split('\n')[0].replace(/^ERROR:\s+/, ''), m = /^([0-9A-Z]{5}): ([\s\S]*)$/.exec(first);
+      const hint = /^HINT:\s+(.*)$/m.exec(r.err);
+      return {data: null, error: {message: m ? m[2] : first, code: m ? m[1] : undefined, hint: hint ? hint[1] : null}};
+    }
     return {data: kind[name] === 'void' ? null : JSON.parse(r.out), error: null};
   };
 }

@@ -252,7 +252,8 @@ body.connecting .app-skeleton,.sk-rows,.sk-kpi,.acct-issues li.sk,.pj-loading{an
 .ptabs button{appearance:none;flex:none;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 14px;font:500 13.5px/1.1 var(--f-body);cursor:pointer;min-height:38px}
 .ptabs button[aria-current="page"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .ptabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-:root[data-portal="projects"] .ptab-procurement{display:none}
+.pl-jobs{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.pl-jobs li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 /* One section at a time; the procurement workspace keeps its own single view. */
 :root:not([data-portal="procurement"]) #projectScreen[data-tab="overview"] [data-ptab]:not([data-ptab~="overview"]),
 :root:not([data-portal="procurement"]) #projectScreen[data-tab="expenses"] [data-ptab]:not([data-ptab~="expenses"]),
@@ -475,3 +476,14 @@ body .bom-import-zone{border-radius:var(--r-sm)}               /* 16 − 10 */
   .btn[aria-busy="true"]::before{animation-duration:2s}
 }
 .pcard-pills:empty{display:none}
+
+/* Dashboard overview ("/" on Supabase, tracker.html renderOverview): the company at a glance. */
+:root[data-overview] #companyFuelCard,:root[data-overview] .dash-projects,
+:root[data-overview] .workspace-actions[data-ui-view="dashboard"]{display:none!important}
+.ov-kpis{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.ov-tile{text-decoration:none;color:inherit;display:flex;flex-direction:column;transition:border-color .15s}
+.ov-tile:hover{border-color:var(--ink-muted)}
+.ov-tile.alert .val{color:var(--accent)}
+.ov-needs{margin-top:14px}
+.ov-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
+.ov-list li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}

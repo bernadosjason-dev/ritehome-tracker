@@ -267,9 +267,19 @@
       add.addEventListener("click", function(){
         if(!c.value.trim()) return fail(new Error("Write the client's name."));
         RitehomeBusy(add, true);
-        rpc("board_project_save", {p: {clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim()}})
-          .then(function(){ msg("Row added for " + c.value.trim() + " under " + SYSTEM[sys.value] + "."); return load(); })
-          .catch(function(e){ RitehomeBusy(add, false); fail(e); });
+        var row = {clientName: c.value.trim(), system: sys.value, projectType: t.value.trim(), inCharge: who.value.trim()};
+        var save = function(){
+          return rpc("board_project_save", {p: row})
+            .then(function(){ msg("Row added for " + row.clientName + " under " + SYSTEM[row.system] + "."); return load(); });
+        };
+        save().catch(function(e){
+          // One open project per client job (project_duplicate_guard): ask before making a second.
+          if(/already has an open project/.test(e.message) && confirm(e.message + "\n\nIt's already on the board. Add a separate row for another job anyway?")){
+            row.confirmDuplicate = "true";
+            return save();
+          }
+          throw e;
+        }).catch(function(e){ RitehomeBusy(add, false); fail(e); });
       });
       foot = h("tfoot", null, h("tr", {class: "wb-add no-print"}, [h("td", {class: "wb-n", text: String(n + 1)}), h("td", {class: "wb-client"}, c), h("td", null, [sys, t]), h("td", null, who),
         h("td", {colspan: String(BOARD_STAGES.length)}, [add, h("span", {class: "muted small", style: "margin-left:10px", text: "Pick the system, then the type. Every stage starts empty; tap a cell to set it."})])]));
@@ -510,10 +520,14 @@
       var a = S.manilaDate(e.starts_at), b = S.manilaDate(e.ends_at || e.starts_at);
       for(var d = a; d <= b; d = S.addDays(d, 1)) add(d, {type: "event", e: e, color: KIND_COLOR[e.kind], text: e.title, sort: e.kind === "holiday" ? "0" : "1" + e.starts_at});
     });
+    // A site visit booked on the calendar sets the stage's date (site_visit_from_event): show it once.
+    var visits = {};
+    (state.cal.events || []).forEach(function(e){ if(e.kind === "site_visit" && e.project_id) visits[e.project_id + "|" + S.manilaDate(e.ends_at || e.starts_at)] = 1; });
     (state.board.projects || []).forEach(function(p){
       if(p.status === "completed") return;
       (p.stages || []).forEach(function(s){
         if(s.status === "done" || !s.planned_end) return;
+        if(s.stage === "site_visit" && visits[p.id + "|" + s.planned_end]) return;
         add(s.planned_end, {type: "due", p: p, s: s, color: "var(--st-" + s.stage + ")", late: s.planned_end < t, text: stageLabel(s.stage) + " due · " + p.name, sort: "2"});
       });
       if(p.target) add(p.target, {type: "target", p: p, color: "var(--ink)", text: "Target handover · " + p.name, sort: "3"});

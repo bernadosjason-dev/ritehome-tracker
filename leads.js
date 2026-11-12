@@ -39,7 +39,10 @@
   function put(id, node){ var el = $(id); el.textContent = ""; if(node) el.appendChild(node); }
   function rpc(name, args){
     return client.rpc(name, args || {}).then(function(r){
-      if(r.error){ if(window.RitehomeRefused) window.RitehomeRefused(client, "Leads", name, r.error); throw new Error(r.error.message || "The request failed."); }
+      if(r.error){
+        if(window.RitehomeRefused) window.RitehomeRefused(client, "Leads", name, r.error);
+        var err = new Error(r.error.message || "The request failed."); err.code = r.error.code; err.hint = r.error.hint; throw err;
+      }
       return r.data;
     });
   }
@@ -248,8 +251,14 @@
       if(price == null) return;
       var budget = window.prompt("Budget (₱) for it? Leave blank to set it later in the tracker.", "");
       if(budget == null) return;
-      rpc("lead_convert", {p_id: l.id, p_price: Number(price) || null, p_budget: Number(budget) || null})
-        .then(function(){ msg("Won. The project is open in the tracker."); return refreshDetail(); }).catch(fail);
+      var args = {p_id: l.id, p_price: Number(price) || null, p_budget: Number(budget) || null};
+      rpc("lead_convert", args).catch(function(e){
+        // The client already has an open project (project_duplicate_guard): link the lead to it, or make another.
+        if(e.code !== "RH409") throw e;
+        if(confirm(e.message + "\n\nOK: link this lead to that project.\nCancel: choose whether to open a separate one.")) return rpc("lead_convert", Object.assign({p_project: e.hint}, args));
+        if(confirm("Open a separate project for this lead anyway?")) return rpc("lead_convert", Object.assign({p_confirm_new: true}, args));
+        throw new Error("Not marked won. Nothing changed.");
+      }).then(function(){ msg("Won. The project is open in the tracker."); return refreshDetail(); }).catch(fail);
       return;
     }
     var p = {id: l.id, stage: stage};

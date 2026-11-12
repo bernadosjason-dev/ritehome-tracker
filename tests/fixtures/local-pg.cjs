@@ -40,7 +40,7 @@ function startLocalPg() {
   };
   const psql = (args) => spawnSync(asRoot ? "runuser" : path.join(BIN, "psql"),
     (asRoot ? ["-u", "postgres", "--", path.join(BIN, "psql")] : []).concat(
-      ["-h", dir, "-p", port, "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], args),
+      ["-h", dir, "-p", port, "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-q"], args),
     { encoding: "utf8" });
 
   // Runs SQL as an actor ("super", "anon", "service" (the Edge Functions' role), or a key of U). Returns {ok, out} or {ok:false, err}.

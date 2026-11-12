@@ -106,13 +106,27 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
     assert.equal(await page.locator('#leadCard a', {hasText: 'open the project'}).getAttribute('href'), '/projects#p=' + pid);
     assert.equal(JSON.parse(must('admin', `select data from public.tracker_docs where id = '${pid}'`)).price, 210000);
 
+    // 6b. The clinic owner calls again about a second room while the job is open: Won links this
+    // inquiry to the open project instead of opening a second one (project_duplicate_guard).
+    const again = must('admin', `insert into public.leads (source, name, phone) values ('phone', 'Clinic owner', '0917 000 0000') returning id`);
+    must('admin', `update public.tracker_docs set data = data || '{"clientPhone":"0917 000 0000"}' where id = '${pid}'`);
+    await page.goto('http://127.0.0.1:8000/leads#lead=' + again, {waitUntil: 'domcontentloaded'});
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.waitForFunction(() => !document.getElementById('leadCard').hidden);
+    dialogs.answers = ['50000', ''];
+    await page.locator('#leadCard .stage-btns button', {hasText: 'Won'}).click();
+    await page.waitForFunction(() => document.getElementById('leadCard').textContent.includes('open the project in the tracker'));
+    assert.match(dialogs.slice(-1)[0], /This client already has an open project:[\s\S]*OK: link this lead to that project/);
+    assert.equal(must('admin', `select project_id from public.leads where id = '${again}'`), pid);
+    assert.equal(must('admin', `select count(*) from public.tracker_docs where collection = 'projects'`), '1', 'still one project');
+
     // 7. Lost, with the reason kept in the history.
     await page.goto('http://127.0.0.1:8000/leads#lead=' + must('admin', `select id from public.leads where phone = '0918 222 3344'`), {waitUntil: 'domcontentloaded'});
     await page.waitForFunction(() => !document.getElementById('leadCard').hidden);
     dialogs.answers = ['Price: went with a carpenter'];
     await page.locator('#leadCard .stage-btns button', {hasText: 'Lost'}).click();
     await page.waitForFunction(() => document.getElementById('leadCard').textContent.includes('new → lost: Price: went with a carpenter'));
-    assert.match(await page.locator('#leadKpis').innerText(), /Win rate, 90 days\s+50%/i);
+    assert.match(await page.locator('#leadKpis').innerText(), /Win rate, 90 days\s+67%/i);
 
     // 8. Phone width.
     await page.setViewportSize({width: 390, height: 844});

@@ -29,7 +29,8 @@ const db = startLocalPg();
   try {
     const page = await browser.newPage({viewport: {width: 1280, height: 900}}), errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    page.on('dialog', d => d.accept());
+    const dialogs = []; let dismissNext = false;
+    page.on('dialog', d => { dialogs.push(d.message()); if(dismissNext){ dismissNext = false; d.dismiss(); } else d.accept(); });
     await page.route('https://fonts.googleapis.com/**', r => r.abort());
     await sb.attach(page);
     const setSession = id => page.evaluate(id => localStorage.setItem('fake-sb-session', JSON.stringify({access_token: 'token-' + id, user: {id, email: id + '@ritehome.test'}})), id);
@@ -59,6 +60,15 @@ const db = startLocalPg();
     await page.locator('.wb-add input[aria-label="New row in charge"]').fill('Jane');
     await page.locator('.wb-add button', {hasText: 'Add row'}).click();
     await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Row added for R. Sanchez under Storage.');
+    // The same client again: the board asks first (project_duplicate_guard); saying no adds nothing.
+    await page.locator('.wb-add input[aria-label="New row client\'s name"]').fill('r. sanchez');
+    await page.locator('.wb-add select[aria-label="New row system"]').selectOption('storage');
+    dismissNext = true;
+    await page.locator('.wb-add button', {hasText: 'Add row'}).click();
+    await page.waitForFunction(() => /already has an open project: Cabinet – R\. Sanchez/.test(document.getElementById('acctMsg').textContent));
+    assert.match(dialogs.slice(-1)[0], /This client already has an open project: Cabinet – R\. Sanchez\.[\s\S]*Add a separate row/);
+    assert.equal(must('super', `select count(*) from public.tracker_docs where lower(data->>'clientName') = 'r. sanchez'`), '1');
+    await page.locator('.wb-add input[aria-label="New row client\'s name"]').fill('');
     const sanchez = page.locator('.wb tbody tr', {has: page.locator('.wb-name', {hasText: 'R. Sanchez'})});
     assert.deepEqual(await sanchez.locator('td').evaluateAll(t => t.slice(1, 4).map(x => x.textContent)), ['R. Sanchez', 'Cabinet', 'Jane']);
     await sanchez.locator('select[aria-label="R. Sanchez Initial cutlist"]').selectOption('in_progress');

@@ -92,6 +92,15 @@ test('independent procurement jobs stay out of general projects and preserve leg
  assert.equal(b.request({action:'saveProcurement',projectId:general,revision:0,mutationId:'pr-00000000-0000-4000-8000-000000000008',data:state([])}).ok,true,'legacy records remain supported without appearing in independent job list');
  assert.equal(b.request({action:'listProcurementJobs'}).jobs.length,1);
 });
+test('a procurement job can name the client project it buys for, and only a well-formed project id',()=>{
+ const b=createBackend(),id='pj-00000000-0000-4000-8000-000000000031',data={name:'Kitchen – materials',clientName:'Client A',status:'active'};
+ assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,projectId:'p_k1'},create:true}).ok,true);
+ assert.equal(b.request({action:'getProcurementJob',id}).project.projectId,'p_k1');
+ assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,projectId:'p k"<x>'},create:false}).code,'invalid_argument');
+ assert.equal(b.request({action:'getProcurementJob',id}).project.projectId,'p_k1','a refused save changes nothing');
+ assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,projectId:''},create:false}).ok,true);
+ assert.equal(b.request({action:'getProcurementJob',id}).project.projectId,undefined,'"Not for a client project" clears the link');
+});
 test('independent job metadata validation and changed create retries protect saved records',()=>{
  const b=createBackend(),id='pj-00000000-0000-4000-8000-000000000001',data={name:'New job',clientName:'',status:'active'};
  for(const patch of [{name:' '},{name:'a'.repeat(101)},{clientName:'a'.repeat(151)},{status:'invalid'}])assert.equal(b.request({action:'saveProcurementJob',id,data:{...data,...patch},create:true}).code,'invalid_argument');

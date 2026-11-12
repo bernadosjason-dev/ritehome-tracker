@@ -382,13 +382,17 @@
         return store.get('procurementJobs', id).then(function(existing){
           var input = Object.assign({}, existing ? existing.data : {}, patch);
           var name = String(input.name || '').trim(), client = String(input.clientName || '').trim(), status = input.status || 'active';
+          // The project this job buys for (optional): joins the procurement job to the client's project.
+          var project = String(input.projectId || '').trim();
           if(!name || name.length > 100 || client.length > 150 || ['active', 'completed'].indexOf(status) < 0) throw codeError('invalid_argument', 'Enter a job name, valid client/site and Open or Closed status.');
+          if(project && !/^[A-Za-z0-9_-]{1,80}$/.test(project)) throw codeError('invalid_argument', 'Choose a project from the list.');
           if(req.create === true && existing){
             if(existing.data.name !== name || existing.data.clientName !== client || existing.data.status !== status) throw codeError('already_exists', 'This job was already created. Open it from the job list to edit its details.');
             return {id: id};
           }
           if(req.create !== true && !existing) throw codeError('not_found', 'That procurement job no longer exists.');
           var data = {name: name, clientName: client, status: status, createdAt: existing ? existing.data.createdAt : nowIso(), updatedAt: nowIso()};
+          if(project) data.projectId = project;
           var write = existing
             ? store.update('procurementJobs', id, data, existing.revision).then(function(saved){ if(!saved) throw codeError('conflict', 'Someone else is saving this job right now — try again.'); })
             : store.insert('procurementJobs', id, data, null);
@@ -445,7 +449,9 @@
       return Promise.resolve().then(function(){ return actions[action](req); }).then(function(res){
         return Object.assign({ok: true}, res);
       }, function(err){
-        return {ok: false, code: (err && err.code) || 'unavailable', error: String((err && err.message) || err)};
+        var out = {ok: false, code: (err && err.code) || 'unavailable', error: String((err && err.message) || err)};
+        if(err && err.existing) out.existing = err.existing;
+        return out;
       });
     };
   }
@@ -494,6 +500,8 @@
     function fail(error){
       var status = Number(error && error.status), storageStatus = Number(error && error.statusCode);
       var code = (error && error.code) || '';
+      // project_duplicate_guard: the client already has an open project (its id in the hint).
+      if(code === 'RH409'){ var dup = codeError('duplicate_project', error.message); dup.existing = error.hint || ''; return dup; }
       if(code === '23505' || status === 409 || storageStatus === 409 || /already exists|duplicate/i.test((error && error.message) || '')) return codeError('already_exists', 'That record already exists.');
       if(code === 'PGRST301' || code === 'PGRST303' || status === 401) return codeError('session_expired', 'Your sign-in expired. Sign in again.');
       if(code === '42501' || status === 403) return codeError('permission_denied', 'This account isn’t allowed to change tracker data.');

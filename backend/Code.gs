@@ -745,13 +745,16 @@ function saveProcurementJob_(req) {
   var sh=procurementJobsSheet_(),existing=findRow_(sh,PROCUREMENT_JOB_HEADERS,id);
   var input=Object.assign({},existing ? existing.data : {},objectOrThrow_(req.data));
   var name=String(input.name || "").trim(),client=String(input.clientName || "").trim(),status=input.status || "active";
+  var project=String(input.projectId || "").trim();
   if (!name || name.length>100 || client.length>150 || ["active","completed"].indexOf(status)<0) throw codeError_("invalid_argument", "Enter a job name, valid client/site and Open or Closed status.");
+  if (project && !/^[A-Za-z0-9_-]{1,80}$/.test(project)) throw codeError_("invalid_argument", "Choose a project from the list.");
   if (req.create===true && existing) {
     if (existing.data.name!==name || existing.data.clientName!==client || existing.data.status!==status) throw codeError_("already_exists", "This job was already created. Open it from the job list to edit its details.");
     return {ok:true,id:id};
   }
   if (req.create!==true && !existing) throw codeError_("not_found", "That procurement job no longer exists.");
   var data={name:name,clientName:client,status:status,createdAt:existing ? existing.data.createdAt : new Date().toISOString(),updatedAt:new Date().toISOString()};
+  if (project) data.projectId=project;
   var row=[id,text_(name),text_(client),text_(status),data.createdAt,data.updatedAt,JSON.stringify(data)];
   if (existing) writeRow_(sh,existing.row,row); else appendRows_(sh,[row]);
   return {ok:true,id:id};

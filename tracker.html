@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-20.2">
+<link rel="stylesheet" href="shell.css?v=2026-11-21.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -593,6 +593,12 @@
       </div>
     </header>
 
+    <!-- The company at a glance ("/", Supabase): dashboard_overview() in 20261121000018_one_record.sql. -->
+    <section class="dash-section" id="overviewSection" hidden>
+      <div class="kpis ov-kpis" id="ovKpis"></div>
+      <div class="card ov-needs" id="ovNeeds" hidden><h2>Waiting on you in the Schedule</h2><ul class="ov-list" id="ovNeedsList"></ul></div>
+    </section>
+
     <section class="card" id="procurementJobsSection">
       <div class="card-head"><div><h2>Procurement jobs</h2><p class="muted">Create a separate job for a client, site or purchasing requirement.</p></div><button class="btn small" id="pj-start" type="button" data-start-procurement data-ui-icon="plus" disabled>Start procurement</button></div>
       <div class="procurement-steps" id="pj-steps"><div><span>1</span><strong>Create a job</strong><small>Name the client, site or requirement.</small></div><div><span>2</span><strong>Add a BOM</strong><small>Enter the draftsman's material quantities.</small></div><div><span>3</span><strong>Create supplier POs</strong><small>Split orders and track the remaining balance.</small></div></div>
@@ -601,6 +607,7 @@
         <h3 id="pj-form-title">Start a procurement job</h3>
         <form id="pj-form"><fieldset id="pj-fields" disabled style="border:0;padding:0;margin:12px 0;min-width:0;">
           <div class="field-row"><div class="field"><label for="pj-name">Procurement job name</label><input id="pj-name" required maxlength="100" placeholder="e.g. Banisilan — kitchen materials"></div><div class="field"><label for="pj-client">Client / site <span class="muted">(optional)</span></label><input id="pj-client" maxlength="150" placeholder="Client, site or internal department"></div></div>
+          <div class="field" id="pj-project-field" hidden><label for="pj-project">For project <span class="muted">(optional)</span></label><select id="pj-project"><option value="">Not for a client project</option></select><div class="field-hint">Links this job to the client's project, so the project shows what's been bought for it.</div></div>
           <div class="field"><label for="pj-state">Job status</label><select id="pj-state"><option value="active">Open</option><option value="completed">Closed</option></select></div>
           <div class="form-actions"><button class="btn" id="pj-submit" type="submit">Create job &amp; add BOM</button><button class="btn ghost" id="pj-cancel" type="button">Cancel</button></div>
         </fieldset><div class="form-error" id="pj-error" role="alert"></div></form>
@@ -648,7 +655,7 @@
       <div class="ar-list" id="arList"></div>
     </section>
 
-    <section class="dash-section">
+    <section class="dash-section dash-projects">
       <div class="section-head">
         <div>
           <h2>Unfinished projects <span class="count" id="unfinishedCount"></span></h2>
@@ -712,7 +719,7 @@
       <div class="project-grid" id="projectGrid"></div>
     </section>
 
-    <section class="dash-section">
+    <section class="dash-section dash-projects">
       <div class="section-head">
         <div>
           <h2>Completed projects <span class="count" id="completedCount"></span></h2>
@@ -902,6 +909,10 @@
       <button type="button" data-ptab-btn="details">Details</button>
     </nav>
 
+    <section class="card" id="projectProcurementLinks" data-ptab="procurement" hidden>
+      <div class="card-head"><div><h2>Procurement for this project</h2><p class="muted">BOMs and purchase orders are kept in Procurement, under a job linked to this project. Deliveries entered there go into Inventory by themselves.</p></div><a class="btn small" id="pl-start" href="#">Start procurement for this project</a></div>
+      <div id="pl-list"><p class="muted">Loading…</p></div>
+    </section>
     <section class="card" id="procurementCard" data-ptab="procurement">
       <div class="card-head"><div><h2>Procurement · BOMs &amp; purchase orders</h2><div class="muted">One procurement job, multiple BOMs. Split quantities across suppliers without losing what remains.</div></div><button class="btn ghost" type="button" id="pr-refresh">Refresh procurement</button></div>
       <div id="pr-next-step" class="procurement-next-step no-print"></div>
@@ -1419,7 +1430,7 @@
 <script src="bom-import.js?v=2026-11-13.1"></script>
 <script src="procurement.js?v=2026-11-13.1"></script>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="supabase-backend.js?v=2026-11-13.1"></script>
+<script src="supabase-backend.js?v=2026-11-21.1"></script>
 <script>
 (function(){
   "use strict";
@@ -1440,7 +1451,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-20.2";
+  var PAGE_VERSION = "2026-11-21.1";
 
   // ---------- reference data ----------
 
@@ -2469,7 +2480,7 @@
   function currentProjectTab(){
     var t = "";
     try { t = sessionStorage.getItem("ritehome_ptab") || ""; } catch(e){}
-    if(t === "procurement" && PORTAL !== "all") t = "";
+    if(t === "procurement" && PORTAL === "projects" && !USE_SUPABASE) t = "";   // the Apps Script backend has no project links
     return PTABS.indexOf(t) >= 0 ? t : "overview";
   }
   function setProjectTab(tab){
@@ -3345,6 +3356,7 @@
   }
 
   function renderProjectScreen(){
+    renderProjectProcurementLinks(state.currentProjectId);
     if(window.ProcurementTracker && (PORTAL === "all" || PORTAL === "procurement")) window.ProcurementTracker.open(state.currentProjectId, {
       canRead: function(){ return HOSTED && !!db && state.currentProjectId !== "sample"; },
       canWrite: function(){ return HOSTED && !!db && canWrite() && state.currentProjectId !== "sample"; },
@@ -3552,12 +3564,12 @@
     $("pj-status").className = "rc-status" + (procurementJobs.error ? " err" : "");
     $("pj-status").textContent = access === "none" ? "Procurement jobs unlock when the tracker reconnects." : procurementJobs.error ? (procurementJobs.error.code === "invalid_argument" ? "Update the Apps Script deployment to enable independent procurement jobs. General projects are kept separate." : procurementJobs.error.message || "Could not load procurement jobs.") : procurementJobs.loaded ? "Procurement jobs synced · " + procurementJobs.entries.length + " jobs" : "Connecting to procurement jobs…";
     $("pj-list").innerHTML = procurementJobs.entries.length ? procurementJobs.entries.slice().sort(function(a,b){ return (a.status === "completed") - (b.status === "completed") || (b.updatedAt || "").localeCompare(a.updatedAt || ""); }).map(function(job){
-      return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + '</p></div><div class="pj-card-actions"><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button><button class="btn ghost small ui-destructive" type="button" data-pj-delete="' + esc(job.id) + '" aria-label="Delete ' + esc(job.name) + '" ' + (disabled ? 'disabled' : '') + '>Delete</button></div></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
+      return '<article class="card procurement-job-card"><div class="card-head"><div><span class="status-pill ' + (job.status === "completed" ? 'neutral' : 'good') + '">' + (job.status === "completed" ? 'Closed' : 'Open') + '</span><h3>' + esc(job.name) + '</h3><p class="muted">' + esc(job.clientName || "Internal procurement") + (job.projectId ? ' · for ' + esc(projectChoiceName(job.projectId)) : '') + '</p></div><div class="pj-card-actions"><button class="btn ghost small" type="button" data-pj-edit="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Edit job</button><button class="btn ghost small ui-destructive" type="button" data-pj-delete="' + esc(job.id) + '" aria-label="Delete ' + esc(job.name) + '" ' + (disabled ? 'disabled' : '') + '>Delete</button></div></div><button class="btn" type="button" data-pj-open="' + esc(job.id) + '" ' + (disabled ? 'disabled' : '') + '>Open BOMs &amp; purchase orders</button></article>';
     }).join("") : !procurementJobs.loaded && !procurementJobs.error ? '<div class="sk-cards one pj-loading" role="status" aria-label="Loading procurement jobs"><div class="sk-card"><div class="sk sk-line w40 tall"></div><div class="sk sk-line w60"></div><div class="sk sk-line w100"></div></div></div>' : '<div class="procurement-empty"><h3>' + (procurementJobs.loaded ? 'Start your first procurement job' : 'Your procurement jobs will appear here') + '</h3><p class="muted">This workspace has its own jobs. Start with a name, then add the first BOM and split materials into supplier POs.</p><button class="btn small" type="button" data-start-procurement data-ui-icon="plus" ' + (disabled ? 'disabled' : '') + '>Start procurement</button></div>';
   }
   function subscribeProcurementJobs(){
     if(procurementJobs.subscribed || !db) return; procurementJobs.subscribed = true;
-    db.collection("procurementJobs").onSnapshot(function(snap){ procurementJobs.entries = snap.docs.map(function(d){ return Object.assign({}, d.data(), {id:d.id}); }); procurementJobs.loaded = true; procurementJobs.error = null; renderProcurementJobs(); }, function(err){ procurementJobs.error = err; renderProcurementJobs(); });
+    db.collection("procurementJobs").onSnapshot(function(snap){ procurementJobs.entries = snap.docs.map(function(d){ return Object.assign({}, d.data(), {id:d.id}); }); procurementJobs.loaded = true; procurementJobs.error = null; renderProcurementJobs(); loadProjectChoices(); startForProjectFromHash(); }, function(err){ procurementJobs.error = err; renderProcurementJobs(); });
   }
   function resetProcurementJob(){
     var key = "procurement-job:" + (procurementJobs.editing || procurementJobs.requestId);
@@ -3575,6 +3587,67 @@
       .catch(function(err){ if(err && err.code === "failed_precondition") alert(err.message); })
       .finally(function(){ procurementJobs.busy = false; renderProcurementJobs(); });
   }
+  // ---------- procurement job ↔ project (procurement_project_choices(); Supabase only) ----------
+  var projectChoices = {list: [], loaded: false};
+  function projectChoiceName(id){ var p = projectChoices.list.filter(function(x){ return x.id === id; })[0]; return p ? p.name : "a project"; }
+  function setProjectChoice(id){
+    var sel = $("pj-project");
+    if(id && !projectChoices.list.some(function(x){ return x.id === id; })){ var o = document.createElement("option"); o.value = id; o.textContent = "A project not open any more"; sel.appendChild(o); }
+    sel.value = id || "";
+  }
+  function loadProjectChoices(){
+    if(!USE_SUPABASE || PORTAL !== "procurement" || projectChoices.loaded || projectChoices.loading) return;
+    projectChoices.loading = true;
+    supabaseApi().rpc("procurement_project_choices").then(function(r){
+      projectChoices.loading = false;
+      if(r.error) return;
+      projectChoices.list = r.data || []; projectChoices.loaded = true;
+      var sel = $("pj-project");
+      projectChoices.list.forEach(function(p){ var o = document.createElement("option"); o.value = p.id; o.textContent = p.name + (p.client && p.name.indexOf(p.client) < 0 ? " · " + p.client : ""); sel.appendChild(o); });
+      $("pj-project-field").hidden = false;
+      renderProcurementJobs();
+      startForProjectFromHash();
+    }, function(){ projectChoices.loading = false; });
+  }
+  // A project page's "Start procurement for this project" lands here as #new=<project id>.
+  function startForProjectFromHash(){
+    var m = /^#new=(.+)$/.exec(location.hash);
+    if(!m || !projectChoices.loaded || !procurementJobs.loaded) return;
+    var id = decodeURIComponent(m[1]), p = projectChoices.list.filter(function(x){ return x.id === id; })[0];
+    try { history.replaceState(history.state, "", location.pathname + location.search); } catch(e){}
+    resetProcurementJob(); setProjectChoice(id);
+    if(p){ $("pj-name").value = (p.name + " — materials").slice(0, 100); $("pj-client").value = p.client || ""; }
+    $("pj-form-card").hidden = false; $("pj-name").focus(); renderSaveStatus();
+  }
+  // The project page: the procurement jobs linked to it, and a way to start one.
+  // renderProjectScreen runs on every snapshot, so the watch is made once per project.
+  var plWatch = {id: null, unsub: null};
+  function renderProjectProcurementLinks(projectId){
+    var card = $("projectProcurementLinks");
+    document.querySelectorAll(".ptab-procurement").forEach(function(b){ b.hidden = PORTAL === "projects" && !USE_SUPABASE; });
+    card.hidden = PORTAL === "procurement" || !USE_SUPABASE || !db || projectId === "sample";
+    if(card.hidden || plWatch.id === projectId) return;
+    plWatch.id = projectId;
+    $("pl-start").href = (window.RitehomeLinks ? window.RitehomeLinks.href("procurement") : "tracker.html?portal=procurement") + "#new=" + encodeURIComponent(projectId);
+    var base = window.RitehomeLinks ? window.RitehomeLinks.href("procurement") : "tracker.html?portal=procurement";
+    var unsub = db.collection("procurementJobs").onSnapshot(function(snap){
+      var jobs = snap.docs.map(function(d){ return Object.assign({}, d.data(), {id: d.id}); }).filter(function(j){ return j.projectId === projectId; });
+      $("pl-list").innerHTML = jobs.length ? '<ul class="pl-jobs">' + jobs.map(function(j){
+        return '<li><a href="' + esc(base + "#p=" + encodeURIComponent(j.id)) + '">' + esc(j.name) + '</a> <span class="status-pill ' + (j.status === "completed" ? "neutral" : "good") + '">' + (j.status === "completed" ? "Closed" : "Open") + '</span></li>';
+      }).join("") + '</ul>' : '<p class="muted">Nothing bought for this project through Procurement yet.</p>';
+    }, function(){ $("pl-list").innerHTML = '<p class="muted">Couldn’t load the procurement jobs.</p>'; });
+    plWatch.unsub = typeof unsub === "function" ? unsub : null;
+    // Older purchase records kept on the project itself: shown only where they exist.
+    // (Supabase only: the Apps Script backend still keeps purchases on the project.)
+    if(!USE_SUPABASE) return;
+    var legacy = $("procurementCard");
+    legacy.hidden = true;
+    if(PORTAL === "all" && db.getProcurement) db.getProcurement(projectId).then(function(r){
+      var d = r && r.data;
+      legacy.hidden = !(d && ((d.boms || []).length || (d.orders || []).length));
+    }).catch(function(){});
+  }
+
   function wireProcurementJobs(){
     $("procurementJobsSection").addEventListener("click", function(ev){
       var start = ev.target.closest("[data-start-procurement]"), edit = ev.target.closest("[data-pj-edit]"), open = ev.target.closest("[data-pj-open]"), del = ev.target.closest("[data-pj-delete]");
@@ -3584,7 +3657,7 @@
       if(edit){
         if(!$("pj-form-card").hidden && ($("pj-name").value.trim() || procurementJobs.editing) && !confirm("Discard unsaved job details?")) return;
         var job = procurementJobs.entries.find(function(job){ return job.id === edit.getAttribute("data-pj-edit"); }); if(!job) return;
-        resetProcurementJob(); procurementJobs.editing = job.id; $("pj-name").value = job.name; $("pj-client").value = job.clientName || ""; $("pj-state").value = job.status;
+        resetProcurementJob(); procurementJobs.editing = job.id; $("pj-name").value = job.name; $("pj-client").value = job.clientName || ""; $("pj-state").value = job.status; setProjectChoice(job.projectId || "");
         $("pj-form-title").textContent = "Edit procurement job"; $("pj-submit").textContent = "Save job details";
       } else if(procurementJobs.editing){ if(!confirm("Discard this job edit and start a new job?")) return; resetProcurementJob(); }
       $("pj-form-card").hidden = false; $("pj-name").focus(); renderSaveStatus();
@@ -3592,7 +3665,7 @@
     $("pj-cancel").addEventListener("click", function(){ if((!$("pj-name").value.trim() && !$("pj-client").value.trim() && !procurementJobs.editing) || confirm("Discard unsaved procurement job details?")) resetProcurementJob(); });
     $("pj-form").addEventListener("submit", function(ev){
       ev.preventDefault(); if(!db || !canWrite() || !procurementJobs.loaded || procurementJobs.error || procurementJobs.busy) return;
-      var data = {name:$("pj-name").value.trim(),clientName:$("pj-client").value.trim(),status:$("pj-state").value};
+      var data = {name:$("pj-name").value.trim(),clientName:$("pj-client").value.trim(),status:$("pj-state").value,projectId:$("pj-project").value};
       if(!data.name){ $("pj-error").textContent = "Enter a procurement job name."; return; }
       var editing = !!procurementJobs.editing, id = procurementJobs.editing || procurementJobs.requestId || (procurementJobs.requestId = "pj-" + crypto.randomUUID()), ref = db.collection("procurementJobs").doc(id);
       function run(){
@@ -3915,6 +3988,8 @@
   function showProjectEl(){ $("dashboardScreen").hidden = true; $("projectScreen").hidden = false; }
 
   function clearProjectSubscriptions(){
+    if(plWatch.unsub){ try{ plWatch.unsub(); }catch(e){} }
+    plWatch = {id: null, unsub: null};
     currentUnsubs.forEach(function(fn){ try{ fn(); }catch(e){} });
     currentUnsubs = [];
   }
@@ -4484,8 +4559,22 @@
       }, function(err){
         btn.disabled = false;
         btn.textContent = "Create project";
+        // One open project per client job (project_duplicate_guard): open the one that exists, or make another on purpose.
+        if(err && err.code === "duplicate_project"){
+          if(err.existing && confirm(err.message + "\n\nOK: open that project.\nCancel: choose whether to create a separate one.")){ state.showNewProjectForm = false; f.reset(); renderUnsaved(); openProject(err.existing); return; }
+          if(confirm("Create a separate project for this client anyway?")){ data.confirmDuplicate = "true"; submitAgain(data); return; }
+          $("npError").textContent = err.message + " Nothing was created. Your entries are still here.";
+          return;
+        }
         $("npError").textContent = saveErrorText(err) + " Your entries are still here.";
       });
+      function submitAgain(d){
+        btn.disabled = true; btn.textContent = "Saving…";
+        track(function(){ return db.collection("projects").add(d); }, null, null).then(function(ref){
+          btn.disabled = false; btn.textContent = "Create project";
+          state.showNewProjectForm = false; f.reset(); renderUnsaved(); openProject(ref.id);
+        }, function(e2){ btn.disabled = false; btn.textContent = "Create project"; $("npError").textContent = saveErrorText(e2) + " Your entries are still here."; });
+      }
     });
 
     $("newProjectToggle").addEventListener("click", function(){
@@ -5015,7 +5104,7 @@
         if(res && res.ok) return res;
         var code = (res && res.code) || "unavailable";
         if(code === "session_expired" || code === "permission_denied") onKeyRejected(code);
-        throw {code: code, message: (res && res.error) || ""};
+        throw {code: code, message: (res && res.error) || "", existing: (res && res.existing) || ""};
       }, function(){ throw {code: "unavailable", message: "The browser cannot reach the tracker database. Check your internet connection."}; });
       var body = JSON.stringify(Object.assign({action: action, key: readKey()}, payload || {}));
       return fetch(endpoint, {method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"}, body: body})
@@ -5343,6 +5432,44 @@
       access = "write";
       if(!listSubscribed){ listSubscribed = true; subscribeProjectsList(); }
       route();
+      loadOverview();
+  }
+
+  // ---------- Dashboard overview ("/" on Supabase): one figure per workspace, each a link to act on it ----------
+  // The full project lists live on /projects and fuel on /fuel; here only what needs doing.
+  var STAGE_WORD = {consultation:"Consultation", site_visit:"Site visit", design:"Design", initial_cutlist:"Initial cutlist", bom:"BOM",
+    final_cutlist:"Final cutlist", procurement:"Procurement", fabrication:"Fabrication", installation:"Installation", handover:"Handover"};
+  function loadOverview(){
+    if(!USE_SUPABASE || PORTAL !== "all") return;
+    supabaseApi().rpc("dashboard_overview").then(function(r){
+      if(r.error || !r.data) return;   // no figures: the dashboard keeps the project lists instead
+      renderOverview(r.data);
+      document.documentElement.setAttribute("data-overview", "");
+    }, function(){});
+  }
+  function renderOverview(o){
+    var L = window.RitehomeLinks ? window.RitehomeLinks.href : function(m){ return m + ".html"; };
+    function n(v){ return Number(v) || 0; }
+    function plural(k, one, many){ return k + " " + (k === 1 ? one : many); }
+    var tiles = [
+      {label:"Leads", href:L("leads"), val:n(o.leads.unanswered), alert:n(o.leads.unanswered) > 0,
+        sub: n(o.leads.unanswered) ? "not answered yet · " + n(o.leads.open) + " open" : n(o.leads.open) + " open" + (n(o.leads.followups_due) ? " · " + plural(n(o.leads.followups_due), "follow-up", "follow-ups") + " due" : "")},
+      {label:"Schedule", href:L("schedule"), val:n(o.stages.submitted) + n(o.stages.blocked), alert:n(o.stages.blocked) > 0,
+        sub: n(o.stages.submitted) + " submitted · " + n(o.stages.blocked) + " blocked" + (n(o.stages.overdue) ? " · " + n(o.stages.overdue) + " late" : "")},
+      {label:"Stock", href:L("inventory"), val:n(o.stock.out) + n(o.stock.low), alert:n(o.stock.out) > 0,
+        sub: n(o.stock.out) + " out · " + n(o.stock.low) + " low"},
+      {label:"Attendance today", href:L("attendance"), val:n(o.attendance.in_today) + " / " + n(o.attendance.staff), alert:n(o.attendance.to_check) > 0,
+        sub: n(o.attendance.to_check) ? plural(n(o.attendance.to_check), "punch", "punches") + " to check" : "clocked in"}
+    ];
+    $("ovKpis").innerHTML = tiles.map(function(t){
+      return '<a class="kpi ov-tile' + (t.alert ? ' alert' : '') + '" href="' + esc(t.href) + '"><span class="label">' + esc(t.label) + '</span><span class="val">' + esc(String(t.val)) + '</span><span class="sub-line">' + esc(t.sub) + '</span></a>';
+    }).join("");
+    var needs = o.needs_you || [];
+    $("ovNeeds").hidden = !needs.length;
+    $("ovNeedsList").innerHTML = needs.map(function(x){
+      return '<li><a href="' + esc(L("schedule")) + '">' + esc(x.project) + '</a> · ' + esc(STAGE_WORD[x.stage] || x.stage) + ' <span class="status-pill ' + (x.status === "blocked" ? "bad" : "warn") + '">' + (x.status === "blocked" ? "Blocked" : "Submitted") + '</span>' + (x.who ? ' <span class="muted">' + esc(x.who) + '</span>' : '') + '</li>';
+    }).join("");
+    $("overviewSection").hidden = false;
   }
 
   function connectFailed(err){

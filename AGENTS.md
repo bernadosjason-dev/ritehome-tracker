@@ -230,3 +230,33 @@ the Supabase dashboard; without them the function answers 503 and events wait. D
 Tests: `node --test tests/notify.test.cjs` (rules, bell, queue, and the function under Node against a stand-in
 Telegram; `tests/fixtures/supabase-stub.sql` stubs pg_net as `net.http_requests` and the service role, run as the
 "service" actor) and the bell steps in `node tests/activity.browser.cjs`.
+
+One record per fact (`supabase/migrations/20261121000018_one_record.sql`, the 2026-11-13 duplicate review): the same
+thing is never typed in two places.
+- Site visit: booking a `site_visit` event on the Schedule calendar sets that project's Site visit stage dates (Manila
+  day; `site_visit_from_event()`), unless the stage is done. The calendar doesn't repeat the stage's due date on a day
+  that has the event.
+- Duplicate projects: `project_duplicate_guard()` (BEFORE INSERT on `projects`) refuses a second open project for the
+  same client (name ignoring case and spaces, or the last 10 digits of the phone) with errcode `RH409`, the message
+  "This client already has an open project: X." and the existing id as the HINT. `supabase-backend.js` turns it into
+  `{code:'duplicate_project', existing}`; Projects, the whiteboard (`board_project_save` passes it on) and Leads ask
+  first, then retry with `data.confirmDuplicate = "true"`, which the guard strips before storing. `lead_convert(p_id,
+  p_price, p_budget, p_project, p_confirm_new)`: with `p_project` a won lead joins that open project instead of making
+  one. `tests/fixtures/pg-rpc.cjs` (psql `VERBOSITY=verbose`) now returns `code` and `hint` like PostgREST.
+- Deliveries are stock: `procurement_deliveries_to_stock()` (AFTER INSERT/UPDATE on `procurement` docs) adds the
+  change in each PO line's `received` to Inventory as a `receive` move (job name, note "PO <ref> · <supplier>"), and a
+  lowered `received` as an `adjust` that never goes below zero. Items match by name + spec (case-insensitive) or are
+  created. Never enter PO deliveries in Inventory by hand; the Inventory page says so.
+- Procurement job ↔ project: a job may carry `projectId` (validated `^[A-Za-z0-9_-]{1,80}$` in both backends). The
+  purchaser picks it from `procurement_project_choices()` (definer, purchaser/admin, names only, never prices). The
+  project page's Procurement tab (Supabase) lists the jobs linked to it and links to `/procurement#new=<project id>`,
+  which opens a new job with the project chosen. The old per-project procurement card shows only on "/" and only when
+  that project already has BOMs or POs (legacy records are kept). Sheet mode keeps the old tabs.
+- Dashboard ("/", Supabase): `dashboard_overview()` (definer, admin only, counts only) feeds one tile per workspace
+  (Leads unanswered, Schedule submitted/blocked/late, Stock out/low, Attendance today and punches to check), each a link,
+  plus "Waiting on you in the Schedule". With figures loaded `data-overview` hides the project lists, company fuel and
+  the jump buttons (they live on /projects and /fuel); if the call fails the old lists stay. Health and "Who owes us"
+  stay on the dashboard.
+Tests: `node --test tests/one-record.test.cjs tests/procurement.test.cjs` and `node tests/dashboard.browser.cjs`,
+plus the leads, schedule and procurement-jobs browser suites.
+

@@ -52,7 +52,8 @@ const SHIM = String.raw`(function(){
       from: builder,
       storage: {from: function(bucket){ return {
         upload: function(path, file, opts){ return toBase64(file).then(function(b64){ return send({kind: 'upload', session: session && session.access_token, bucket: bucket, path: path, b64: b64, type: opts && opts.contentType}); }); },
-        remove: function(paths){ return send({kind: 'remove', session: session && session.access_token, bucket: bucket, paths: paths}); }
+        remove: function(paths){ return send({kind: 'remove', session: session && session.access_token, bucket: bucket, paths: paths}); },
+        createSignedUrl: function(path){ return Promise.resolve({data: {signedUrl: 'https://laxavfldivkhufeubgmb.supabase.co/storage/v1/object/sign/' + bucket + '/' + path + '?token=test'}, error: null}); }
       }; }}
     };
   }};
@@ -130,6 +131,17 @@ function createFakeSupabase(opts = {}) {
       return {data: null, error: {message: 'unknown function'}};
     }
     if (m.kind === 'query') return query(m.session, m.q);
+    if (m.kind === 'upload' && m.bucket === 'attendance-selfies') {   // any active person, their own folder, never overwritten
+      const u = who(m.session);
+      if (!u || !u.active || !/^[\w-]+\/[\w.-]+\.jpg$/.test(m.path)) return {data: null, error: {statusCode: '403', message: 'new row violates row-level security policy'}};
+      if (files.has('selfie:' + m.path)) return {data: null, error: {statusCode: '409', message: 'The resource already exists'}};
+      files.set('selfie:' + m.path, {type: m.type, bytes: Buffer.from(m.b64, 'base64')});
+      return {data: {path: m.path}, error: null};
+    }
+    if (m.kind === 'remove' && m.bucket === 'attendance-selfies') {
+      if (isAdmin(m.session)) m.paths.forEach(p => files.delete('selfie:' + p));
+      return {data: [], error: null};
+    }
     if (m.kind === 'upload') {
       const ok = isAdmin(m.session) && m.bucket === 'receipts' && /^sb_[A-Za-z0-9_-]{1,120}$/.test(m.path);
       if (!ok) return {data: null, error: {statusCode: '403', message: 'new row violates row-level security policy'}};
@@ -150,6 +162,10 @@ function createFakeSupabase(opts = {}) {
     await page.route('**/vendor/supabase-js-2.118.0.js', r => r.fulfill({contentType: 'application/javascript', body: SHIM}));
     // Registered first: Playwright tries the most recently added route first, so this only catches what the routes below don't.
     await page.route('https://laxavfldivkhufeubgmb.supabase.co/**', r => r.abort());   // nothing else may reach the real project
+    await page.route('https://laxavfldivkhufeubgmb.supabase.co/storage/v1/object/sign/attendance-selfies/**', r => {
+      const f = files.get('selfie:' + decodeURIComponent(new URL(r.request().url()).pathname.split('/attendance-selfies/')[1]));
+      return f ? r.fulfill({contentType: f.type || 'image/jpeg', body: f.bytes}) : r.fulfill({status: 404, body: 'gone'});
+    });
     await page.route('https://laxavfldivkhufeubgmb.supabase.co/storage/v1/object/public/receipts/**', r => {
       const f = files.get(decodeURIComponent(new URL(r.request().url()).pathname.split('/').pop()));
       return r.fulfill(f ? {contentType: f.type, body: f.bytes} : {status: 404, body: ''});

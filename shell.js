@@ -1,6 +1,6 @@
 /* Builds the portal's left menu (shell.css) around the existing tracker page.
    It only adds navigation: the workspaces are tracker.html's portal modes (short addresses
-   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, inventory.html, accounting.html, team.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
+   /projects, /procurement, /fuel on the live site, ?portal= elsewhere) and leads.html, schedule.html, attendance.html, inventory.html, accounting.html, team.html, and Sign out reuses the page's own button (#forgetKeyBtn). */
 (function(){
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
@@ -37,6 +37,7 @@
     if(mode === 'schedule') return CLEAN ? '/schedule' : 'schedule.html';
     if(mode === 'team') return CLEAN ? '/team' : 'team.html';
     if(mode === 'inventory') return CLEAN ? '/inventory' : 'inventory.html';
+    if(mode === 'attendance') return CLEAN ? '/attendance' : 'attendance.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
@@ -88,7 +89,7 @@
     var mode = (window.RitehomePortal && window.RitehomePortal.mode) || 'all';
     var side = el('aside', 'app-side no-print'); side.id = 'appSide'; side.setAttribute('aria-label', 'Portal menu');
     side.appendChild(brand());
-    [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
+    [['all', 'Dashboard', 'dash'], ['leads', 'Leads', 'leads'], ['projects', 'Projects', 'projects'], ['schedule', 'Schedule', 'gantt'], ['attendance', 'Attendance', 'attendance'], ['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box'],
      ['fuel', 'Company fuel', 'fuel'], ['accounting', 'Accounting', 'books'], ['team', 'Team', 'team']].forEach(function(n){
       var a = el('a', 'side-link'); a.href = href(n[0]); a.appendChild(icon(n[2])); a.appendChild(document.createTextNode(n[1]));
       if(n[0] === mode) a.setAttribute('aria-current', 'page');

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Attendance</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-16.1">
+<link rel="stylesheet" href="attendance.css?v=2026-11-16.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "attendance"};</script>
+</head>
+<body class="acct att">
+<main class="wrap">
+<script src="shell.js?v=2026-11-16.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1 id="attTitle">Attendance</h1>
+      <p class="sub">Clock in and out with a photo and your location, four times a day. Work hours are Monday to Saturday, 8 AM to 5 PM.</p>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="acct-tabs no-print" id="attTabs" hidden>
+      <button type="button" data-tab="mine" aria-current="page">My attendance</button>
+      <button type="button" data-tab="team">Team today</button>
+      <button type="button" data-tab="month">Month</button>
+    </div>
+
+    <div id="tab-mine">
+      <section class="card" id="noticeCard" hidden>
+        <h2>Before your first clock-in</h2>
+        <div class="notice">
+          <p><b>What is recorded.</b> Each time you clock in or out: a photo of your face, your phone's location at that moment, and the time. Once, at the start: a reference photo and a face template made from it (128 numbers that describe your face; it can't be turned back into a photo).</p>
+          <p><b>What is not.</b> Your location is never followed between punches, and your photos are not sent to any outside company. The face check runs on your own phone and in Ritehome's own database.</p>
+          <p><b>Why.</b> To record working time for payroll, and to confirm it was you who clocked in.</p>
+          <p><b>Who sees it.</b> You see your own times. Only the admin sees everyone's photos, locations and face-check results.</p>
+          <p><b>How long.</b> Photos are deleted after 90 days. Times are kept as payroll records. You may ask the admin to see, correct or delete your records, as the Data Privacy Act (RA 10173) provides.</p>
+        </div>
+        <div class="acct-actions"><button class="btn" type="button" id="noticeAccept">I understand and agree</button></div>
+      </section>
+
+      <section class="card" id="enrollCard" hidden>
+        <h2>Take your reference photo</h2>
+        <p class="muted small">One clear photo of your face, in good light, without a cap or mask. Every clock-in photo is compared with it. Only the admin can replace it later.</p>
+        <div class="acct-actions"><button class="btn" type="button" id="enrollBtn">Take the photo</button></div>
+      </section>
+
+      <section class="card" id="todayCard" hidden>
+        <div class="today-head">
+          <div><h2 id="todayTitle">Today</h2><p class="muted small" id="todayHint"></p></div>
+          <div class="today-act no-print"><button class="btn big" type="button" id="punchBtn"></button>
+            <label class="inline other">Different punch <select id="punchKind"></select></label></div>
+        </div>
+        <div class="slots" id="todaySlots"></div>
+      </section>
+
+      <section class="card" id="historyCard" hidden>
+        <h2>Last two weeks</h2>
+        <div id="historyTable"></div>
+      </section>
+    </div>
+
+    <div id="tab-team" hidden>
+      <div class="acct-bar no-print"><label>Day <input type="date" id="teamDate"></label></div>
+      <div class="kpis" id="teamKpis"></div>
+      <section class="card" id="oldCard" hidden></section>
+      <section class="card"><h2>Punches <span class="count" id="teamCount"></span></h2><div id="teamTable"></div></section>
+      <section class="card"><h2>Reference photos</h2><div id="faceTable"></div></section>
+    </div>
+
+    <div id="tab-month" hidden>
+      <div class="acct-bar no-print"><label>Month <input type="month" id="monthPick"></label>
+        <button class="btn ghost" type="button" id="monthCsv">Download CSV</button></div>
+      <section class="card"><h2 id="monthTitle">Month</h2>
+        <p class="muted small">Hours count only matched pairs: morning in to morning out, afternoon in to afternoon out. A day with a missing punch shows under Incomplete.</p>
+        <div id="monthTable"></div></section>
+    </div>
+  </div>
+
+  <div class="cam" id="cam" hidden role="dialog" aria-modal="true" aria-labelledby="camTitle">
+    <div class="cam-box">
+      <h2 id="camTitle">Photo</h2>
+      <div class="cam-view"><video id="camVideo" autoplay playsinline muted></video><canvas id="camCanvas" hidden></canvas></div>
+      <ul class="cam-status" id="camStatus"></ul>
+      <div class="acct-actions">
+        <button class="btn" type="button" id="camShoot">Take photo</button>
+        <button class="btn" type="button" id="camUse" hidden>Use this photo</button>
+        <button class="btn ghost" type="button" id="camRetake" hidden>Retake</button>
+        <button class="btn ghost" type="button" id="camCancel">Cancel</button>
+      </div>
+      <input type="file" id="camFile" accept="image/*" capture="user" hidden>
+    </div>
+  </div>
+
+  <div class="cam" id="look" hidden role="dialog" aria-modal="true" aria-labelledby="lookTitle"><div class="cam-box" id="lookBox"></div></div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="attendance.js?v=2026-11-16.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

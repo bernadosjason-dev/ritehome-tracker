@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
@@ -154,3 +154,21 @@ purchaser in procurement mode and sends them to `/inventory` from anywhere else 
 `procurement` stage on the Schedule (`role_owns_stage`). Role lists live in four places that must agree: the enum,
 `team.js` ROLES, `schedule.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change).
 Tests: `node --test tests/inventory.test.cjs` and `node tests/inventory.browser.cjs`.
+
+Attendance (`attendance.html`/`attendance.js`/`attendance.css` at `/attendance`, every active role; SQL in
+`supabase/migrations/20261116000013_attendance.sql` on the `attendance_punches` table from portal_core): four
+punches a day, each with a selfie (private `attendance-selfies` bucket, `<user id>/…jpg`) and one GPS fix; the time
+and work date are the server's. Flags are computed in `prepare_punch()`, never taken from the phone: late / early
+out (8, 12, 1, 5 o'clock), `off_site` (more than `office_site()`'s 150 m from the plus-code pin: information, since
+installers clock in at client sites), `low_gps_accuracy`, and the face check. The face check: `vendor/face-api`
+makes a 128-number template in the browser; `attendance_punch()` hands it to the trigger, which compares it with
+the person's reference template (`profiles.face_descriptor`, set once by `attendance_enroll()`, reset only by the
+admin) and stores `face_match` = 1 − distance; under `face_match_threshold()` (0.45) it's `face_mismatch`, with no
+template `no_face_check`. A punch always goes through; flags are for the admin, who sees the photo beside the
+reference photo and marks it checked (`attendance_review()`). The template never returns to a browser. Consent
+(`accept_attendance_notice()`) comes first; the notice on the page promises photos are deleted after 90 days, so
+keep `attendance_old_selfies()` / the admin's "Delete these photos" card working. `attendance_month()` is the
+payroll summary (hours from matched in/out pairs). Tests: `node --test tests/attendance.test.cjs` and
+`node tests/attendance.browser.cjs` (fake camera and location; the face template is a stand-in there, and the last
+step loads the real library and models). `tests/fixtures/pg-rpc.cjs` now turns JSON arrays into Postgres arrays
+for array-typed arguments, as PostgREST does.

@@ -28,3 +28,16 @@ Tarball integrity, checked against the npm registry before extracting:
 ```
 sha512-FxI8UXMVC2UG7IkeiI8fuQZqq2oI3JeSuN8MPIC2RLVaoEAxKS0nqE6kii9Ewpq8f9gNPM6git1Y8f0vN/QLFw==
 ```
+
+## face-api-1.7.15.js and face-models/
+
+On-device face detection and face templates for the Attendance page (`attendance.js`): the photo is
+analysed in the person's own browser and only a 128-number template leaves the phone. MIT licence
+(`face-api-LICENSE.txt`). The models kept are the three the page uses: `tiny_face_detector`,
+`face_landmark_68_tiny` and `face_recognition`.
+
+Source: https://registry.npmjs.org/@vladmandic/face-api/-/face-api-1.7.15.tgz (`dist/face-api.js`, `model/`)
+
+```
+sha512-WDMmK3CfNLo8jylWqMoQgf4nIst3M0fzx1dnac96wv/dvMTN4DxC/Pq1DGtduDk1lktCamQ3MIDXFnvrdHTXDw==
+```

@@ -29,6 +29,10 @@
     {
       "source": "/inventory",
       "destination": "/inventory.html"
+    },
+    {
+      "source": "/attendance",
+      "destination": "/attendance.html"
     }
   ],
   "redirects": [

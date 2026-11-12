@@ -221,7 +221,7 @@ test("attendance: consent first, own folder only, server clock, flags computed",
   refused("designer", `insert into public.attendance_punches (user_id, kind, lat, lng, accuracy_m, selfie_path)
     values ('${U.fab}', 'am_in', 8.45, 124.63, 12, '${U.fab}/x.jpg')`, /row-level security|only clock in for yourself/);
 
-  // A backdated time, a forged review and a forged flag list are all overwritten.
+  // A backdated time, a forged review, a forged face score and a forged flag list are all overwritten.
   const row = must("designer", `insert into public.attendance_punches
       (kind, lat, lng, accuracy_m, selfie_path, face_match, punched_at, work_date, flags, admin_note, reviewed_by)
     values ('am_in', 8.4542, 124.6319, 12, '${U.designer}/am_in.jpg', 0.31, '2020-01-01 07:00+08', '2020-01-01', '{}', 'ok', '${U.admin}')
@@ -233,7 +233,9 @@ test("attendance: consent first, own folder only, server clock, flags computed",
   assert.equal(note, "");
   assert.equal(unreviewed, "t");
   const expectLate = manilaTime() > "08:00";
-  assert.deepEqual(flags.split(",").filter(Boolean).sort(), [...(expectLate ? ["late"] : []), "face_mismatch"].sort());
+  // Since 20261116000013: a face score sent from the phone is thrown away (the database works it out from the
+  // template attendance_punch() passes), and a punch 5 km from the office is marked off-site.
+  assert.deepEqual(flags.split(",").filter(Boolean).sort(), [...(expectLate ? ["late"] : []), "no_face_check", "off_site"].sort());
 
   refused("designer", `insert into public.attendance_punches (kind, lat, lng, accuracy_m, selfie_path)
     values ('am_in', 8.45, 124.63, 12, '${U.designer}/again.jpg')`, /duplicate key/);

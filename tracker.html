@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-15.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-16.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-15.1"></script>
+<script src="shell.js?v=2026-11-16.1"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -1440,7 +1440,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-15.1";
+  var PAGE_VERSION = "2026-11-16.1";
 
   // ---------- reference data ----------
 
@@ -5209,7 +5209,7 @@
   var GATE_SUPABASE = {
     login: "Sign in with the email and password the admin gave you.",
     expired: "Your sign-in expired. Sign in again to keep working.",
-    staff: "You’re signed in. The money side of the tracker is for the admin; your projects and their stages are on the Schedule.",
+    staff: "You’re signed in. The money side of the tracker is for the admin; your projects and their stages are on the Schedule, where the menu also has Attendance for clocking in.",
     inactive: "Your account exists but hasn’t been activated yet. Ask the admin to turn it on and set your role.",
     denied: "This account isn’t allowed to open the tracker’s records. Ask the admin to check your role.",
     noclient: "The sign-in component didn’t load. Check your internet connection and reload the page.",

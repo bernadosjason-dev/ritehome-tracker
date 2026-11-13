@@ -12,7 +12,8 @@ not finished.
 Owner's standing rule (2026-11-13): every change is documented in `MEMORY.md` with a version. Add an
 entry at the top of its version history (what changed, migration, commit, live or pending and why),
 bump `PORTAL_VERSION` in `shell.js` to match (shown under the menu), and keep its "Live state" and
-"Owner to-dos" true. `node --test tests/memory.test.cjs` fails when the two versions differ.
+"Owner to-dos" true. No exceptions: live actions (migration applied, deploy, Edge Function, secret or
+setting changed), owner decisions and to-dos are recorded there too, in the same session they happen. `node --test tests/memory.test.cjs` fails when the two versions differ.
 
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,

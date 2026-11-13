@@ -14,7 +14,10 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 - 2026-11-12 Every portal update also updates the agents' knowledge (AGENTS.md, this file, any
   `.claude/skills`) in the same commit.
-- 2026-11-13 Every change is documented here with a version number.
+- 2026-11-13 Every update or change goes in this file, no exceptions: code (a new version entry),
+  and also every live action (a migration applied, a deploy, an Edge Function, a secret or setting
+  changed: update "Live state" with the date), every owner decision (here), and every to-do added or
+  done. A change that isn't written here isn't finished.
 - 2026-11-12 One person can hold several roles (a main role plus extras); admin is only ever a main role.
 - 2026-11-12 Keep the Procurement stage on the Schedule; the purchaser owns it.
 - 2026-11-12 Journal entries are voided, never edited; attendance punches are never edited

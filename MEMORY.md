@@ -38,10 +38,13 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 ## Owner to-dos
 
-- Deploy v3.2: promote the newest `claude/portal-supabase` build in Vercel (go-live page step 6,
-  https://claude.ai/artifact/S7dCwe5b58jB4dYQdvfkc8), check the menu says "Portal v3.2", tell the agent "live".
+- Deploy v3.2 (go-live page step 6, https://claude.ai/artifact/S7dCwe5b58jB4dYQdvfkc8): Vercel has no
+  build of the branch to promote and doesn't offer the owner "Create Deployment", and every connector of
+  the agent fails (502, two sessions). Route: owner sets Vercel's production branch to
+  `claude/portal-supabase`, says "changed", the agent pushes a small commit, Vercel builds it, owner
+  checks "Portal v3.2" and sets the production branch back. Until it's set back, every push goes live.
   (Done 2026-11-13: migrations 18–22 run in the SQL Editor; check query all "yes"; storage check passed.)
-- Before or right after the deploy, in the SQL Editor, in order (each read-only or self-rolling-back
+- Before or right after the deploy (go-live page step 7, with Copy buttons), in the SQL Editor, in order (each read-only or self-rolling-back
   except 3): `supabase/checks/go-live-18-22-1-md5-compare.sql` (expect one row "ALL MATCH"),
   `…-2-smoke.sql` (expect an error reading "SMOKE RESULT … 14 of 14 passed": the error is the
   rollback), `…-3-register.sql` (expect 22 rows). Paste the three results to the agent.

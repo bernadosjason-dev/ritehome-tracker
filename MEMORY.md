@@ -40,6 +40,10 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 - Run migrations 18, 19, 20, 21 and 22, in that order, in the Supabase SQL Editor (the approval card never
   reached the owner), then tell the agent "done": it verifies, deploys and records it here.
+  Step-by-step page with a Copy button for each update (2026-11-13, private to the owner):
+  https://claude.ai/artifact/S7dCwe5b58jB4dYQdvfkc8 . The blocks there are the committed files,
+  each wrapped in begin/commit so a failure keeps nothing. Running them in the SQL Editor does not
+  record them in Supabase's migration history: the agent registers 18-22 there when it verifies.
 - After migration 20: the live storage check below, once.
 - Company profile: fill in the details and upload the permits with their expiry dates.
 - Telegram: add the two Edge Function secrets in the Supabase dashboard (never in chat).

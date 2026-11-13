@@ -383,3 +383,15 @@ pending with the doubt in `notes`, never guessed. `employee_statutory` holds gov
 `statutory_month_estimate(user, date)` feed the Pay tab's "Government contributions" (admin/bookkeeper). Keep
 `tests/statutory.test.cjs` figures hand-worked from the official tables. Tests: `node --test tests/statutory.test.cjs`
 and `node tests/statutory.browser.cjs`.
+
+Payroll runs (v4.1; `supabase/migrations/20261128000025_payroll_runs.sql`): `payroll_runs` (one non-void run per
+cutoff; draft → submitted → approved → released, or void; `payroll_run_guard()` fixes the period and locks everything
+but status fields once out of draft), `payroll_lines` (derived: rewritten only by `payroll_run_compute` while the run
+is a draft; never edited), `payroll_adjustments` (pending → approved/rejected by the admin only; never edited or
+deleted). `payroll_person_period(user, a, z)` is the one place a person's period pay is summed from `pay_day_calc`
+(monthly-paid: half the monthly rate less deductions and absences). Contributions follow `payroll_settings.contributions_timing`
+('second' = the month on the 16-end run less what 1-15 took; 'split' = half at the rate on 1-15); withholding uses the
+semi-monthly table after the employee's contributions; minimum-wage earners pay none. Workflow RPCs check
+`can_keep_books()` (prepare, recompute, adjust, submit, record release) or `is_admin()` (decide adjustments, approve or
+return, void). Staff read only `payslips_mine()` (approved/released). Keep `tests/payroll-runs.test.cjs` figures
+hand-worked. Tests: `node --test tests/payroll-runs.test.cjs` and `node tests/payroll-runs.browser.cjs`.

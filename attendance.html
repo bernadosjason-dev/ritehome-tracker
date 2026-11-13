@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
 <link rel="stylesheet" href="shell.css?v=2026-11-25.1">
-<link rel="stylesheet" href="attendance.css?v=2026-11-27.1">
+<link rel="stylesheet" href="attendance.css?v=2026-11-28.1">
 <link rel="expect" href="#pageReady" blocking="render">
 <script>window.RitehomePortal = {mode: "attendance"};</script>
 </head>
@@ -81,6 +81,12 @@
         <div id="myPayDays"></div>
       </section>
 
+      <section class="card" id="slipsCard" hidden>
+        <h2>My payslips</h2>
+        <p class="muted small">Each approved cutoff. Ask the bookkeeper if a figure looks wrong.</p>
+        <div id="slipsList"></div>
+      </section>
+
       <section class="card" id="historyCard" hidden>
         <h2>Last two weeks</h2>
         <div id="historyTable"></div>
@@ -119,6 +125,11 @@
       <section class="card"><h2 id="payTitle">Estimated pay</h2>
         <p class="muted small" id="paySub">Estimates from attendance until the cutoff is approved. Late, undertime and halves without both punches are deducted by the minute, never a whole day.</p>
         <div id="payTable"></div></section>
+      <section class="card" id="runsCard" hidden><div class="card-head runs-head"><h2>Payroll runs</h2>
+          <div class="runs-new no-print"><label>Cutoff containing <input type="date" id="runDate"></label>
+          <button class="btn" type="button" id="runPrepare">Prepare payroll</button></div></div>
+        <p class="muted small">The bookkeeper prepares a cutoff from attendance; the admin approves it; the release is then recorded with its reference. Nothing here moves money. Approved runs are locked.</p>
+        <div id="runsList"></div><div id="runBox"></div></section>
       <section class="card" id="ratesCard"><h2>Rates</h2>
         <p class="muted small">A new rate starts on its date; earlier days keep the rate they were worked at. Rates are never edited: a mistake is fixed by adding the right one with the same date.</p>
         <div id="ratesTable"></div></section>
@@ -151,7 +162,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-11-27.1"></script>
+<script src="attendance.js?v=2026-11-28.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

@@ -99,10 +99,34 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
-| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 live, 4.1 built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.1 — 2026-11-13 — Payroll runs and payslips (pending: migration 25 not applied)
+Branch `claude/payroll-runs-v4.1` (preview only). Migration `20261128000025_payroll_runs.sql` (**not applied**).
+Built the night of Nov 13, a week ahead of the Fri Nov 20 due date. Goes live when the owner runs migration 25
+and says "merge".
+- Payroll runs (Attendance → Pay → Payroll runs): the bookkeeper or admin prepares the cutoff that contains a
+  date; the database computes each line from attendance: basic pay, premiums, overtime, allowance, approved
+  adjustments, SSS / PhilHealth / Pag-IBIG (employee and employer, from the statutory rules), withholding tax
+  (semi-monthly table; none for minimum-wage earners) and net. Draft -> submitted -> approved (admin only) ->
+  release recorded with its reference (nothing moves money). Approved runs are locked; released runs can't be
+  voided (corrections go in the next cutoff). One live run per cutoff; a void frees it.
+- Submit is refused while: an adjustment waits; the cutoff isn't over; anyone has unaccounted days (record
+  the leave/absence first); anyone's net is below zero.
+- Adjustments (taxable earning, non-taxable earning, deduction) need a reason, wait for the admin, never
+  edited or deleted; the bookkeeper can't adjust their own pay.
+- Monthly-paid: half the monthly rate per cutoff, less minutes deducted and a daily equivalent per absence or
+  unpaid leave (holidays inside the rate).
+- Owner's open decisions as settings (admin, "How pay is computed"): contributions all on the 16-end payday
+  (default) or half each payday; allowance taxable (default yes until the accountant says otherwise).
+- Payslips: each person sees their own, only from approved/released runs, with print.
+- For the accountant: SSS on the month's gross, PhilHealth and Pag-IBIG on the month's basic pay; monthly-paid
+  holiday treatment; allowance taxability.
+- Tests: `tests/payroll-runs.test.cjs` (October 2026 by hand, both cutoffs, split timing) and
+  `tests/payroll-runs.browser.cjs`.
 
 ### 4.0 — 2026-11-13 — Statutory rules engine and government numbers (live)
 Migration `20261127000024_statutory_rules.sql`: applied by the owner; verified by the agent through the connector

@@ -176,7 +176,42 @@
     for(var i = last + 1; i < KINDS.length; i++) if(!done[KINDS[i][0]]) return KINDS[i][0];
     return null;
   }
-  function loadMine(){ return Promise.all([rpc("attendance_me"), quiet("pay_me")]).then(function(r){ state.me = r[0]; state.pay = r[1]; renderMine(); }); }
+  function loadMine(){ return Promise.all([rpc("attendance_me"), quiet("pay_me"), quiet("payslips_mine")]).then(function(r){ state.me = r[0]; state.pay = r[1]; state.slips = r[2] || []; renderMine(); }); }
+  // One payslip: pay, then what was taken, then net. Shared by the staff card and the run view.
+  function slipBody(l, adjustments){
+    var rows = [["Basic pay", l.basic_pay], ["Holiday and rest-day premiums", l.premium], ["Overtime", l.overtime_pay], ["Allowance", l.allowance]];
+    (adjustments || []).forEach(function(a){ if(a.kind !== "deduction") rows.push([a.reason, a.amount]); });
+    var less = [["SSS", l.sss_ee], ["PhilHealth", l.ph_ee], ["Pag-IBIG", l.pi_ee]].filter(function(x){ return Number(x[1]); })
+      .concat([["Withholding tax" + (l.mwe ? " (minimum wage earner: none)" : ""), l.tax]]);
+    (adjustments || []).forEach(function(a){ if(a.kind === "deduction") less.push([a.reason, a.amount]); });
+    function tr(x, neg){ return h("tr", null, [h("td", {text: x[0]}), h("td", {class: "num", text: (neg && Number(x[1]) ? "− " : "") + peso(x[1])})]); }
+    return h("table", {class: "acct-table slip-table"}, [h("tbody", null, [].concat(
+      rows.filter(function(x){ return Number(x[1]); }).map(function(x){ return tr(x); }),
+      [h("tr", {class: "sum"}, [h("td", {text: "Gross pay"}), h("td", {class: "num", text: peso(l.gross)})])],
+      less.map(function(x){ return tr(x, true); }),
+      [h("tr", {class: "sum net"}, [h("td", {text: "Net pay"}), h("td", {class: "num", text: peso(l.net)})])],
+      !Number(l.sss_ee) && !Number(l.ph_ee) && !Number(l.pi_ee) ? [h("tr", null, h("td", {colspan: "2", class: "muted small", text: "SSS, PhilHealth and Pag-IBIG for the month come off the 16–end payslip."}))] : []))]);
+  }
+  function renderSlips(){
+    var slips = state.slips || [];
+    $("slipsCard").hidden = !slips.length;
+    put("slipsList", slips.length ? h("div", {class: "slips"}, slips.map(function(l, i){
+      var d = h("details", {class: "slip", open: i === 0}, [
+        h("summary", null, [h("strong", {text: dayName(l.period_start) + " – " + dayName(l.period_end)}),
+          h("span", {class: "muted", text: (l.status === "released" ? "Released" : "Approved · release ") + " " + dayName(l.release_date)}), h("strong", {class: "amt", text: peso(l.net)})]),
+        h("div", {class: "slip-body"}, [
+          h("div", {class: "slip-head"}, [h("strong", {text: "Ritehome Modular Systems · Payslip"}), h("span", {class: "muted", text: l.name + " · " + dayName(l.period_start) + " to " + dayName(l.period_end) + ", " + l.period_end.slice(0, 4)})]),
+          h("p", {class: "muted small", text: l.days_worked + (l.days_worked === 1 ? " day" : " days") + " worked · " + (l.salary_type === "daily" ? peso(l.daily_rate) + " a day" : "monthly rate")}),
+          slipBody(l, l.adjustments),
+          h("div", {class: "acct-actions no-print"}, h("button", {class: "btn ghost small", type: "button", text: "Print", onclick: function(){ printSlip(d); }}))])]);
+      return d;
+    })) : null);
+  }
+  function printSlip(el){
+    document.querySelectorAll(".slip.print-me").forEach(function(x){ x.classList.remove("print-me"); });
+    el.open = true; el.classList.add("print-me"); document.body.classList.add("print-slip");
+    window.print(); setTimeout(function(){ document.body.classList.remove("print-slip"); el.classList.remove("print-me"); }, 500);
+  }
   function renderMyPay(){
     var pay = state.pay, card = $("myPayCard");
     card.hidden = !pay || !pay.rate;
@@ -202,7 +237,7 @@
     $("noticeCard").hidden = !!me.consent_at;
     $("enrollCard").hidden = !me.consent_at || me.enrolled;
     $("todayCard").hidden = !started; $("historyCard").hidden = !started || !me.days.length;
-    renderMyPay();
+    renderMyPay(); renderSlips();
     var recs = me.records || [];
     $("recordsCard").hidden = !recs.length;
     put("recordsList", recs.length ? h("ul", {class: "rec-list"}, recs.map(function(x){
@@ -452,7 +487,7 @@
     });
     return first.then(function(){ return Promise.all([loadPayDays(), quiet("salary_rates_list"), quiet("payroll_settings_get")]); }).then(function(r){
       state.rates = r[1] || []; state.settings = r[2]; renderRates(); renderSettings();
-      return loadStatutory();
+      return Promise.all([loadStatutory(), loadRuns()]);
     });
   }
   function loadPayDays(){
@@ -589,9 +624,14 @@
     var inputs = {}, edit = !!st.can_edit;
     var rule = h("select", {"aria-label": "Pay day on a Sunday or holiday", disabled: !edit}, [["earlier", "Paid the working day before"], ["later", "Paid the working day after"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
     rule.value = st.payday_rule;
+    var timing = h("select", {"aria-label": "Government contributions deducted", disabled: !edit}, [["second", "All on the 16–end payday"], ["split", "Half each payday"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    var allowTax = h("select", {"aria-label": "Allowance taxable", disabled: !edit}, [["true", "Taxable"], ["false", "Not taxable (de minimis)"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    var hasRuns = st.contributions_timing != null;
+    if(hasRuns){ timing.value = st.contributions_timing; allowTax.value = String(st.allowance_taxable); }
     var save = h("button", {class: "btn", type: "button", text: "Save settings", disabled: true});
-    function dirty(){ save.disabled = rule.value === st.payday_rule && SETTINGS.every(function(x){ return Number(inputs[x[0]].value) === Number(st[x[0]]); }); }
-    rule.addEventListener("change", dirty);
+    function dirty(){ save.disabled = rule.value === st.payday_rule && (!hasRuns || (timing.value === st.contributions_timing && allowTax.value === String(st.allowance_taxable)))
+      && SETTINGS.every(function(x){ return Number(inputs[x[0]].value) === Number(st[x[0]]); }); }
+    rule.addEventListener("change", dirty); timing.addEventListener("change", dirty); allowTax.addEventListener("change", dirty);
     var grid = SETTINGS.map(function(x){
       var i = inputs[x[0]] = h("input", {inputmode: "decimal", value: String(st[x[0]]), "aria-label": x[1], disabled: !edit});
       i.addEventListener("input", dirty);
@@ -599,14 +639,135 @@
     });
     save.addEventListener("click", function(){
       var body = {payday_rule: rule.value}; SETTINGS.forEach(function(x){ body[x[0]] = inputs[x[0]].value; });
+      if(hasRuns){ body.contributions_timing = timing.value; body.allowance_taxable = allowTax.value === "true"; }
       busy(save, true);
       rpc("payroll_settings_save", {p: body}).then(function(s){ state.settings = s; msg("Payroll settings saved."); state.period = null; return loadPay(); })
         .catch(function(e){ busy(save, false); fail(e); });
     });
     put("settingsBox", h("div", {style: "display:contents"}, [
       h("p", {class: "muted small", text: "The Labor Code's rates, as multiples of the daily rate. Defaults until the accountant signs them off." + (edit ? "" : " Only the admin changes them.")}),
-      h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(grid)),
+      h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(hasRuns ? [h("label", null, ["Government contributions deducted", timing]), h("label", null, ["Daily allowance", allowTax])] : [], grid)),
       edit ? h("div", {class: "acct-actions"}, save) : null]));
+  }
+
+  // ---------- payroll runs (v4.1, migration 25) ----------
+  var RUN_STATUS = {draft: ["warn", "Draft"], submitted: ["warn", "Waiting for the admin"], approved: ["good", "Approved"], released: ["good", "Released"], void: ["", "Void"]};
+  function loadRuns(){
+    return quiet("payroll_runs_list").then(function(r){
+      state.runs = r; $("runsCard").hidden = !r;
+      if(!r) return;
+      if(!$("runDate").value) $("runDate").value = state.me.today;
+      renderRuns();
+      if(state.openRun) return openRun(state.openRun);
+      put("runBox", null);
+    });
+  }
+  function renderRuns(){
+    var runs = state.runs.runs;
+    put("runsList", runs.length ? h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+      h("thead", null, h("tr", null, ["Cutoff", "Status", "People", "Net pay", "Release", ""].map(function(t, i){ return h("th", {class: i === 2 || i === 3 ? "num" : null, text: t}); }))),
+      h("tbody", null, runs.map(function(x){
+        var st = RUN_STATUS[x.status] || ["", x.status];
+        return h("tr", {"data-run": x.period_start + (x.status === "void" ? "-void" : "")}, [
+          h("td", {text: dayName(x.period_start) + " – " + dayName(x.period_end) + ", " + x.period_end.slice(0, 4)}),
+          h("td", null, [h("span", {class: "pill " + st[0], text: st[1]}), x.pending_adjustments ? h("div", {class: "muted", style: "font-size:12.5px", text: x.pending_adjustments + " adjustment" + (x.pending_adjustments === 1 ? "" : "s") + " waiting"}) : null]),
+          h("td", {class: "num", text: String(x.totals.people || 0)}), h("td", {class: "num", text: peso(x.totals.net)}),
+          h("td", {text: x.status === "released" ? "Released " + dayName(x.released_at.slice(0, 10)) : dayName(x.release_date)}),
+          h("td", null, h("button", {class: "btn ghost small", type: "button", text: "Open", "aria-label": "Open payroll " + x.period_start, onclick: function(){ openRun(x.id); }}))]);
+      }))])) : h("p", {class: "muted", text: "No payroll prepared yet."}));
+  }
+  function openRun(id){
+    state.openRun = id;
+    return rpc("payroll_run_get", {p_run: id}).then(renderRun).catch(fail);
+  }
+  function runAct(name, args, done){
+    return function(e){
+      var b = e && e.currentTarget; busy(b, true);
+      rpc(name, args()).then(function(r){ msg(done); state.runs = null; return loadRuns(); }).catch(function(err){ busy(b, false); fail(err); });
+    };
+  }
+  function renderRun(R){
+    var admin = !!R.can_approve, draft = R.status === "draft", T = R.totals || {}, st = RUN_STATUS[R.status] || ["", R.status];
+    var pendingRules = R.lines.some(function(l){ return ["sss", "philhealth", "pagibig", "withholding"].some(function(k){ return l.basis[k] && l.basis[k].rule_status && l.basis[k].rule_status !== "approved"; }); });
+    var actions = [];
+    if(draft){
+      actions.push(h("button", {class: "btn ghost", type: "button", text: "Recompute", onclick: runAct("payroll_run_recompute", function(){ return {p_run: R.id}; }, "Recomputed from attendance.")}));
+      actions.push(h("button", {class: "btn", type: "button", text: "Submit for approval", onclick: runAct("payroll_run_submit", function(){ return {p_run: R.id}; }, "Submitted to the admin.")}));
+    }
+    if(R.status === "submitted" && admin){
+      actions.push(h("button", {class: "btn", type: "button", text: "Approve payroll", onclick: function(e){
+        var note = window.prompt("Approve the " + R.period_start + " to " + R.period_end + " payroll (net " + peso(T.net) + ")? A note, if any:", ""); if(note == null) return;
+        runAct("payroll_run_decide", function(){ return {p_run: R.id, p_decision: "approved", p_note: note}; }, "Payroll approved.")(e); }}));
+      actions.push(h("button", {class: "btn ghost", type: "button", text: "Return…", onclick: function(e){
+        var note = window.prompt("What needs fixing?", ""); if(note == null) return;
+        runAct("payroll_run_decide", function(){ return {p_run: R.id, p_decision: "returned", p_note: note}; }, "Returned to the bookkeeper.")(e); }}));
+    }
+    if(R.status === "approved") actions.push(h("button", {class: "btn", type: "button", text: "Record release…", onclick: function(e){
+      var ref = window.prompt("The release reference: the bank batch number, or “cash, signed payroll sheet”.", ""); if(ref == null) return;
+      runAct("payroll_run_release", function(){ return {p_run: R.id, p_ref: ref}; }, "Release recorded.")(e); }}));
+    if(admin && ["draft", "submitted", "approved"].indexOf(R.status) >= 0) actions.push(h("button", {class: "btn ghost danger", type: "button", text: "Void…", onclick: function(e){
+      var why = window.prompt("Void this payroll run? It stays in the history. Why?", ""); if(why == null) return;
+      runAct("payroll_run_void", function(){ return {p_run: R.id, p_reason: why}; }, "Payroll run voided.")(e); state.openRun = null; }}));
+    actions.push(h("button", {class: "btn ghost", type: "button", text: "Download CSV", onclick: function(){ runCsv(R); }}));
+    var who = [R.preparer ? "Prepared by " + R.preparer : "", R.submitter ? "submitted by " + R.submitter : "", R.approver ? "approved by " + R.approver : "",
+      R.releaser ? "released by " + R.releaser + " (" + R.release_ref + ")" : "", R.void_reason ? "void: " + R.void_reason : ""].filter(Boolean).join(" · ");
+    put("runBox", h("div", {class: "run-box", "data-open-run": R.period_start}, [
+      h("div", {class: "run-title"}, [h("h3", {text: "Payroll " + dayName(R.period_start) + " – " + dayName(R.period_end) + ", " + R.period_end.slice(0, 4)}), h("span", {class: "pill " + st[0], text: st[1]})]),
+      h("p", {class: "muted small", text: who + ". Pay day " + dayName(R.release_date) + ". Contributions: " + (R.contributions_timing === "second" ? "the whole month on the 16–end cutoff" : "half each cutoff") + "."}),
+      R.returned_note ? h("p", {class: "gov-warn", text: "Returned: " + R.returned_note}) : null,
+      pendingRules ? h("p", {class: "muted small", text: "Some statutory rules used here are still waiting for the accountant's review."}) : null,
+      h("div", {class: "kpis"}, [["Net pay", peso(T.net), (T.people || 0) + " people"], ["Gross pay", peso(T.gross), "Before deductions"],
+        ["Employee contributions", peso(T.employee_contributions), "SSS, PhilHealth, Pag-IBIG"], ["Employer contributions", peso(T.employer_contributions), "Not taken from pay"],
+        ["Withholding tax", peso(T.tax), "To remit with BIR 1601-C"]].map(function(x){ return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val", text: x[1]}), h("span", {class: "sub", text: x[2]})]); })),
+      h("div", {class: "acct-actions"}, actions),
+      h("div", {class: "acct-scroll"}, h("table", {class: "acct-table run-lines"}, [
+        h("thead", null, h("tr", null, ["Person", "Days", "Basic", "Premiums + OT", "Allowance", "Adjustments", "Gross", "SSS", "PhilHealth", "Pag-IBIG", "Tax", "Net"].map(function(t, i){ return h("th", {class: i ? "num" : null, text: t}); }))),
+        h("tbody", null, R.lines.map(function(l){
+          var adj = Number(l.adj_taxable) + Number(l.adj_nontaxable) - Number(l.adj_deductions);
+          return h("tr", {"data-line": l.name}, [h("td", null, [h("strong", {text: l.name}), l.unaccounted_days ? h("div", {class: "neg", style: "font-size:12.5px", text: l.unaccounted_days + " unaccounted days"}) : null,
+              l.mwe ? h("div", {class: "muted", style: "font-size:12.5px", text: "Minimum wage earner"}) : null]),
+            h("td", {class: "num", text: String(l.days_worked)}), h("td", {class: "num", text: peso(l.basic_pay)}),
+            h("td", {class: "num", text: peso(Number(l.premium) + Number(l.overtime_pay))}), h("td", {class: "num", text: peso(l.allowance)}),
+            h("td", {class: "num", text: adj ? (adj < 0 ? "− " : "") + peso(Math.abs(adj)) : "—"}), h("td", {class: "num", text: peso(l.gross)}),
+            h("td", {class: "num", text: peso(l.sss_ee)}), h("td", {class: "num", text: peso(l.ph_ee)}), h("td", {class: "num", text: peso(l.pi_ee)}),
+            h("td", {class: "num", text: peso(l.tax)}), h("td", {class: "num", text: peso(l.net)})]);
+        }))])),
+      adjustmentsBox(R)]));
+  }
+  function adjustmentsBox(R){
+    var admin = !!R.can_approve, draft = R.status === "draft", KIND = {taxable_earning: "Taxable earning", nontaxable_earning: "Non-taxable earning", deduction: "Deduction"};
+    var list = R.adjustments.length ? h("ul", {class: "rec-list adj-list"}, R.adjustments.map(function(a){
+      return h("li", {"data-adj": a.reason}, [h("b", {text: a.person + ": "}), KIND[a.kind] + " " + peso(a.amount) + " · " + a.reason + (a.reference ? " (" + a.reference + ")" : ""),
+        h("span", {class: "muted", text: " · by " + a.by + " · " + (a.status === "pending" ? "waiting for the admin" : a.status + (a.decider ? " by " + a.decider : ""))}),
+        admin && draft && a.status === "pending" ? h("span", null, [
+          h("button", {class: "link", type: "button", text: "Approve", "aria-label": "Approve " + a.reason, onclick: runAct("payroll_adjustment_decide", function(){ return {p_id: a.id, p_decision: "approved", p_note: ""}; }, "Adjustment approved.")}),
+          h("button", {class: "link", type: "button", text: "Reject", "aria-label": "Reject " + a.reason, onclick: runAct("payroll_adjustment_decide", function(){ return {p_id: a.id, p_decision: "rejected", p_note: ""}; }, "Adjustment rejected.")})]) : null]);
+    })) : h("p", {class: "muted small", text: "No adjustments."});
+    if(!draft) return h("div", {class: "adj-box"}, [h("h3", {text: "Adjustments"}), list]);
+    var who = h("select", {"aria-label": "Adjustment for"}, R.lines.map(function(l){ return h("option", {value: l.user_id, text: l.name}); }));
+    var kind = h("select", {"aria-label": "Kind of adjustment"}, Object.keys(KIND).map(function(k){ return h("option", {value: k, text: KIND[k]}); }));
+    var amount = h("input", {inputmode: "decimal", "aria-label": "Adjustment amount", placeholder: "Amount"});
+    var reason = h("input", {maxlength: "500", "aria-label": "Adjustment reason", placeholder: "Reason (required): e.g. cash advance Oct 20"});
+    var ref = h("input", {maxlength: "300", "aria-label": "Adjustment reference", placeholder: "Reference (optional)"});
+    var err = h("p", {class: "form-error", role: "alert"}), add = h("button", {class: "btn ghost", type: "button", text: "Add adjustment"});
+    add.addEventListener("click", function(){
+      err.textContent = ""; busy(add, true);
+      rpc("payroll_adjustment_add", {p: {run_id: R.id, user_id: who.value, kind: kind.value, amount: amount.value.replace(/[,\s₱]/g, ""), reason: reason.value, reference: ref.value}})
+        .then(function(r){ msg("Adjustment added: it waits for the admin."); renderRun(r); state.runs = null; loadRuns(); })
+        .catch(function(e){ busy(add, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    return h("div", {class: "adj-box"}, [h("h3", {text: "Adjustments"}), h("p", {class: "muted small", text: "Every adjustment waits for the admin's approval before it counts."}), list,
+      h("div", {class: "rec-form adj-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Person", who]), h("label", null, ["Kind", kind])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Amount (₱)", amount]), h("label", null, ["Reference", ref])]), h("label", null, ["Reason", reason])]), err,
+      h("div", {class: "acct-actions"}, add)]);
+  }
+  function runCsv(R){
+    var head = ["Person", "Role", "Employment", "Salary type", "Daily rate", "Days worked", "Minutes deducted", "Basic pay", "Premiums", "Overtime", "Allowance", "Taxable adjustments", "Non-taxable adjustments", "Gross", "Taxable", "SSS EE", "SSS ER", "SSS EC", "PhilHealth EE", "PhilHealth ER", "Pag-IBIG EE", "Pag-IBIG ER", "Minimum wage earner", "Withholding tax", "Deductions", "Net"];
+    var rows = [head].concat(R.lines.map(function(l){ return [l.name, ROLE[l.role] || l.role, EMPLOY[l.employment_type] || l.employment_type, l.salary_type, l.daily_rate, l.days_worked, l.deducted_minutes,
+      l.basic_pay, l.premium, l.overtime_pay, l.allowance, l.adj_taxable, l.adj_nontaxable, l.gross, l.taxable, l.sss_ee, l.sss_er, l.sss_ec, l.ph_ee, l.ph_er, l.pi_ee, l.pi_er, l.mwe ? "yes" : "no", l.tax, l.adj_deductions, l.net]; }));
+    var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
+    var a = h("a", {href: URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv"})), download: "ritehome-payroll-" + R.period_start + "-to-" + R.period_end + ".csv"});
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   // ---------- government contributions and statutory rules (v4.0, migration 24) ----------
@@ -724,6 +885,11 @@
         ["payFrom", "payTo"].forEach(function(id){ $(id).addEventListener("change", function(){ loadPayDays().catch(fail); }); });
         ["payPerson", "payRole", "payType", "payStatus"].forEach(function(id){ $(id).addEventListener("change", renderPay); });
         $("payCsv").addEventListener("click", payCsv);
+        $("runPrepare").addEventListener("click", function(e){
+          var b = e.currentTarget; busy(b, true);
+          rpc("payroll_run_prepare", {p_date: $("runDate").value}).then(function(r){ busy(b, false); msg("Payroll prepared from attendance: check it, then submit."); state.openRun = r.id; return loadRuns(); })
+            .catch(function(err){ busy(b, false); fail(err); });
+        });
       }
       $("gate").hidden = true; $("app").hidden = false; document.body.classList.remove("gated", "connecting");
       if(me.consent_at && Face.warm) Face.warm().catch(function(){});   // fetch the face models while the person reads the page

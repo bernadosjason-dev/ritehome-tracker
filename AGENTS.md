@@ -9,6 +9,12 @@ step, update this file (and any skill under `.claude/skills/`, if one exists) so
 or Codex session knows it without being told. A portal change whose instructions here are stale is
 not finished.
 
+Deploys (2026-11-13): the Vercel project `ritehome-portal` is linked to GitHub and its production branch is
+`claude/portal-supabase`, so **every push to that branch goes live within a minute**. Never push code that
+needs a migration that isn't applied yet: apply the migration first (Supabase connector, or the owner runs it
+in the SQL Editor and confirms), then push. Work that isn't ready to go live belongs on another branch (those
+only make preview builds). `main` holds the old Apps Script code (Oct 18); never make it the production branch.
+
 Owner's standing rule (2026-11-13): every change is documented in `MEMORY.md` with a version. Add an
 entry at the top of its version history (what changed, migration, commit, live or pending and why),
 bump `PORTAL_VERSION` in `shell.js` to match (shown under the menu), and keep its "Live state" and

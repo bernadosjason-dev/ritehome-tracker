@@ -23,6 +23,9 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - 2026-11-12 Journal entries are voided, never edited; attendance punches are never edited
   (corrections are added as new records).
 - 2026-11-12 Backups: dropped for now; reminder set for Fri Nov 20, 9 AM Manila.
+- 2026-11-13 Vercel deploys production from `claude/portal-supabase` on every push (owner linked
+  the project to GitHub). So a database change goes live first (owner runs it, or the agent applies
+  it), and only then is the code that needs it pushed.
 - 2026-11-13 Duplicates: one record per fact. A thing typed in one workspace is never typed again
   in another.
 - Brutal honesty in reports to the owner; every task has a deadline.
@@ -34,16 +37,13 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked by the agent; **18–22 applied 2026-11-13 by the owner** in the SQL Editor (the approval card never reached them), confirmed by the owner's check query (all five "yes") and the company-files storage check (passed). **Still not md5-compared, smoke-tested or registered against the live database** (2026-11-13, second attempt: the agent's Supabase connector failed to connect and the session's network refuses `*.supabase.co`). Done locally instead: all 127 public functions of a local load of 01–22 fingerprinted; the three paste-ready scripts in `supabase/checks/go-live-18-22-*.sql` (1 md5 compare, 2 rolled-back smoke test, 3 register 18–22) each proven on a local load (compare: ALL MATCH, and a tampered function is caught; smoke: 14/14, nothing saved) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
-| Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase`. **Deploy of v3.2 pending** (2026-11-13: agent's Vercel connection down; owner to promote the branch's newest build, go-live page step 6). 2026-11-13 second attempt also blocked: the agent's Vercel connector failed to connect and `api.vercel.com` / `portal.ritehomemodular.com` are refused by the session's network, so the agent could neither deploy nor check `/shell.js`. Branch HEAD verified before handing over: `PORTAL_VERSION = '3.2'`, unit tests 188/188 pass |
+| Vercel `ritehome-portal` | building v3.2 from `claude/portal-supabase` (2026-11-13, pending the owner's check) | portal.ritehomemodular.com. **2026-11-13: the owner connected the project to GitHub (bernadosjason-dev/ritehome-tracker) and set Production Branch Tracking to `claude/portal-supabase`**: every push to that branch now deploys to production by itself (before this, the project had no Git link and only connector-made deployments existed; the agent's Vercel connector was down). `main` still holds the Oct 18 Apps Script code: never point production at it |
 
 ## Owner to-dos
 
-- Deploy v3.2 (go-live page step 6, https://claude.ai/artifact/S7dCwe5b58jB4dYQdvfkc8): Vercel has no
-  build of the branch to promote and doesn't offer the owner "Create Deployment", and every connector of
-  the agent fails (502, two sessions). Route: owner sets Vercel's production branch to
-  `claude/portal-supabase`, says "changed", the agent pushes a small commit, Vercel builds it, owner
-  checks "Portal v3.2" and sets the production branch back. Until it's set back, every push goes live.
-  (Done 2026-11-13: migrations 18–22 run in the SQL Editor; check query all "yes"; storage check passed.)
+- Check the site shows "Portal v3.2" (refresh portal.ritehomemodular.com) and tell the agent "live".
+  (Done 2026-11-13: migrations 18–22 run; check query all "yes"; storage check passed; Vercel linked to
+  GitHub with production on `claude/portal-supabase`.)
 - Before or right after the deploy (go-live page step 7, with Copy buttons), in the SQL Editor, in order (each read-only or self-rolling-back
   except 3): `supabase/checks/go-live-18-22-1-md5-compare.sql` (expect one row "ALL MATCH"),
   `…-2-smoke.sql` (expect an error reading "SMOKE RESULT … 14 of 14 passed": the error is the

@@ -64,6 +64,11 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Check the clients with more than one open project (Dandan ×3, Ar. Amerol ×2, Mayor Azum ×2):
   separate jobs, or accidental doubles to close.
 - Backups decision (reminder Fri Nov 20).
+- Finance upgrade: answer the 8 decisions (2026-11-13 plan), and get the accountant to check the
+  statutory rules before the first official payroll (Dec 1-15, released Dec 15).
+- Rule found 2026-11-13: Cagayan de Oro minimum wage is ₱500/day since May 1 2026 (Wage Order RX-24,
+  Wage Category I). Any daily rate below that is a legal problem; minimum-wage earners are exempt
+  from withholding tax on their basic, holiday, overtime and night-shift pay.
 
 ## Live storage check (company-files bucket, after migration 20)
 
@@ -90,6 +95,7 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)

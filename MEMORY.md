@@ -79,6 +79,7 @@ Record the result in "Live state".
 | 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | live Nov 13 |
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
+| — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | plan proposed 2026-11-13; waiting for owner decisions (incl. priority vs inventory v4); payroll formulas need the accountant's sign-off |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; waiting for the owner's answers to 5 decisions, then build |
 
 ## Version history (newest first)

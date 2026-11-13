@@ -118,30 +118,34 @@ test('sales works consultation and site visit on assigned projects, and nothing 
   refused('designer', `select public.stage_save('p_k', 'consultation', ${j({ status: 'done' })})`, /isn't yours to change/);
 });
 
-test('an extra role gives exactly that role\'s access: purchaser stock and procurement, never projects or money', () => {
+test('an extra role gives exactly that role\'s access: purchaser stock and procurement; projects only read, never written', () => {
   const { must, refused } = db;
   assert.equal(must('multi', 'select public.can_stock()'), 't');
   must('multi', `select public.inventory_item_save(${j({ name: 'Plywood 18mm', category: 'board', unit: 'sheet' })})`);
   assert.equal(must('multi', `select count(*) from public.tracker_docs where collection = 'procurementJobs'`), '1');
-  assert.equal(must('multi', `select count(*) from public.tracker_docs where collection = 'projects'`), '0');
+  // Their bookkeeper extra role reads the books' sources (projects) since v3.1, read only.
+  assert.equal(must('multi', `select count(*) from public.tracker_docs where collection = 'projects'`),
+    must('super', `select count(*) from public.tracker_docs where collection = 'projects'`));
   refused('multi', `insert into public.tracker_docs (collection, id, data) values ('projects', 'p_x', '{}')`, /row-level security/);
   // Without the purchaser role: no stock, no procurement documents.
   for (const who of ['sales', 'books', 'designer']) {
     assert.equal(must(who, 'select public.can_stock()'), 'f');
     refused(who, 'select public.inventory_board()', /purchaser and the admin/);
-    assert.equal(must(who, `select count(*) from public.tracker_docs`), '0');
+    assert.equal(must(who, `select count(*) from public.tracker_docs where collection in ('procurementJobs', 'procurement')`), '0');
   }
+  assert.equal(must('sales', `select count(*) from public.tracker_docs`), '0');
+  assert.equal(must('designer', `select count(*) from public.tracker_docs`), '0');
 });
 
-test('the bookkeeper role exists but opens nothing yet beyond its own attendance', () => {
+test('the bookkeeper: the books and the company profile (phase 5), no stages, no team, their own attendance', () => {
   const { must, refused } = db;
   assert.equal(roles('books'), 'bookkeeper');
   assert.equal(must('super', `select count(*) from unnest(enum_range(null::public.stage_key)) s where public.role_owns_stage('bookkeeper', s::text)`), '0');
   assert.deepEqual(board('books').projects, []);
-  // The books read through row-level security: a bookkeeper gets nothing back (opens in phase 5).
+  // The books are theirs since v3.1 (tests/bookkeeper.test.cjs has the details).
   const books = JSON.parse(must('books', 'select public.acct_config()'));
-  assert.deepEqual([books.settings, books.accounts, books.projects], [null, [], []]);
-  refused('books', `select public.acct_save_settings('{}'::jsonb)`, /Only an admin/);
+  assert.notEqual(books.settings, null); assert(books.accounts.length > 0);
+  assert.equal(must('books', 'select public.can_keep_books()'), 't');
   refused('books', 'select public.team_list()', /Only an admin/);
   must('books', 'select public.attendance_me()');
 });

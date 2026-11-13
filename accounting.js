@@ -595,7 +595,7 @@
     return rpc("my_roles").then(function(roles){
       roles = roles || [];
       if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
-      if(roles.indexOf("admin") < 0) return gate("Accounting is for admins", roles.length ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
+      if(roles.indexOf("admin") < 0 && roles.indexOf("bookkeeper") < 0) return gate("Accounting is for the admin and the bookkeeper", roles.length ? "Your account can use the project tools, not the books." : "This account hasn't been activated yet.");
       return start();
     });
   }).catch(function(e){ gate("Couldn't open the books", e && e.message ? e.message : String(e)); });

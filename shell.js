@@ -62,13 +62,13 @@
   window.addEventListener('pagereveal', quietTransition);
 
   // The portal's version, shown under the menu. MEMORY.md's newest entry must match (tests/memory.test.cjs).
-  var PORTAL_VERSION = '3.0';
+  var PORTAL_VERSION = '3.1';
   window.RitehomeVersion = PORTAL_VERSION;
 
   // Who may open which workspace. The database decides every read and write; this only keeps the
   // menu to the doors a person can actually open. null = every active account.
   var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
-    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin'], approvals: null, company: ['admin', 'bookkeeper']};
+    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin', 'bookkeeper'], team: ['admin'], activity: ['admin'], approvals: null, company: ['admin', 'bookkeeper']};
   var ROLES_KEY = 'ritehome_roles_v1';
   function canOpen(mode, roles){
     if(!roles || !roles.length) return false;

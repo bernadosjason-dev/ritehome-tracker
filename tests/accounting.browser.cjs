@@ -10,7 +10,7 @@ const {createFakeSupabase} = require('./fixtures/fake-supabase.cjs');
 const {startLocalPg} = require('./fixtures/local-pg.cjs');
 
 const db = startLocalPg();
-const ACTOR = {'u-admin': 'admin', 'u-designer': 'designer'};
+const ACTOR = {'u-admin': 'admin', 'u-designer': 'designer', 'u-book': 'book'};
 const literal = v => v === null || v === undefined ? 'null'
   : "'" + String(typeof v === 'object' ? JSON.stringify(v) : v).replace(/'/g, "''") + "'";
 const kind = {};
@@ -29,8 +29,10 @@ function rpc(name, args, user) {
 
 (async () => {
   const {U, must} = db;
+  U.book = '00000000-0000-4000-8000-000000000007';
   must('super', `insert into auth.users (id, email, raw_user_meta_data) values ('${U.admin}', 'owner@example.com', '{"full_name":"Jason"}'),
-    ('${U.designer}', 'designer@example.com', '{}');
+    ('${U.designer}', 'designer@example.com', '{}'), ('${U.book}', 'bea@example.com', '{"full_name":"Bea"}');
+    update public.profiles set role = 'bookkeeper', active = true where id = '${U.book}';
     update public.profiles set role = 'admin', active = true where id = '${U.admin}';
     update public.profiles set role = 'designer', active = true where id = '${U.designer}';`);
   const y = new Date().getFullYear();
@@ -41,7 +43,7 @@ function rpc(name, args, user) {
     ('expenses', 'E2', 'P1', '{"date":"${y}-01-15","item":"Crew lunch","category":"food","amount":800}');
     update public.acct_settings set books_start = '${y}-01-01';`);
 
-  const sb = createFakeSupabase({rpc});
+  const sb = createFakeSupabase({rpc, users: [{id: 'u-book', email: 'book@ritehome.test', password: 'x', role: 'bookkeeper', active: true}]});
   const browser = await chromium.launch({executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-dev-shm-usage']});
   try {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}, acceptDownloads: true});
@@ -58,7 +60,15 @@ function rpc(name, args, user) {
     assert(!await page.locator('#app').isVisible());
     await page.evaluate(() => localStorage.setItem('fake-sb-session', JSON.stringify({access_token: 'token-u-designer', user: {id: 'u-designer', email: 'designer@ritehome.test'}})));
     await page.reload({waitUntil: 'domcontentloaded'});
-    await page.waitForFunction(() => document.getElementById('gateTitle').textContent === 'Accounting is for admins');
+    await page.waitForFunction(() => document.getElementById('gateTitle').textContent === 'Accounting is for the admin and the bookkeeper');
+
+    // 1b. The bookkeeper opens the books and sees the same figures as the admin (the tracker's payments
+    //     and expenses included: their sources are readable to the bookkeeper, read only).
+    await page.evaluate(() => localStorage.setItem('fake-sb-session', JSON.stringify({access_token: 'token-u-book', user: {id: 'u-book', email: 'book@ritehome.test'}})));
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.waitForFunction(() => !document.getElementById('app').hidden && document.getElementById('statusKpis').textContent.includes('₱'));
+    assert.match(await text('statusKpis'), /Cash and bank\s+₱84,000\.00/i, 'the bookkeeper\'s books are the admin\'s books');
+    assert.equal(await page.locator('.side-link[aria-current="page"]').innerText(), 'Accounting');
 
     // 2. The admin sees the status page with the tracker already in the books.
     //    P1 down payment 56,000 VATable (sales 50,000 + output 6,000); P2 40,000 VATable until tagged

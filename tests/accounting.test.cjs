@@ -178,7 +178,7 @@ test("accounts and settings stay consistent", () => {
   refused("admin", "update public.acct_settings set receipts_account = '9999'", /foreign key/);
 });
 
-test("only an active admin sees or touches the books", () => {
+test("only an active admin or bookkeeper sees or touches the books (tests/bookkeeper.test.cjs has the bookkeeper)", () => {
   const { must, refused } = db;
   for (const who of ["designer", "inactive"]) {
     assert.equal(must(who, "select count(*) from public.acct_trial_balance('2026-12-31')"), "0", `${who}: empty trial balance`);
@@ -186,7 +186,7 @@ test("only an active admin sees or touches the books", () => {
     assert.equal(must(who, "select count(*) from public.acct_entries"), "0");
     assert.equal(must(who, "select count(*) from public.acct_accounts"), "0");
     assert.equal(must(who, "select count(*) from public.acct_receivables()"), "0");
-    refused(who, post("2026-07-01", "Sneaky", [{ account: "6040", debit: 1 }, { account: "1010", credit: 1 }]), /Only an admin/);
+    refused(who, post("2026-07-01", "Sneaky", [{ account: "6040", debit: 1 }, { account: "1010", credit: 1 }]), /Only the admin and the bookkeeper/);
     refused(who, "insert into public.acct_entries (entry_date, memo) values ('2026-07-01', 'x')", /row-level security/);
     assert.equal(must(who, "update public.acct_settings set locked_through = '2026-12-31' returning id"), "");
     refused(who, "insert into public.acct_project_vat (project_id, treatment) values ('P1', 'non_vat')", /row-level security/);
@@ -211,12 +211,12 @@ test("the page's API: config, settings, accounts, journal list and VAT tags", ()
   assert.equal(must("admin", "select debit from public.acct_trial_balance('2026-12-31') where code = '1020'"), "205000.00");
   must("admin", `select public.acct_save_settings('{"locked_through":"","receipts_account":"1010"}')`);
   assert.equal(must("admin", "select coalesce(locked_through::text, 'none') from public.acct_settings"), "none");
-  refused("designer", `select public.acct_save_settings('{"locked_through":"2026-12-31"}')`, /Only an admin/);
+  refused("designer", `select public.acct_save_settings('{"locked_through":"2026-12-31"}')`, /Only the admin and the bookkeeper/);
 
   must("admin", "select public.acct_save_account('1595', 'Accumulated depreciation - vehicles', 'asset', true, 'credit')");
   must("admin", "select public.acct_save_account('1595', 'Acc. depreciation - vehicles', 'asset', true)");
   assert.equal(must("admin", "select name || '|' || normal_side from public.acct_accounts where code = '1595'"), "Acc. depreciation - vehicles|credit");
-  refused("designer", "select public.acct_save_account('6999', 'x', 'expense')", /Only an admin/);
+  refused("designer", "select public.acct_save_account('6999', 'x', 'expense')", /Only the admin and the bookkeeper/);
 
   const journal = JSON.parse(must("admin", "select public.acct_journal('2026-07-01', '2026-07-31')"));
   assert.equal(journal[0].memo, "Power bill");
@@ -232,5 +232,5 @@ test("the page's API: config, settings, accounts, journal list and VAT tags", ()
   tags = JSON.parse(must("admin", "select public.acct_vat_tags()"));
   assert.equal(tags.projects.find((p) => p.id === "P3").treatment, null);
   assert.equal(tags.purchases.find((p) => p.doc_id === "E2").vat_invoice, false);
-  refused("designer", "select public.acct_tag_project('P1', 'non_vat')", /Only an admin/);
+  refused("designer", "select public.acct_tag_project('P1', 'non_vat')", /Only the admin and the bookkeeper/);
 });

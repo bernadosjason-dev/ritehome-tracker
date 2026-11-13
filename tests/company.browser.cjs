@@ -61,7 +61,7 @@ const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
     // 1. The bookkeeper: "/" sends them to the company profile; the menu has it under Office and finance.
     await as('u-book', '/', false);
     await page.waitForURL('**/company'); await page.waitForFunction(() => !document.getElementById('app').hidden);
-    assert.deepEqual(await page.locator('a.side-link:visible').evaluateAll(a => a.map(x => x.textContent)), ['Approvals', 'Schedule', 'Company profile', 'Attendance']);
+    assert.deepEqual(await page.locator('a.side-link:visible').evaluateAll(a => a.map(x => x.textContent)), ['Approvals', 'Schedule', 'Company profile', 'Accounting', 'Attendance']);
     assert.equal(await page.locator('[data-f="legal_name"]').inputValue(), 'Ritehome Modular Systems');
     assert.equal(await page.locator('#profSave').isDisabled(), true, 'Save is quiet until something changes');
 

@@ -67,7 +67,7 @@ PostgreSQL, Supabase auth/storage stubbed by `tests/fixtures/supabase-stub.sql`)
 and add a refused-side test for every new rule. Never edit a migration that has
 been applied to the live project: add a new, later-numbered one.
 
-Accounting (`accounting.html`, `accounting.js`, admin only): in-house management books, not the
+Accounting (`accounting.html`, `accounting.js`, admin and bookkeeper since v3.1): in-house management books, not the
 BIR-registered books (an external accounting firm keeps those). All figures are computed in SQL by
 `supabase/migrations/20261111000005_accounting.sql`; the page only formats and exports. Tracker
 expenses, company fuel and client payments post themselves through views (never copied), so
@@ -190,8 +190,8 @@ role (a check constraint refuses it as an extra; making someone admin clears the
 returns the main role (null when inactive); every permission question uses `my_roles()` / `has_role()`, and
 `can_work_stage()` lets a person work a stage when any of their roles owns it. Sales: the Leads workspace
 (`can_sell()`; converting a lead into a project stays admin-only because it sets price and budget) and the
-consultation and site visit stages. Bookkeeper: the role exists, nothing opens to it yet beyond its own
-attendance (books, attendance corrections and company profile come in phase 5). The site visit stage sits
+consultation and site visit stages. Bookkeeper: Company profile (v3.0, their home page) and Accounting (v3.1); attendance
+management comes in v3.2. The site visit stage sits
 between consultation and design (consultation 1 day + site visit 1 day in `schedule-plan.js`; the total stays
 40 working days). Role lists must agree in five places: the enum, `team.js` ROLES, `schedule.js` ROLE,
 `attendance.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change). The menu is
@@ -315,4 +315,15 @@ Browser-test page errors: `tests/fixtures/page-errors.cjs` (`collectErrors(page)
 except Chromium's "Transition was aborted because of invalid state" (a cancelled @view-transition page swap; nothing
 visible changes and no page script can catch it). Use it in suites that navigate between pages through the menu
 (portals, warm-start). Don't widen it to any other message.
+
+Bookkeeper in Accounting (Phase 5b, v3.1; `supabase/migrations/20261124000021_bookkeeper_books.sql`): the permission
+matrix gives the bookkeeper Accounting = Edit. Every `acct_*` policy is "admin or bookkeeper" (`can_keep_books()`), and
+`acct_post_entry`, `acct_void_entry` and `acct_require_admin` (used by settings, accounts and VAT tags) check
+`can_keep_books()`; refusals read "Only the admin and the bookkeeper …". Because the books post tracker payments,
+expenses and fuel through security_invoker views, the bookkeeper also has a read-only `tracker_docs` policy for the
+collections `projects`, `expenses`, `companyFuel` (no write policy: they can't change a project, an expense or a fuel
+log, and still can't see leads, procurement or anything else). If a view ever reads another collection, add it here
+or the bookkeeper's books silently lose those figures; `tests/bookkeeper.test.cjs` compares the bookkeeper's trial
+balance with the admin's, figure for figure. Entries stay voided, never edited or deleted. Tests: `node --test
+tests/bookkeeper.test.cjs tests/accounting.test.cjs` and `node tests/accounting.browser.cjs` (bookkeeper step 1b).
 

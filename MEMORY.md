@@ -28,6 +28,16 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
   it), and only then is the code that needs it pushed.
 - 2026-11-13 Duplicates: one record per fact. A thing typed in one workspace is never typed again
   in another.
+- 2026-11-13 Payroll (owner's answers to the salary brief): payroll before inventory v4. Rates are
+  set by the admin and the bookkeeper; only the admin approves a cutoff. No late grace period (lateness
+  is deducted per minute, never a whole day). The owner approves every overtime day (30-minute blocks
+  after 5 PM). Release on the 15th and the 30th (Feb: month end); when that day is a Sunday or a
+  holiday it moves, by as many days as it takes. Direction: **earlier** (the last working day before),
+  because DOLE's rule says wages due on a holiday or rest day are paid the working day before; the
+  owner can switch it to later in the payroll settings. Not answered, so defaults until the
+  accountant signs off: divisor 313 days (monthly-paid equivalent daily rate), and statutory
+  deductions (SSS, PhilHealth, Pag-IBIG, withholding tax) left as an empty table the accountant fills,
+  with a gross-pay export meanwhile.
 - Brutal honesty in reports to the owner; every task has a deadline.
 
 ## Live state (update when it changes)
@@ -79,8 +89,8 @@ Record the result in "Live state".
 | 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | live Nov 13 |
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
-| — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | plan proposed 2026-11-13; waiting for owner decisions (incl. priority vs inventory v4); payroll formulas need the accountant's sign-off |
-| — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; waiting for the owner's answers to 5 decisions, then build |
+| — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
+| — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
 

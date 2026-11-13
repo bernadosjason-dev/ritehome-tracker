@@ -31,17 +31,21 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 | What | Live | Notes |
 |---|---|---|
-| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked by the agent; **18–22 applied 2026-11-13 by the owner** in the SQL Editor (the approval card never reached them), confirmed by the owner's check query (all five "yes") and the company-files storage check (passed). Not yet md5-compared by the agent (its Supabase connection was down); registering 18–22 in the migration history is step 7 of the go-live page |
+| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked by the agent; **18–22 applied 2026-11-13 by the owner** in the SQL Editor (the approval card never reached them), confirmed by the owner's check query (all five "yes") and the company-files storage check (passed). **Still not md5-compared, smoke-tested or registered against the live database** (2026-11-13, second attempt: the agent's Supabase connector failed to connect and the session's network refuses `*.supabase.co`). Done locally instead: all 127 public functions of a local load of 01–22 fingerprinted; the three paste-ready scripts in `supabase/checks/go-live-18-22-*.sql` (1 md5 compare, 2 rolled-back smoke test, 3 register 18–22) each proven on a local load (compare: ALL MATCH, and a tampered function is caught; smoke: 14/14, nothing saved) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
-| Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase`. **Deploy of v3.2 pending** (2026-11-13: agent's Vercel connection down; owner to promote the branch's newest build, go-live page step 6) |
+| Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase`. **Deploy of v3.2 pending** (2026-11-13: agent's Vercel connection down; owner to promote the branch's newest build, go-live page step 6). 2026-11-13 second attempt also blocked: the agent's Vercel connector failed to connect and `api.vercel.com` / `portal.ritehomemodular.com` are refused by the session's network, so the agent could neither deploy nor check `/shell.js`. Branch HEAD verified before handing over: `PORTAL_VERSION = '3.2'`, unit tests 188/188 pass |
 
 ## Owner to-dos
 
 - Deploy v3.2: promote the newest `claude/portal-supabase` build in Vercel (go-live page step 6,
   https://claude.ai/artifact/S7dCwe5b58jB4dYQdvfkc8), check the menu says "Portal v3.2", tell the agent "live".
   (Done 2026-11-13: migrations 18–22 run in the SQL Editor; check query all "yes"; storage check passed.)
-- Optional: register 18–22 in Supabase's migration history (go-live page step 7).
+- Before or right after the deploy, in the SQL Editor, in order (each read-only or self-rolling-back
+  except 3): `supabase/checks/go-live-18-22-1-md5-compare.sql` (expect one row "ALL MATCH"),
+  `…-2-smoke.sql` (expect an error reading "SMOKE RESULT … 14 of 14 passed": the error is the
+  rollback), `…-3-register.sql` (expect 22 rows). Paste the three results to the agent.
+  Alternative: fix the agent's Supabase and Vercel connectors and say "go live" again.
 - Company profile: fill in the details and upload the permits with their expiry dates.
 - Telegram: add the two Edge Function secrets in the Supabase dashboard (never in chat).
 - Shelf count in Inventory before relying on stock: deliveries before v2.4 are not in stock.

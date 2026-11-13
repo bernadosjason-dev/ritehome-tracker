@@ -31,7 +31,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 | What | Live | Notes |
 |---|---|---|
-| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 to 22 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18 to 22 in order in the Supabase SQL Editor) |
+| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 to 22 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. 2026-11-13 later: the owner reports running 18 to 22 in the SQL Editor from the go-live page. **Not yet verified by the agent**: its Supabase and Vercel connections were down (502) and the session's network blocks supabase.co and the live site. Next: the owner sends the go-live page's step 3 result, or the agent verifies when the connections return; then register 18-22 in the migration history and deploy) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
 | Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase` |

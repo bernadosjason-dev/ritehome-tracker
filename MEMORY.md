@@ -46,6 +46,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–24 applied (18–24 by the owner in the SQL Editor). **Verified 2026-11-13 by the agent through the Supabase connector:** all 155 public functions match a local load of 01–24 (comment- and whitespace-normalised: none differ, none missing, none extra); rolled-back smoke test 25/25 (admin calls work; anon refused for dashboard, company, approvals, salaries, pay, statutory); company-files bucket and its two policies exactly as expected; 18–24 registered in `supabase_migrations.schema_migrations` (24 rows) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Registered in `supabase_migrations` 2026-11-13 |
+| Migration 25 (v4.1 payroll runs) | applied 2026-11-13 | owner ran it; agent verified (20/20 payroll functions match; browser can't call compute or write tables); registered. Settings: contributions on the 16-end payday, allowance taxable (defaults until the owner decides). No runs yet |
 | Migration 24 (v4.0 statutory rules) | applied 2026-11-13 | owner ran it; agent verified (16/16 functions match, live figures match the tests). 9 rules seeded, all **waiting for the accountant's review**. Registered in `supabase_migrations` 2026-11-13 |
 | Holidays on the calendar | 36 loaded 2026-11-13 by the agent (owner: "we follow what's online") | National list from Proclamation No. 1006 s. 2025 (2026) and No. 1427 s. 2026 (2027), read from the PCO PDFs: 10 regular + 8 special each year, typed regular/special, source in each event's notes. Not included: Eid'l Fitr / Eid'l Adha (proclaimed separately each year), NCR-only days, Cagayan de Oro local days (owner to add if the company observes them), the EDSA special *working* day. Release dates now: Nov 16-30 -> Sat Nov 28, Dec 16-31 -> Tue Dec 29 |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
@@ -99,15 +100,16 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
-| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 live, 4.1 built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
 
-### 4.1 — 2026-11-13 — Payroll runs and payslips (pending: migration 25 not applied)
-Branch `claude/payroll-runs-v4.1` (preview only). Migration `20261128000025_payroll_runs.sql` (**not applied**).
-Built the night of Nov 13, a week ahead of the Fri Nov 20 due date. Goes live when the owner runs migration 25
-and says "merge".
+### 4.1 — 2026-11-13 — Payroll runs and payslips (live)
+Migration `20261128000025_payroll_runs.sql`: applied by the owner; verified by the agent through the connector (all
+172 public functions present, the 20 payroll ones match the tested source; internals and tables closed to browsers;
+registered in `supabase_migrations`). Branch `claude/payroll-runs-v4.1` merged into production the night of Nov 13,
+a week ahead of the Fri Nov 20 due date.
 - Payroll runs (Attendance → Pay → Payroll runs): the bookkeeper or admin prepares the cutoff that contains a
   date; the database computes each line from attendance: basic pay, premiums, overtime, allowance, approved
   adjustments, SSS / PhilHealth / Pag-IBIG (employee and employer, from the statutory rules), withholding tax

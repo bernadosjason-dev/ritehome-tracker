@@ -41,7 +41,7 @@ const db = startLocalPg();
     assert.match(await page.locator('#govTable .gov-warn').innerText(), /Dina is paid below the ₱500\.00 daily minimum wage/);
     const row = await page.locator('#govTable tr[data-gov="Dina"]').innerText();
     assert.match(row, /₱12,520\.00[\s\S]*₱625\.00 \/ ₱1,260\.00[\s\S]*None \(minimum wage earner\)/);
-    assert.match(await page.locator('#rulesTable').innerText(), /9 rules are waiting for review/);
+    assert.match(await page.locator('#rulesTable').innerText(), /16 rules are waiting for review/);
     assert.equal(await page.getByRole('button', {name: /^Approve /}).count(), 0);
     // Government numbers: a bad SSS number keeps the form; digits are formatted.
     await page.getByRole('button', {name: 'Government numbers for Dina'}).click();
@@ -58,12 +58,12 @@ const db = startLocalPg();
     // 2. Jason approves the SSS rule, naming who checked it; an empty name is refused.
     await as('u-admin');
     await page.locator('#attTabs [data-tab="pay"]').click();
-    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS/}).waitFor();
+    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS contributions/}).waitFor();
     answers.push('');
-    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS/}).click();
+    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS contributions/}).click();
     await page.waitForFunction(() => /who checked it/.test(document.getElementById('acctMsg').textContent));
     answers.push('A. Cruz, CPA, 2026-11-20');
-    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS/}).click();
+    await page.locator('#rulesTable').getByRole('button', {name: /^Approve SSS contributions/}).click();
     await msg('Rule approved');
     await page.waitForFunction(() => /Approved[\s\S]*Jason: A\. Cruz, CPA/.test(document.querySelector('#rulesTable tr[data-rule^="sss_contribution"]').textContent));
     assert.equal(must('super', `select status from public.statutory_rules where code = 'sss_contribution'`), 'approved');

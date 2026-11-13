@@ -407,3 +407,13 @@ Risks are rules on records with severity, `why` and `link`; add new rules there,
 `dashboard_overview()` overview stays. The Gantt reads `schedule_board()` (department per stage is the page's DEPT map).
 Chart colours are validated with the dataviz validator against #FFFFFF / #18181B; re-run it if you change them.
 Tests: `node --test tests/executive-dashboard.test.cjs` and `node tests/executive-dashboard.browser.cjs`.
+
+Compliance (v4.3; Accounting → Compliance in `accounting.js`, SQL in `supabase/migrations/20261130000027_compliance.sql`):
+deadlines are `statutory_rules` rows with codes `deadline_*` and `params` {frequency, due (day_of_next_month,
+last_day_of_next_month, by_pen_digit, by_name_letter, fixed_next_year, fixed_same_year), december, amount, done}; never
+write a deadline in code. `compliance_due(rule, period)` computes a due date from `compliance_settings` (PEN, employer
+name, tracking_from); `compliance_list(from, to)` returns obligations with amounts from approved payroll runs and a
+status from `compliance_records`. "Done" means a record of the kind the rule needs ('paid' or 'filed') with an agency
+reference; generating anything never marks it done. Records are void-only (admin). The executive dashboard merges
+`compliance_list` client-side (risks, calendar, timeline). Tests: `node --test tests/compliance.test.cjs` and
+`node tests/compliance.browser.cjs`.

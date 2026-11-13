@@ -10,7 +10,7 @@ const {startLocalPg} = require('./fixtures/local-pg.cjs');
 const {pgRpc} = require('./fixtures/pg-rpc.cjs');
 
 const db = startLocalPg();
-const READS = new Set(['executive_overview', 'executive_calendar', 'schedule_board', 'dashboard_overview', 'my_roles', 'my_role', 'notify_list', 'acct_receivables', 'audit_refused']);
+const READS = new Set(['executive_overview', 'compliance_list', 'executive_calendar', 'schedule_board', 'dashboard_overview', 'my_roles', 'my_role', 'notify_list', 'acct_receivables', 'audit_refused']);
 (async () => {
   const {U, must} = db;
   U.book = '00000000-0000-4000-8000-000000000007';

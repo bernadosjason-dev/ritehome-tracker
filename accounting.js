@@ -523,7 +523,98 @@
   }
 
   // ---------- tabs and start-up ----------
-  var LOADERS = {status: loadStatus, tb: loadTB, is: loadIS, bs: loadBS, vat: loadVAT, journal: loadJournal, ledger: loadLedger, tags: loadTags, settings: function(){ fillSettings(); return Promise.resolve(); }};
+  // ---------- Compliance (v4.3, supabase/migrations/20261130000027_compliance.sql) ----------
+  // Deadlines come from rules with sources; amounts from approved payroll; "done" only from a recorded reference.
+  var COMP = {view: "month", data: null};
+  var CSTAT = {done: ["good", "Done"], overdue: ["bad", "Overdue"], due_soon: ["warn", "Due soon"], upcoming: ["", "Upcoming"]};
+  function compRange(){
+    var a = $("compFrom").value || todayISO(), y = yearOf(a), m = Number(a.slice(5, 7)), t = todayISO(), from = (COMP.data && COMP.data.settings.tracking_from) || "2026-12-01";
+    function iso(Y, M, D){ return Y + "-" + String(M).padStart(2, "0") + "-" + String(D).padStart(2, "0"); }
+    function last(Y, M){ return new Date(Y, M, 0).getDate(); }
+    if(COMP.view === "month") return [iso(y, m, 1), iso(y, m, last(y, m))];
+    if(COMP.view === "quarter"){ var q = Math.floor((m - 1) / 3) * 3 + 1; return [iso(y, q, 1), iso(y, q + 2, last(y, q + 2))]; }
+    if(COMP.view === "year") return [iso(y, 1, 1), iso(y, 12, 31)];
+    if(COMP.view === "overdue") return [from < t ? from : t, t];
+    return [from, iso(yearOf(t) + 1, 12, 31)];
+  }
+  function loadCompliance(){
+    if(!$("compFrom").value) $("compFrom").value = todayISO();
+    var r = compRange();
+    return rpc("compliance_list", {p_from: r[0], p_to: r[1]}).then(function(d){ COMP.data = d; renderCompliance(); });
+  }
+  function renderCompliance(){
+    var d = COMP.data, items = d.items, v = COMP.view;
+    if(v === "overdue") items = items.filter(function(x){ return x.status === "overdue"; });
+    if(v === "done") items = items.filter(function(x){ return x.status === "done"; });
+    var count = function(s){ return d.items.filter(function(x){ return x.status === s; }).length; };
+    put("compKpis", h("div", {style: "display:contents"}, [["Overdue", count("overdue"), "Past the deadline, not recorded as done", count("overdue") > 0],
+      ["Due within 5 days", count("due_soon"), "File or pay, then record the reference"], ["Upcoming", count("upcoming"), "In this view"], ["Done", count("done"), "Recorded with a reference"]]
+      .map(function(k){ return h("div", {class: "kpi"}, [h("span", {class: "label", text: k[0]}), h("span", {class: "val" + (k[3] ? " neg" : ""), text: String(k[1])}), h("span", {class: "sub", text: k[2]})]); })));
+    var r = compRange();
+    $("compTitle").textContent = {month: "This month's deadlines", quarter: "This quarter's deadlines", year: "This year's deadlines", overdue: "Overdue", done: "Completed"}[v] + " · " + dateFmt(r[0]) + " – " + dateFmt(r[1]);
+    put("compList", items.length ? h("div", {class: "comp-list"}, items.map(compItem)) : h("p", {class: "muted", text: v === "overdue" ? "Nothing overdue." : "Nothing in this view."}));
+    renderCompSettings();
+  }
+  function compItem(x){
+    var st = CSTAT[x.status] || ["", x.status], form = h("div", {class: "comp-form", hidden: true});
+    var amount = x.amount != null ? peso(x.amount) : x.amount_partial != null ? peso(x.amount_partial) + " so far (" + x.payroll_approved + " of 2 payrolls approved)"
+      : x.payroll_runs != null && x.code !== "deadline_2316" && x.code !== "deadline_1604c" && x.code !== "deadline_13th_month" ? "Payroll for this month isn't approved yet" : "";
+    function open(kind){
+      var amt = h("input", {inputmode: "decimal", "aria-label": "Amount paid", value: x.amount != null ? String(x.amount) : ""});
+      var ref = h("input", {maxlength: "200", "aria-label": "Reference number", placeholder: kind === "paid" ? "e.g. bank or PRN reference" : "e.g. eBIRForms confirmation number"});
+      var on = h("input", {type: "date", "aria-label": "Date done", value: todayISO()});
+      var note = h("input", {maxlength: "1000", "aria-label": "Note", placeholder: "Note (optional)"});
+      var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: kind === "paid" ? "Record payment" : "Record filing"});
+      save.addEventListener("click", function(){
+        err.textContent = ""; save.disabled = true;
+        rpc("compliance_record_add", {p: {code: x.code, period: x.period, kind: kind, reference: ref.value, on_date: on.value, amount: amt.value.replace(/[,\s₱]/g, ""), note: note.value}})
+          .then(function(){ msg(x.name.split(":")[0] + " " + x.period + ": " + (kind === "paid" ? "payment" : "filing") + " recorded."); return loadCompliance(); })
+          .catch(function(e){ save.disabled = false; err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+      });
+      form.textContent = ""; form.hidden = false;
+      form.appendChild(h("div", {class: "acct-grid"}, [h("label", null, ["Reference number", ref]), h("label", null, ["Date done", on]),
+        kind === "paid" ? h("label", null, ["Amount paid (₱)", amt]) : null, h("label", {class: "wide"}, ["Note", note])]));
+      form.appendChild(err);
+      form.appendChild(h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ form.hidden = true; }})]));
+      ref.focus();
+    }
+    return h("article", {class: "comp-item " + x.status, "data-comp": x.code + "@" + x.period}, [
+      h("div", {class: "comp-head"}, [h("div", null, [h("strong", {text: x.name}), h("div", {class: "muted small", text: x.agency + " · for " + x.period + (x.rule_status !== "approved" ? " · rule waiting for the accountant's review" : "")})]),
+        h("div", {class: "comp-due"}, [h("span", {class: "pill " + st[0], text: st[1]}), h("strong", {text: "Due " + dateFmt(x.due)}),
+          x.weekend ? h("span", {class: "muted small", text: "A weekend or holiday: check the agency's rule"}) : null])]),
+      amount ? h("div", {class: "small", text: "Amount: " + amount}) : null,
+      x.records.length ? h("ul", {class: "comp-recs"}, x.records.map(function(c){
+        return h("li", null, [(c.kind === "paid" ? "Paid " + peso(c.amount) : "Filed") + " on " + dateFmt(c.on_date) + " · ref " + c.reference + (c.note ? " · " + c.note : "") + " · by " + (c.by || ""),
+          COMP.data.can_void ? h("button", {class: "link", type: "button", text: "Void", "aria-label": "Void " + c.reference, onclick: function(){
+            var why = window.prompt("Void this record? It stays in the history. Why?", ""); if(why == null) return;
+            rpc("compliance_record_void", {p_id: c.id, p_reason: why}).then(function(){ msg("Record voided."); return loadCompliance(); }).catch(fail); }}) : null]); })) : null,
+      x.status === "done" ? null : h("div", {class: "acct-actions"}, [
+        x.done_kind === "paid" ? h("button", {class: "btn ghost small", type: "button", text: "Record payment…", onclick: function(){ open("paid"); }}) : null,
+        h("button", {class: "btn ghost small", type: "button", text: "Record filing…", onclick: function(){ open("filed"); }}),
+        x.source_url ? h("a", {class: "small", href: x.source_url, target: "_blank", rel: "noopener noreferrer", text: "Source"}) : null]),
+      form]);
+  }
+  function renderCompSettings(){
+    var s = COMP.data.settings, admin = !!COMP.data.can_void, f = {};
+    var fields = [["employer_name", "Employer name (registered)"], ["bir_rdo", "BIR RDO code"], ["sss_employer_no", "SSS employer number"], ["philhealth_pen", "PhilHealth PEN"], ["pagibig_employer_id", "Pag-IBIG employer ID"]];
+    fields.forEach(function(x){ f[x[0]] = h("input", {value: s[x[0]] || "", "aria-label": x[1], maxlength: "160"}); });
+    f.bir_filing = h("select", {"aria-label": "BIR filing method"}, [["ebirforms", "eBIRForms (file by the 10th)"], ["efps", "eFPS (by filing group)"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    f.bir_filing.value = s.bir_filing;
+    f.tracking_from = h("input", {type: "date", value: s.tracking_from, "aria-label": "Track from", disabled: !admin});
+    var save = h("button", {class: "btn", type: "button", text: "Save", disabled: true}), err = h("p", {class: "form-error", role: "alert"});
+    Object.keys(f).forEach(function(k){ f[k].addEventListener("input", function(){ save.disabled = false; }); f[k].addEventListener("change", function(){ save.disabled = false; }); });
+    save.addEventListener("click", function(){
+      var body = {}; Object.keys(f).forEach(function(k){ if(k === "tracking_from" && !admin) return; if(String(f[k].value) !== String(s[k] || "")) body[k] = f[k].value; });
+      err.textContent = ""; save.disabled = true;
+      rpc("compliance_settings_save", {p: body}).then(function(){ msg("Employer registrations saved."); return loadCompliance(); })
+        .catch(function(e){ save.disabled = false; err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    put("compSettings", h("div", {style: "display:contents"}, [h("div", {class: "acct-grid"}, fields.map(function(x){ return h("label", null, [x[1], f[x[0]]]); }).concat([
+      h("label", null, ["BIR filing method", f.bir_filing]), h("label", null, ["Track deadlines from", f.tracking_from, h("span", {class: "hint", text: admin ? "The first month whose obligations are tracked here." : "Set by the admin."})])])), err,
+      h("div", {class: "acct-actions"}, save)]));
+  }
+
+  var LOADERS = {status: loadStatus, compliance: loadCompliance, tb: loadTB, is: loadIS, bs: loadBS, vat: loadVAT, journal: loadJournal, ledger: loadLedger, tags: loadTags, settings: function(){ fillSettings(); return Promise.resolve(); }};
   // Grey placeholder rows in a tab's tables while its figures load (styles in shell.css).
   var SKELETON = {status: ["statusKpis:kpis", "issueList:list", "arTable"], tb: ["tbTable"], is: ["isTable"], bs: ["bsTable"],
     vat: ["vatTable", "taxBox"], journal: ["journalList"], ledger: ["ledTable"], tags: ["tagProjects", "tagPurchases"]};
@@ -564,6 +655,11 @@
     var vy = $("vatYear"); [y, y - 1, y - 2].forEach(function(v){ vy.appendChild(h("option", {value: String(v), text: String(v)})); });
     document.querySelectorAll(".acct-tabs button").forEach(function(b){ b.addEventListener("click", function(){ location.hash = b.getAttribute("data-tab"); }); });
     window.addEventListener("hashchange", show);
+    document.querySelectorAll("[data-cview]").forEach(function(b){ b.addEventListener("click", function(){
+      COMP.view = b.getAttribute("data-cview");
+      document.querySelectorAll("[data-cview]").forEach(function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+      loadCompliance().catch(fail); }); });
+    $("compFrom").addEventListener("change", function(){ loadCompliance().catch(fail); });
     ["statusAsOf", "tbAsOf", "bsAsOf", "isFrom", "isTo", "vatYear", "jFrom", "jTo", "ledAccount", "ledFrom", "ledTo"].forEach(function(id){ $(id).addEventListener("change", reload); });
     $("tagSearch").addEventListener("input", renderTags); $("tagUntagged").addEventListener("change", renderTags);
     document.querySelectorAll("[data-csv]").forEach(function(b){ b.addEventListener("click", function(){

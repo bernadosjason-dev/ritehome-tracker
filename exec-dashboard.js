@@ -96,6 +96,27 @@
       h("div", {class: "ex-plot"}, [svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": label}, g), tip]), table]);
   }
 
+  // Deadlines (v4.3, compliance_list): overdue ones are critical, due within 5 days high.
+  var SHORT = {deadline_1601c: "BIR 1601-C", deadline_2316: "BIR 2316", deadline_1604c: "BIR 1604-C", deadline_sss: "SSS remittance",
+    deadline_philhealth: "PhilHealth remittance", deadline_pagibig: "Pag-IBIG remittance", deadline_13th_month: "13th-month pay"};
+  function mergeComplianceRisks(){
+    (data.compliance || []).forEach(function(x){
+      if(x.status !== "overdue" && x.status !== "due_soon") return;
+      data.risks.push({severity: x.status === "overdue" ? "critical" : "high", area: "Compliance",
+        title: (SHORT[x.code] || x.name) + " for " + x.period + (x.status === "overdue" ? " is overdue" : " is due " + day(x.due)),
+        why: "Due " + day(x.due) + " under " + x.source_title + (x.rule_status !== "approved" ? " (rule waiting for the accountant's review)" : "") + ". Nothing recorded as " + x.done_kind + " yet." + (x.amount != null ? " Amount from approved payroll: " + peso(x.amount) + "." : ""),
+        link: "accounting"});
+    });
+    var rank = {critical: 0, high: 1, moderate: 2, low: 3};
+    data.risks.sort(function(a, b){ return rank[a.severity] - rank[b.severity]; });
+  }
+  function complianceCal(from, to){
+    return (data.compliance || []).filter(function(x){ return x.due >= from && x.due <= to; }).map(function(x){
+      return {date: x.due, category: "compliance", title: (SHORT[x.code] || x.name) + " " + x.period, detail: x.agency, link: "accounting",
+        status: x.status === "done" ? "done" : x.status === "overdue" ? "overdue" : "upcoming", amount: x.amount, comp: x};
+    });
+  }
+
   // ---------- 1. overview ----------
   function overview(){
     var o = data.org, t = o.today, risks = data.risks, crit = risks.filter(function(r){ return r.severity === "critical" || r.severity === "high"; }).length;
@@ -165,7 +186,18 @@
         h("div", {class: "kpi ex-stat"}, [h("span", {class: "label"}, ["Rest of the cutoff ", tag("forecast", "Forecast")]), h("span", {class: "val", text: peso(p.forecast_rest)}), h("span", {class: "sub-line", text: plural(p.working_days_left, "working day", "working days") + " left. " + p.forecast_assumption})]),
         stat("Approved this month", peso(m.approved_net), "Employer contributions " + peso(m.employer_contributions) + " · tax withheld " + peso(m.withholding), "", link("attendance"))]),
         h("div", {class: "acct-scroll"}, runs),
-        h("p", {class: "muted small", text: (p.rules_pending ? p.rules_pending + " statutory rules are still waiting for the accountant, so contributions and tax are estimates. " : "") + "Remittance deadlines and filing status for BIR, SSS, PhilHealth and Pag-IBIG arrive with the compliance update (v4.3)."})]));
+        compliancePanel(),
+        h("p", {class: "muted small", text: p.rules_pending ? p.rules_pending + " statutory rules (rates and deadlines) are still waiting for the accountant, so contributions, tax and due dates are estimates." : ""})]));
+  }
+
+  function compliancePanel(){
+    var c = data.compliance;
+    if(!c) return h("p", {class: "muted small", text: "Tax and contribution deadlines show here once the compliance update is in the database."});
+    var open = c.filter(function(x){ return x.status !== "done"; }).sort(function(a, b){ return a.due < b.due ? -1 : 1; });
+    var od = open.filter(function(x){ return x.status === "overdue"; }).length;
+    return h("div", {class: "ex-comp"}, [h("div", {class: "muted small", text: od ? plural(od, "obligation is", "obligations are") + " overdue." : "Nothing overdue."}),
+      h("ul", {class: "ex-mini"}, open.slice(0, 5).map(function(x){ return h("li", null, [(SHORT[x.code] || x.name) + " · " + x.period, h("span", {class: x.status === "overdue" ? "neg" : null, text: (x.status === "overdue" ? "overdue since " : "due ") + day(x.due)})]); })),
+      h("a", {class: "small", href: link("accounting") + "#compliance", text: "All deadlines in Accounting → Compliance"})]);
   }
 
   // ---------- 5. calendar: day, week, month, year ----------
@@ -179,7 +211,10 @@
   }
   function loadCal(){
     var r = calRange();
-    return client.rpc("executive_calendar", {p_from: r[0], p_to: r[1]}).then(function(res){ cal.items = res.error ? [] : (res.data || []); cal.error = res.error; renderCal(); });
+    return Promise.all([client.rpc("executive_calendar", {p_from: r[0], p_to: r[1]}), client.rpc("compliance_list", {p_from: r[0], p_to: r[1]})]).then(function(res){
+      cal.error = res[0].error; cal.items = (res[0].error ? [] : (res[0].data || [])).concat(res[1].error || !res[1].data ? [] :
+        res[1].data.items.filter(function(x){ return x.due >= r[0] && x.due <= r[1]; }).map(function(x){ return {date: x.due, category: "compliance", title: (SHORT[x.code] || x.name) + " " + x.period, detail: x.agency, link: "accounting", status: x.status === "done" ? "done" : x.status === "overdue" ? "overdue" : "upcoming"}; }));
+      renderCal(); });
   }
   function itemsOn(d){ return cal.items.filter(function(x){ return !cal.hide[x.category] && x.date <= d && (x.end || x.date) >= d; }); }
   function itemEl(x){
@@ -287,7 +322,8 @@
     var box = h("div", {class: "ex-timeline"}, h("p", {class: "muted small", text: "Loading…"}));
     var from = addDays(data.today, -30), to = addDays(data.today, 60);
     client.rpc("executive_calendar", {p_from: from, p_to: to}).then(function(res){
-      var list = (res.data || []).filter(function(x){ return ["money_in", "money_out", "payroll", "compliance"].indexOf(x.category) >= 0 && !(x.category === "payroll" && x.title === "Cutoff ends"); });
+      var list = (res.data || []).filter(function(x){ return ["money_in", "money_out", "payroll", "compliance"].indexOf(x.category) >= 0 && !(x.category === "payroll" && x.title === "Cutoff ends"); })
+        .concat(complianceCal(from, to));
       box.textContent = "";
       if(!list.length){ box.appendChild(h("p", {class: "muted", text: "Nothing in the last 30 or next 60 days."})); return; }
       var by = {}; list.forEach(function(x){ (by[x.date] = by[x.date] || []).push(x); });
@@ -298,11 +334,12 @@
             var kind = x.category === "money_in" ? ["in", "Received"] : x.category === "money_out" ? ["out", x.title] : x.category === "payroll" ? ["pay", "Pay day"] : ["comp", "Due"];
             var state = x.category === "payroll" ? (x.status === "released" ? "paid" : past ? "overdue" : "upcoming") : x.status || (past ? "done" : "upcoming");
             return h("div", {class: "ex-tl-item"}, [tag(kind[0], kind[1]), h("span", {text: (x.category === "payroll" ? x.detail : x.title) + (x.amount != null ? " · " + peso2.format(x.amount) : "")}),
-              x.category === "payroll" ? h("span", {class: "ex-state " + state, text: state === "overdue" ? "pay day passed, payroll " + x.status : state === "paid" ? "released" : "payroll " + x.status}) : null]);
+              x.category === "payroll" ? h("span", {class: "ex-state " + state, text: state === "overdue" ? "pay day passed, payroll " + x.status : state === "paid" ? "released" : "payroll " + x.status})
+              : x.category === "compliance" ? h("span", {class: "ex-state " + (state === "done" ? "paid" : state), text: state === "done" ? "done" : state === "overdue" ? "overdue" : "not recorded yet"}) : null]);
           }))]);
       })));
     });
-    return card("exTimeline", "Financial timeline", "The last 30 days and the next 60: money received and paid (from the books), pay days and their payroll status. Loan payments, bills and tax deadlines appear once they're tracked (v4.3).", box);
+    return card("exTimeline", "Financial timeline", "The last 30 days and the next 60: money received and paid (from the books), pay days and their payroll status, and tax and contribution deadlines. Loans and supplier bills appear once they're in the books.", box);
   }
 
   // ---------- 8. organisational performance ----------
@@ -363,7 +400,9 @@
       return client.rpc("executive_overview").then(function(r){
         if(r.error || !r.data) return false;
         data = r.data;
-        return client.rpc("schedule_board").then(function(b){ board = b.error ? null : b.data; render(); return true; }, function(){ board = null; render(); return true; });
+        return client.rpc("compliance_list", {p_from: addDays(data.today, -400), p_to: addDays(data.today, 60)}).then(function(c){
+          data.compliance = c.error || !c.data ? null : c.data.items; mergeComplianceRisks();
+        }, function(){ data.compliance = null; }).then(function(){ return client.rpc("schedule_board"); }).then(function(b){ board = b.error ? null : b.data; render(); return true; }, function(){ board = null; render(); return true; });
       }, function(){ return false; });
     }
   };

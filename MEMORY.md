@@ -102,10 +102,34 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
-| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live, 4.2 dashboard built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live, 4.2 dashboard and 4.3 compliance built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.3 — 2026-11-14 — Compliance records and calendar (pending: migrations 26 and 27 not applied)
+Branch `claude/compliance-v4.3` (built on 4.2; preview only). Migration `20261130000027_compliance.sql` (**not applied**;
+needs 26 first). Due Thu Nov 26; built Nov 14.
+- Accounting → Compliance: every tax and contribution obligation with its due date, the amount from approved
+  payroll runs, and its status (overdue / due soon / upcoming / done). Views: this month, quarter, year,
+  overdue, completed. Done only when someone records the reference of the filing or payment made in the
+  agency's own system; a 1601-C or remittance needs "paid", 2316 and 1604-C need "filed". Records are never
+  edited or deleted; the admin voids with a reason.
+- Deadlines are statutory rules (7 new rows, all waiting for the accountant), checked 2026-11-13:
+  1601-C 10th of the next month (eFPS help; December's Jan 15 from a secondary source), 2316 and 1604-C Jan 31,
+  SSS last day of the next month (sss.gov.ph), PhilHealth 15th or 20th by the PEN's last digit
+  (philhealth.gov.ph), Pag-IBIG by the employer name's first letter ("Ritehome": the month's end; secondary
+  sources), 13th month Dec 24 (PD 851). A weekend or holiday deadline is flagged, not moved.
+- Employer registrations (SSS employer no., PhilHealth PEN, Pag-IBIG ID, BIR RDO, eBIRForms or eFPS) live on the
+  Compliance tab (not Company profile, as said earlier): they set the deadlines. Tracking starts Dec 1 2026
+  (the first official payroll); only the admin changes that.
+- The executive dashboard shows overdue deadlines as critical risks and those due within 5 days as high, puts
+  deadlines on the calendar and the financial timeline, and lists the next ones in Payroll and compliance.
+- "Rules waiting for the accountant" is now 16 (9 rates + 7 deadlines).
+- Not yet: BIR form files (1601-C, 2316, 1604-C alphalist) and proof-of-payment uploads (an upload needs the
+  storage check AGENTS.md requires).
+- Tests: `tests/compliance.test.cjs` (October payroll amounts and due dates by hand) and `tests/compliance.browser.cjs`.
+  Full run: 211 unit tests and every browser suite pass.
 
 ### 4.2 — 2026-11-14 — Executive dashboard (pending: migration 26 not applied)
 Branch `claude/dashboard-v4.2` (preview only). Migration `20261129000026_executive_dashboard.sql` (**not applied**).

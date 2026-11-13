@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
-<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-30.1">
 <link rel="stylesheet" href="shell.css?v=2026-11-25.1">
 <link rel="expect" href="#pageReady" blocking="render">
 <script>window.RitehomePortal = {mode: "accounting"};</script>
@@ -41,6 +41,7 @@
       <button type="button" data-tab="is">Income statement</button>
       <button type="button" data-tab="bs">Balance sheet</button>
       <button type="button" data-tab="vat">VAT &amp; tax</button>
+      <button type="button" data-tab="compliance">Compliance</button>
       <button type="button" data-tab="journal">Journal</button>
       <button type="button" data-tab="ledger">Ledger</button>
       <button type="button" data-tab="tags">VAT tags</button>
@@ -77,6 +78,23 @@
         <p class="muted small">Output VAT is 12/112 of each VATable payment (cash plus tax the client withheld). Input VAT counts only purchases tagged as backed by a VAT invoice. “Prepare entry” fills in the journal entry that settles a quarter, for you to check and post after filing.</p>
         <div id="vatTable"></div></div>
       <div class="card"><h2>Income tax estimate <span class="muted" id="taxTitle"></span></h2><div id="taxBox"></div></div>
+    </section>
+
+    <section class="acct-tab" id="tab-compliance" hidden>
+      <div class="acct-bar no-print comp-bar">
+        <div class="comp-seg" role="group" aria-label="Show">
+          <button type="button" data-cview="month" aria-pressed="true">This month</button><button type="button" data-cview="quarter" aria-pressed="false">Quarter</button>
+          <button type="button" data-cview="year" aria-pressed="false">Year</button><button type="button" data-cview="overdue" aria-pressed="false">Overdue</button>
+          <button type="button" data-cview="done" aria-pressed="false">Completed</button></div>
+        <label>From <input type="date" id="compFrom"></label>
+      </div>
+      <div class="kpis" id="compKpis"></div>
+      <section class="card"><h2 id="compTitle">Deadlines</h2>
+        <p class="muted small">Recording here doesn't file or pay anything: file and pay in eBIRForms or eFPS, My.SSS, PhilHealth's EPRS and Pag-IBIG's portal, then record the reference number here. Amounts come from approved payroll runs. Each deadline is a rule with its official source, waiting for the accountant's review until approved (Attendance → Pay → Statutory rules).</p>
+        <div id="compList"></div></section>
+      <section class="card"><h2>Employer registrations</h2>
+        <p class="muted small">These set the deadlines: PhilHealth's window follows the PEN's last digit, Pag-IBIG's the employer name's first letter, and eFPS filers file 1601-C by group.</p>
+        <div id="compSettings"></div></section>
     </section>
 
     <section class="acct-tab" id="tab-journal" hidden>
@@ -144,7 +162,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="accounting.js?v=2026-11-24.1"></script>
+<script src="accounting.js?v=2026-11-30.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

@@ -46,6 +46,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked by the agent; **18–22 applied 2026-11-13 by the owner** in the SQL Editor (the approval card never reached them), confirmed by the owner's check query (all five "yes") and the company-files storage check (passed). **Still not md5-compared, smoke-tested or registered against the live database** (2026-11-13, second attempt: the agent's Supabase connector failed to connect and the session's network refuses `*.supabase.co`). Done locally instead: all 127 public functions of a local load of 01–22 fingerprinted; the three paste-ready scripts in `supabase/checks/go-live-18-22-*.sql` (1 md5 compare, 2 rolled-back smoke test, 3 register 18–22) each proven on a local load (compare: ALL MATCH, and a tampered function is caught; smoke: 14/14, nothing saved) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Not yet registered in `supabase_migrations` |
+| Migration 24 (v4.0 statutory rules) | applied 2026-11-13 | owner ran it; agent verified (16/16 functions match, live figures match the tests). 9 rules seeded, all **waiting for the accountant's review**. Not yet registered in `supabase_migrations` |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
 | Vercel `ritehome-portal` | commit `012b3bc` (v3.2), live 2026-11-13 (owner confirmed "live") | portal.ritehomemodular.com. **2026-11-13: the owner connected the project to GitHub (bernadosjason-dev/ritehome-tracker) and set Production Branch Tracking to `claude/portal-supabase`**: every push to that branch deploys to production by itself (before this the project had no Git link and only connector-made deployments existed). `main` still holds the Oct 18 Apps Script code: never point production at it |
@@ -68,6 +69,8 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Payroll: enter each person's rate (Attendance → Pay → Rates) by Mon Nov 16 for the Nov 16-30
   parallel run. Add the 2026-27 holidays to the Schedule calendar, marking special days as special
   (none are on the live calendar: Nov 30 Bonifacio Day and Dec 8, 24, 25, 30, 31 are missing).
+- Statutory rules: have the accountant check the 9 rules (Attendance → Pay → Statutory rules), then approve each
+  naming who checked it. Enter government numbers per person.
 - Finance upgrade: answer the 8 decisions (2026-11-13 plan), and get the accountant to check the
   statutory rules before the first official payroll (Dec 1-15, released Dec 15).
 - Rule found 2026-11-13: Cagayan de Oro minimum wage is ₱500/day since May 1 2026 (Wage Order RX-24,
@@ -104,8 +107,10 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
-### 4.0 — 2026-11-13 — Statutory rules engine and government numbers (pending: migration 24 not applied)
-Branch `claude/finance-v4.0` (preview only). Migration `20261127000024_statutory_rules.sql` (**not applied**).
+### 4.0 — 2026-11-13 — Statutory rules engine and government numbers (live)
+Migration `20261127000024_statutory_rules.sql`: applied by the owner; verified by the agent through the connector
+(16/16 functions match the tested source; live SSS 15,650 -> 775 / 1,580, tax on 46,800 -> 4,568.40; internals closed
+to browsers). Branch `claude/finance-v4.0` merged into `claude/portal-supabase` (production).
 First part of the finance upgrade, built the night of Nov 13 while the owner's answers are pending (none of
 it depends on them). Goes live when the owner runs migration 24 and says "merge".
 - Statutory rules engine: every rate in a versioned `statutory_rules` row (agency, parameters, basis,

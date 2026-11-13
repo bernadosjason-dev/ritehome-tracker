@@ -395,3 +395,15 @@ semi-monthly table after the employee's contributions; minimum-wage earners pay 
 `can_keep_books()` (prepare, recompute, adjust, submit, record release) or `is_admin()` (decide adjustments, approve or
 return, void). Staff read only `payslips_mine()` (approved/released). Keep `tests/payroll-runs.test.cjs` figures
 hand-worked. Tests: `node --test tests/payroll-runs.test.cjs` and `node tests/payroll-runs.browser.cjs`.
+
+Executive dashboard (v4.2; `exec-dashboard.js`/`exec-dashboard.css` on "/", SQL in
+`supabase/migrations/20261129000026_executive_dashboard.sql`): read-only by construction. `executive_overview()` and
+`executive_calendar(from, to)` are STABLE, definer, `can_keep_books()`; never add a write to them or a form to the page
+(`tests/executive-dashboard.browser.cjs` fails if the page calls an RPC not on its read list). Money stays in boxes:
+actual (the books, `acct_gl` cash accounts 1010/1020/1030), owed to us (`acct_receivables()`), we owe (liability
+accounts), estimate (`pay_day_calc`), forecast (only with ≥ 6 full months of books; otherwise the reason, no numbers).
+Risks are rules on records with severity, `why` and `link`; add new rules there, never invented text. tracker.html's
+`loadOverview()` asks `RitehomeExec.load()` first and sets `data-exec` (hides `#overviewSection`); if it fails the old
+`dashboard_overview()` overview stays. The Gantt reads `schedule_board()` (department per stage is the page's DEPT map).
+Chart colours are validated with the dataviz validator against #FFFFFF / #18181B; re-run it if you change them.
+Tests: `node --test tests/executive-dashboard.test.cjs` and `node tests/executive-dashboard.browser.cjs`.

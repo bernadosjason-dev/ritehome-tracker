@@ -28,6 +28,8 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
   it), and only then is the code that needs it pushed.
 - 2026-11-13 Duplicates: one record per fact. A thing typed in one workspace is never typed again
   in another.
+- 2026-11-14 Executive dashboard before compliance (order "a"): v4.2 dashboard, v4.3 compliance records
+  and calendar, then 13th month / BIR annual / benefits / AI.
 - 2026-11-13 Payroll (owner's answers to the salary brief): payroll before inventory v4. Rates are
   set by the admin and the bookkeeper; only the admin approves a cutoff. No late grace period (lateness
   is deducted per minute, never a whole day). The owner approves every overtime day (30-minute blocks
@@ -100,10 +102,40 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
-| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live, 4.2 dashboard built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.2 — 2026-11-14 — Executive dashboard (pending: migration 26 not applied)
+Branch `claude/dashboard-v4.2` (preview only). Migration `20261129000026_executive_dashboard.sql` (**not applied**).
+Owner's decision (2026-11-14): the dashboard before the compliance records (order "a"); compliance becomes v4.3.
+Due Tue Nov 17; built early on Nov 14. Goes live when the owner runs migration 26 and says "merge".
+- "/" for the admin becomes a read-only executive dashboard (`exec-dashboard.js`/`.css`): headline computed
+  ("1 critical risk · ₱105,000 cash in the books · pay day Sat, Nov 14"), then overview figures, financial
+  health, cash flow, payroll and compliance, calendar, project timeline (Gantt), financial timeline,
+  organisation, risks, and an AI card that says plainly it is not switched on (decision 5).
+- Money in separate boxes, never added: Actual (the books: cash on hand, bank, e-wallets), Owed to us (contract
+  balances, including parts not billed yet), We owe (payables, taxes, contributions, loans from the books, or
+  "Not tracked" when the books hold none). Estimates and forecasts carry a label. Comparisons: this month vs
+  last, this quarter vs last, year to date (last year: "Not enough history").
+- Forecast only with 6 full months of books (3-month moving average, assumptions and "low" confidence shown);
+  until then it says why there is none.
+- Risks are SQL rules on real records, ranked critical / high / moderate / low, each with why and a link:
+  cash below zero, pay below minimum wage, payroll waiting / not released / not prepared near pay day,
+  people without a rate, rules waiting for the accountant, finished projects still owing, blocked or late
+  stages, punches to check, unanswered leads, expired/expiring documents, unusually high costs (needs 3 months),
+  stock out.
+- Calendar: day / week / month / year, category filters (holidays, events, milestones, payroll, compliance,
+  money in, money out); pay days moved off holidays. Gantt from `schedule_board()`, filters by project,
+  department, responsible, status (incl. late) and dates. Financial timeline: last 30 / next 60 days.
+- Read-only by construction: both SQL functions are STABLE; the browser test fails if the page calls anything
+  not on a read list. Admin and bookkeeper only. If the new data can't load, the old overview shows instead.
+- Charts: two colours validated (dataviz validator) on the portal's light and dark surfaces; hover tooltips,
+  legends and a "See the numbers" table.
+- Tests: `tests/executive-dashboard.test.cjs` (books, risks, calendar by hand) and
+  `tests/executive-dashboard.browser.cjs`. Full run: 208 unit + all browser suites pass; `approvals.browser`
+  failed once under load in the back-to-back run and passed 4 of 4 alone (timing flake, also before this change).
 
 ### 4.1 — 2026-11-13 — Payroll runs and payslips (live)
 Migration `20261128000025_payroll_runs.sql`: applied by the owner; verified by the agent through the connector (all

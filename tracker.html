@@ -488,6 +488,7 @@
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
 <link rel="stylesheet" href="shell.css?v=2026-11-25.1">
+<link rel="stylesheet" href="exec-dashboard.css?v=2026-11-29.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -593,6 +594,9 @@
       </div>
     </header>
 
+    <!-- Executive dashboard ("/", admin, v4.2): exec-dashboard.js, executive_overview() / executive_calendar() in
+         20261129000026_executive_dashboard.sql. Read-only. If it can't load, the overview below shows instead. -->
+    <div id="execDash" hidden></div>
     <!-- The company at a glance ("/", Supabase): dashboard_overview() in 20261121000018_one_record.sql. -->
     <section class="dash-section" id="overviewSection" hidden>
       <div class="kpis ov-kpis" id="ovKpis"></div>
@@ -1451,7 +1455,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-25.1";
+  var PAGE_VERSION = "2026-11-29.1";
 
   // ---------- reference data ----------
 
@@ -5441,6 +5445,8 @@
     final_cutlist:"Final cutlist", procurement:"Procurement", fabrication:"Fabrication", installation:"Installation", handover:"Handover"};
   function loadOverview(){
     if(!USE_SUPABASE || PORTAL !== "all") return;
+    var exec = window.RitehomeExec ? window.RitehomeExec.load(supabaseApi()) : Promise.resolve(false);
+    exec.then(function(ok){ if(ok) document.documentElement.setAttribute("data-exec", ""); }, function(){});
     supabaseApi().rpc("dashboard_overview").then(function(r){
       if(r.error || !r.data) return;   // no figures: the dashboard keeps the project lists instead
       renderOverview(r.data);
@@ -5720,6 +5726,7 @@
   renderSaveStatus();
 })();
 </script>
+<script src="exec-dashboard.js?v=2026-11-29.1"></script>
 <script src="ui.js?v=2026-11-13.1"></script>
 <span id="pageReady" hidden></span>
 </body>

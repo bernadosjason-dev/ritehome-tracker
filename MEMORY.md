@@ -37,14 +37,13 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked by the agent; **18–22 applied 2026-11-13 by the owner** in the SQL Editor (the approval card never reached them), confirmed by the owner's check query (all five "yes") and the company-files storage check (passed). **Still not md5-compared, smoke-tested or registered against the live database** (2026-11-13, second attempt: the agent's Supabase connector failed to connect and the session's network refuses `*.supabase.co`). Done locally instead: all 127 public functions of a local load of 01–22 fingerprinted; the three paste-ready scripts in `supabase/checks/go-live-18-22-*.sql` (1 md5 compare, 2 rolled-back smoke test, 3 register 18–22) each proven on a local load (compare: ALL MATCH, and a tampered function is caught; smoke: 14/14, nothing saved) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
-| Vercel `ritehome-portal` | building v3.2 from `claude/portal-supabase` (2026-11-13, pending the owner's check) | portal.ritehomemodular.com. **2026-11-13: the owner connected the project to GitHub (bernadosjason-dev/ritehome-tracker) and set Production Branch Tracking to `claude/portal-supabase`**: every push to that branch now deploys to production by itself (before this, the project had no Git link and only connector-made deployments existed; the agent's Vercel connector was down). `main` still holds the Oct 18 Apps Script code: never point production at it |
+| Vercel `ritehome-portal` | commit `012b3bc` (v3.2), live 2026-11-13 (owner confirmed "live") | portal.ritehomemodular.com. **2026-11-13: the owner connected the project to GitHub (bernadosjason-dev/ritehome-tracker) and set Production Branch Tracking to `claude/portal-supabase`**: every push to that branch deploys to production by itself (before this the project had no Git link and only connector-made deployments existed). `main` still holds the Oct 18 Apps Script code: never point production at it |
 
 ## Owner to-dos
 
-- Check the site shows "Portal v3.2" (refresh portal.ritehomemodular.com) and tell the agent "live".
-  (Done 2026-11-13: migrations 18–22 run; check query all "yes"; storage check passed; Vercel linked to
-  GitHub with production on `claude/portal-supabase`.)
-- Before or right after the deploy (go-live page step 7, with Copy buttons), in the SQL Editor, in order (each read-only or self-rolling-back
+- (Done 2026-11-13: migrations 18–22 run; check query all "yes"; storage check passed; Vercel linked to
+  GitHub; v3.2 live, owner confirmed.)
+- **Still open:** go-live page step 7 (Copy buttons), in the SQL Editor, in order (each read-only or self-rolling-back
   except 3): `supabase/checks/go-live-18-22-1-md5-compare.sql` (expect one row "ALL MATCH"),
   `…-2-smoke.sql` (expect an error reading "SMOKE RESULT … 14 of 14 passed": the error is the
   rollback), `…-3-register.sql` (expect 22 rows). Paste the three results to the agent.
@@ -77,14 +76,14 @@ Record the result in "Live state".
 | 1 | Roles: sales, bookkeeper, several roles per person, role menu | 2.0 | Nov 12 | live |
 | 2 | Activity log | 2.1 | Nov 12 | live |
 | 3 | Notifications: bell, Telegram | 2.2 | Nov 12 | live (Telegram waits for secrets) |
-| 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | database live; site deploy pending |
-| 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | database live; site deploy pending |
+| 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | live Nov 13 |
+| 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; waiting for the owner's answers to 5 decisions, then build |
 
 ## Version history (newest first)
 
-### 3.2 — 2026-11-13 — Phase 5c: attendance management (pending: database live Nov 13, site not deployed yet)
+### 3.2 — 2026-11-13 — Phase 5c: attendance management (live)
 Commit: see `git log` ("Attendance management"). Migration `20261125000022_attendance_records.sql`.
 - The admin and the bookkeeper record absences, leave (vacation, sick, emergency, bereavement,
   maternity/paternity, unpaid, other; paid or unpaid), corrections to punches and remarks, from
@@ -98,7 +97,7 @@ Commit: see `git log` ("Attendance management"). Migration `20261125000022_atten
   over with no punch, leave or absence: the days to ask about before payroll), in the table and the CSV.
 - Staff see what the office recorded about them on their own Attendance page.
 
-### 3.1 — 2026-11-13 — Phase 5b: the bookkeeper keeps the books (pending: database live Nov 13, site not deployed yet)
+### 3.1 — 2026-11-13 — Phase 5b: the bookkeeper keeps the books (live)
 Commit: see `git log` ("Bookkeeper in Accounting"). Migration `20261124000021_bookkeeper_books.sql`.
 - Accounting opens to the bookkeeper (the permission matrix: Accounting = Edit): every report, posting
   and voiding journal entries, settings, chart of accounts, VAT tags. The menu shows it to them.
@@ -107,7 +106,7 @@ Commit: see `git log` ("Bookkeeper in Accounting"). Migration `20261124000021_bo
 - Entries are still voided, never edited or deleted; each one names who posted it, is in the
   activity log, and the admin's bell hears about it.
 
-### 3.0 — 2026-11-13 — Phase 5a: company profile (pending: database live Nov 13, site not deployed yet)
+### 3.0 — 2026-11-13 — Phase 5a: company profile (live)
 Commit: see `git log` ("Company profile"). Migration `20261123000020_company_profile.sql`.
 - New Company profile page (`/company`, Office and finance), for the admin and the bookkeeper only
   (the master prompt's permission matrix): names, logo, address, contact numbers, email, website,
@@ -124,7 +123,7 @@ Commit: see `git log` ("Company profile"). Migration `20261123000020_company_pro
   `tests/fixtures/page-errors.cjs`. Every other page error still fails them. Now 0 failures in 8 runs.
 - Fix on the way: saving the company details left Save looking unsaved, so the page skipped redrawing.
 
-### 2.5 — 2026-11-13 — Phase 4: approvals (pending: database live Nov 13, site not deployed yet)
+### 2.5 — 2026-11-13 — Phase 4: approvals (live)
 Commit: see `git log` ("Phase 4: approvals"). Migration `20261122000019_approvals.sql`.
 - A stage that needs approval can't be marked done by its department: they submit it (a note and
   an optional link), which records a numbered version. The admin approves (stage done, the next
@@ -144,7 +143,7 @@ Commit: see `git log` ("Phase 4: approvals"). Migration `20261122000019_approval
   script can catch it. (Corrected in 3.0: the "1 run in 8" reported here was a lucky sample; the
   portals test still failed about half the time on a Chromium message no script can catch.)
 
-### 2.4 — 2026-11-12 — One record per fact (pending: database live Nov 13, site not deployed yet)
+### 2.4 — 2026-11-12 — One record per fact (live)
 Commit `67237d9`. Migration `20261121000018_one_record.sql`.
 - Site visit event sets the Site visit stage dates.
 - One guard against a second open project for the same client (Projects, whiteboard, won lead);

@@ -72,6 +72,7 @@ test('staff see only the projects they are assigned to, and never the money or t
 
 test('a status tap fills in the actual dates; only an admin moves planned dates or the assignee', () => {
   const { U, must, refused } = db;
+  db.must('super', `update public.approval_rules set required = false`);   // approvals are tests/approvals.test.cjs's subject
   must('designer', `select public.stage_save('p_k', 'design', ${j({ status: 'in_progress', notes: 'Client chose oak laminate' })})`);
   assert.equal(stage('p_k', 'design'), `in_progress|${today}|-|2026-11-16|2026-11-23`);
   must('designer', `select public.stage_save('p_k', 'design', ${j({ status: 'done' })})`);
@@ -89,6 +90,7 @@ test('a status tap fills in the actual dates; only an admin moves planned dates 
   must('designer', `select public.stage_save('p_k', 'cutlist', ${j({ status: 'in_progress', planned_start: '2026-11-24', planned_end: '2026-11-25' })})`);
   refused('designer', `select public.stage_save('p_k', 'cutlist', ${j({ actual_start: '2026-11-30', actual_end: '2026-11-20' })})`, /check constraint/);
   assert.equal(must('super', `select notes from public.project_stages where project_id = 'p_k' and stage = 'design'`), 'Client chose oak laminate');
+  db.must('super', `update public.approval_rules set required = stage in ('design', 'cutlist', 'bom', 'final_cutlist', 'fabrication', 'installation')`);
 });
 
 test('events: admin writes, staff see their projects and company-wide ones, Manila day edges', () => {
@@ -127,6 +129,7 @@ test('the calendar shows the admin open leads\' follow-ups and requested visits;
 
 test('the whiteboard: rows added by the admin, the office\'s own words, "submitted" and "no feedback yet"', () => {
   const { U, must, refused } = db;
+  db.must('super', `update public.approval_rules set required = false`);   // approvals are tests/approvals.test.cjs's subject
   const id = must('admin', `select public.board_project_save(${j({ clientName: 'Dr. Dy', projectType: 'TV console', inCharge: 'Jane' })})`);
   assert.match(id, /^p_[0-9a-f]{16}$/);
   const doc = JSON.parse(must('admin', `select data from public.tracker_docs where id = '${id}'`));
@@ -162,4 +165,5 @@ test('the whiteboard: rows added by the admin, the office\'s own words, "submitt
   refused('designer', `select public.stage_save('p_k', 'fabrication', ${j({ status: 'in_progress' })})`, /isn't yours/);
   refused('anon', `select public.board_project_save(${j({ clientName: 'X' })})`, /permission denied/);
   refused('anon', 'select * from public.project_labels()', /permission denied/);
+  db.must('super', `update public.approval_rules set required = stage in ('design', 'cutlist', 'bom', 'final_cutlist', 'fabrication', 'installation')`);
 });

@@ -73,6 +73,9 @@ test('the purchaser role elsewhere: procurement documents and the procurement st
   // On the Schedule: assigned the procurement stage, the purchaser can move it and nothing else.
   const pid = must('super', `select id from public.tracker_docs where collection = 'projects' limit 1`);
   must('admin', `select public.stage_save('${pid}', 'procurement', '{"assignee":"${U.purchaser}"}'::jsonb)`);
+  // Buying waits for the approved BOM (Phase 4: tests/approvals.test.cjs).
+  refused('purchaser', `select public.stage_save('${pid}', 'procurement', '{"status":"in_progress"}'::jsonb)`, /Procurement can't start until BOM is approved/);
+  must('admin', `select public.stage_save('${pid}', 'bom', '{"status":"done"}'::jsonb)`);
   must('purchaser', `select public.stage_save('${pid}', 'procurement', '{"status":"in_progress"}'::jsonb)`);
   refused('purchaser', `select public.stage_save('${pid}', 'design', '{"status":"done"}'::jsonb)`);
   const board = JSON.parse(must('purchaser', 'select public.schedule_board()'));

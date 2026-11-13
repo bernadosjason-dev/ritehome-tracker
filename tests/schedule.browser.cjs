@@ -173,7 +173,7 @@ const db = startLocalPg();
     assert.equal(await page.locator('.wb-add').count(), 0, 'only the admin adds rows');
     await page.locator('[data-stab="pipeline"]').click();
     assert.deepEqual(await page.locator('.pcard').evaluateAll(a => a.map(x => x.getAttribute('data-project'))), ['p_k']);
-    assert.deepEqual(await page.locator('a.side-link:visible').evaluateAll(a => a.map(x => x.textContent)), ['Schedule', 'Attendance']);
+    assert.deepEqual(await page.locator('a.side-link:visible').evaluateAll(a => a.map(x => x.textContent)), ['Approvals', 'Schedule', 'Attendance']);
     assert.equal(await page.locator('#addEventBtn').isHidden(), true);
     assert.ok(!(await page.locator('body').innerText()).includes('250,000'));
     await page.locator('.pcard[data-project="p_k"]').click();

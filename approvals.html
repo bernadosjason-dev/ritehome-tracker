@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Approvals</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-22.1">
+<link rel="stylesheet" href="approvals.css?v=2026-11-22.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "approvals"};</script>
+</head>
+<body class="acct approvals">
+<main class="wrap">
+<script src="shell.js?v=2026-11-22.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1 id="apTitle">Approvals</h1>
+      <p class="sub" id="apSub">Stages handed over for review: approve them, or send them back with what to change. Every version is kept.</p>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card" id="queueCard">
+      <div class="card-head"><div><h2 id="queueTitle">Waiting for review</h2><p class="muted" id="queueSub"></p></div></div>
+      <div id="queue" class="ap-list"></div>
+    </section>
+
+    <section class="card" id="historyCard">
+      <div class="card-head">
+        <div><h2 id="historyTitle">Decided</h2><p class="muted">Newest first. Approvals and revisions can't be edited or deleted.</p></div>
+        <label class="ap-filter">Project <select id="fProject"><option value="">Every project</option></select></label>
+      </div>
+      <div id="history" class="ap-list"></div>
+    </section>
+
+    <section class="card" id="rulesCard" hidden>
+      <div class="card-head"><div><h2>Which stages need approval</h2><p class="muted">A ticked stage can't be finished by its own department: they submit it, you approve it, and the next stage waits for that. Unticked stages are finished on the Schedule as before.</p></div></div>
+      <div id="rules" class="ap-rules"></div>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="approvals.js?v=2026-11-22.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

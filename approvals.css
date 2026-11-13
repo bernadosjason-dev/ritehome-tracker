@@ -1,0 +1,31 @@
+/* Approvals (approvals.html). Base pieces come from accounting.css; theme from shell.css. */
+.ap-list > div{display:grid;gap:10px}
+.ap-item{border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;background:var(--surface,#fff)}
+.ap-item.pending{border-color:color-mix(in srgb,var(--warn,#b7791f) 45%,var(--border))}
+.ap-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.ap-head strong{font-size:14.5px}
+.ap-meta{font-size:12.5px;color:var(--ink-muted)}
+.ap-note{margin:0;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.ap-remarks{font-size:13.5px;padding:8px 10px;border-radius:8px;background:var(--surface-2);overflow-wrap:anywhere}
+.ap-remarks::before{content:"Remarks: ";font-weight:600}
+.ap-link{font-size:13px;align-self:flex-start}
+.ap-earlier summary{cursor:pointer;font-size:12.5px;color:var(--ink-muted)}
+.ap-earlier ul{margin:6px 0 0;padding-left:18px;display:grid;gap:6px;font-size:13px}
+.ap-decide{display:grid;gap:8px;margin-top:4px}
+.ap-decide textarea{width:100%;min-height:52px;font:inherit;font-size:13.5px;padding:8px 10px;box-sizing:border-box}
+.ap-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ap-filter{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-muted)}
+.ap-filter select{min-height:34px;font-size:13.5px}
+.ap-rules > div{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 14px}
+.ap-rule{display:flex;align-items:center;gap:8px;font-size:14px;min-height:36px}
+.ap-rule input{width:18px;height:18px}
+#rulesCard,#historyCard{margin-top:14px}
+.ap-item .status-pill{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.ap-item .status-pill.good{background:var(--good-bg,#e6f4ea);color:var(--good,#1e7b34)}
+.ap-item .status-pill.warn{background:var(--warn-bg,#fdf3e1);color:var(--warn,#9a6200)}
+.ap-item .status-pill.bad{background:var(--bad-bg,#fde8e6);color:var(--bad,#b3261e)}
+.ap-item .status-pill.neutral{background:var(--surface-2);color:var(--ink-muted)}
+#historyCard .card-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+body .ap-filter{width:auto;max-width:280px}
+body .ap-rule{flex-direction:row;justify-content:flex-start;text-align:left;cursor:pointer}
+body .ap-rule input{margin:0;flex:none}

@@ -88,7 +88,7 @@ const ingest = p => db.must('anon', `select public.ingest_lead('${JSON.stringify
     await page.reload({waitUntil: 'domcontentloaded'});   // a hash-only change doesn't reload the page
     await page.waitForFunction(() => !document.getElementById('leadCard').hidden && document.getElementById('leadCard').textContent.includes('Clinic owner'));
     const menu = await page.$$eval('a.side-link', as => as.filter(a => !a.hidden).map(a => a.textContent.trim()));
-    assert.deepEqual(menu, ['Leads', 'Schedule', 'Attendance']);
+    assert.deepEqual(menu, ['Approvals', 'Leads', 'Schedule', 'Attendance']);
     await page.locator('#leadCard .stage-btns button', {hasText: 'Won'}).click();
     await page.waitForFunction(() => /Only the admin marks a lead won/.test(document.getElementById('acctMsg').textContent));
     assert.equal(must('admin', `select stage || '|' || (project_id is null) from public.leads where id = '${clinic}'`), 'contacted|true', 'still open, no project');

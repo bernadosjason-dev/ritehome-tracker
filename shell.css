@@ -487,3 +487,4 @@ body .bom-import-zone{border-radius:var(--r-sm)}               /* 16 − 10 */
 .ov-needs{margin-top:14px}
 .ov-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}
 .ov-list li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.side-ver{font-size:11px;color:var(--side-muted);margin-top:8px;font-variant-numeric:tabular-nums}

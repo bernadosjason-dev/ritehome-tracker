@@ -108,9 +108,42 @@
     return [from, to];
   }
   function monthParts(){ var m = state.month || today().slice(0, 7); return [Number(m.slice(0, 4)), Number(m.slice(5, 7))]; }
+  // Phase 4 approvals (20261122000019_approvals.sql): which stages need the admin's approval, and
+  // which are waiting for it. Asked directly (not through rpc()) so a database without them is just
+  // "no approvals", not a refusal in the log.
+  function quiet(name, args){ return client.rpc(name, args || {}).then(function(r){ return r.error ? null : r.data; }, function(){ return null; }); }
+  function loadApprovals(){
+    return Promise.all([quiet("approval_rules_list"), quiet("approvals_list", {p: {state: "pending", limit: 300}})]).then(function(r){
+      state.rules = {}; (r[0] || []).forEach(function(x){ state.rules[x.stage] = !!x.required; });
+      state.pending = {}; (r[1] || []).forEach(function(x){ state.pending[x.project_id + ":" + x.stage] = x; });
+    });
+  }
+  function needsApproval(key){ return !!(state.rules && state.rules[key]); }
+  function pendingOf(p, key){ return state.pending && state.pending[p.id + ":" + key]; }
+  // Staff don't finish an approval stage: "Submitted" opens the hand-off (a note, an optional link).
+  function staffList(p, key, current){
+    var list = statusList(key);
+    if(isAdmin() || !needsApproval(key)) return list;
+    return list.filter(function(o){ return o[0] !== "done" || current === "done"; })
+      .map(function(o){ return o[0] === "submitted" && current !== "submitted" ? ["submitted", "Submit for review…"] : o; });
+  }
+  function submitsForReview(key, status, was){ return !isAdmin() && needsApproval(key) && status === "submitted" && was !== "submitted"; }
+  function submitStage(p, key){
+    var what = (p.client || p.name) + " · " + stageLabel(key);
+    var note = window.prompt("Submit " + what + " for the admin's review.\n\nWhat are you handing over? (e.g. \"Layout B, fridge moved to the left wall\")", "");
+    if(note == null) return Promise.resolve(false);
+    var link = window.prompt("Link to the drawing, cutlist or BOM (optional: leave empty if there isn't one).", "");
+    if(link == null) return Promise.resolve(false);
+    return rpc("stage_submit", {p_project: p.id, p_stage: key, p_note: note, p_link: link}).then(function(r){
+      state.flash = p.id + ":" + key;
+      msg(what + " v" + (r && r.version || 1) + " submitted for review.");
+      return true;
+    });
+  }
+
   function load(){
-    return rpc("schedule_board").then(function(b){
-      state.board = b;
+    return Promise.all([rpc("schedule_board"), loadApprovals()]).then(function(res){
+      state.board = res[0];
       var r = range();
       return rpc("schedule_events", {p_from: r[0], p_to: r[1]});
     }).then(function(c){
@@ -198,10 +231,18 @@
     var cls = "wb-cell " + INK[s.status || "not_started"];
     var note = s.notes ? h("small", {class: "wb-note", text: s.notes}) : null;
     var glow = state.flash === p.id + ":" + key ? (state.flash = null, "just-saved") : null;
-    if(!s.can_edit) return h("td", {class: glow}, [h("span", {class: cls, text: s.status === "not_started" ? "" : statusWord(key, s.status)}), note]);
+    var waiting = pendingOf(p, key);
+    if(!s.can_edit || (waiting && !isAdmin())) return h("td", {class: glow}, [h("span", {class: cls, text: s.status === "not_started" ? "" : statusWord(key, s.status),
+      title: waiting ? "Waiting for the admin's review (v" + waiting.version + ")" : null}), note]);
     var sel = options(h("select", {class: cls, "aria-label": (p.client || p.name) + " " + stageLabel(key)}),
-      statusList(key).map(function(o){ return o[0] === "not_started" ? ["not_started", "—"] : o; }), s.status);
+      staffList(p, key, s.status).map(function(o){ return o[0] === "not_started" ? ["not_started", "—"] : o; }), s.status);
     sel.addEventListener("change", function(){
+      if(submitsForReview(key, sel.value, s.status)){
+        sel.disabled = true;
+        submitStage(p, key).then(function(done){ if(!done){ sel.disabled = false; sel.value = s.status; return; } return load(); })
+          .catch(function(e){ sel.disabled = false; sel.value = s.status; fail(e); });
+        return;
+      }
       sel.className = "wb-cell " + INK[sel.value];   // the marker colour changes at once
       sel.disabled = true;
       rpc("stage_save", {p_project: p.id, p_stage: key, p: {status: sel.value}})
@@ -395,11 +436,11 @@
     return h("div", {class: "stage-list"}, [head].concat(S.STAGES.map(function(d){ return stageRow(p, stageOf(p, d.key) || {stage: d.key}, d, t); })));
   }
   function stageRow(p, s, d, t){
-    var admin = isAdmin(), edit = !!s.can_edit;
+    var admin = isAdmin(), waiting = pendingOf(p, d.key), edit = !!s.can_edit && !(waiting && !admin);
     var overdue = s.status !== "done" && s.planned_end && s.planned_end < t;
     function field(lbl, node){ return h("label", null, [h("span", {class: "lbl", text: lbl}), node]); }
     function date(key, can){ return can ? h("input", {type: "date", value: s[key] || "", "data-k": key, "aria-label": d.label + " " + key.replace("_", " ")}) : h("span", {class: "ro", text: s[key] ? fmt(s[key]) : "—"}); }
-    var status = edit ? options(h("select", {"data-k": "status", "aria-label": d.label + " status"}), statusList(d.key), s.status) : h("span", {class: "ro", text: statusWord(d.key, s.status)});
+    var status = edit ? options(h("select", {"data-k": "status", "aria-label": d.label + " status"}), staffList(p, d.key, s.status), s.status) : h("span", {class: "ro", text: statusWord(d.key, s.status)});
     var who;
     if(admin){
       who = options(h("select", {"data-k": "assignee", "aria-label": d.label + " assigned to"}),
@@ -409,7 +450,8 @@
     var save = edit ? h("button", {class: "btn small save", type: "button", disabled: true, text: "Save"}) : h("span");
     var glow = state.flash === p.id + ":row:" + d.key ? (state.flash = null, " just-saved") : "";
     var row = h("div", {class: "stage-row" + (edit ? "" : " locked") + (overdue ? " overdue" : "") + glow, "data-stage": d.key}, [
-      h("div", {class: "name"}, [h("b", null, [stDot(d.key), d.label]), h("small", {text: d.owner + (overdue ? " · overdue" : "")})]),
+      h("div", {class: "name"}, [h("b", null, [stDot(d.key), d.label]), h("small", {text: d.owner + (overdue ? " · overdue" : "")
+        + (waiting ? " · v" + waiting.version + " waiting for review" : needsApproval(d.key) ? " · needs approval" : "")})]),
       field("Status", status), field("Planned start", date("planned_start", admin)), field("Planned finish", date("planned_end", admin)),
       field("Started", date("actual_start", edit)), field("Finished", date("actual_end", edit)), field("Assigned", who), save,
       notes ? h("div", {class: "notes"}, notes) : null
@@ -421,7 +463,12 @@
         var body = {};
         row.querySelectorAll("[data-k]").forEach(function(i){ body[i.getAttribute("data-k")] = i.value; });
         RitehomeBusy(save, true);
-        rpc("stage_save", {p_project: p.id, p_stage: d.key, p: body}).then(function(){ state.flash = p.id + ":row:" + d.key; msg(d.label + " saved."); return load(); }).catch(function(e){ RitehomeBusy(save, false); fail(e); });
+        var submit = submitsForReview(d.key, body.status, s.status);
+        if(submit) body.status = s.status;   // the other fields first; the hand-off sets the status
+        rpc("stage_save", {p_project: p.id, p_stage: d.key, p: body}).then(function(){
+          if(submit) return submitStage(p, d.key).then(function(){ return load(); });
+          state.flash = p.id + ":row:" + d.key; msg(d.label + " saved."); return load();
+        }).catch(function(e){ RitehomeBusy(save, false); fail(e); });
       });
     }
     return row;

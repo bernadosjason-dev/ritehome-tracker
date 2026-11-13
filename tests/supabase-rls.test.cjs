@@ -151,6 +151,7 @@ test("staff never see money: no tracker documents, only the safe project view", 
 });
 
 test("each role moves only its own stages, only on assigned projects", () => {
+  must('super', `update public.approval_rules set required = false`);   // approvals are tests/approvals.test.cjs's subject
   assert.equal(must("designer", "update public.project_stages set status = 'in_progress' where project_id = 'P1' and stage = 'design' returning stage"), "design");
   assert.equal(must("designer", "update public.project_stages set status = 'done' where project_id = 'P1' and stage = 'fabrication' returning stage"), "");
   assert.equal(must("fab", "update public.project_stages set status = 'in_progress', actual_start = '2026-11-20' where project_id = 'P1' and stage = 'fabrication' returning stage"), "fabrication");
@@ -160,6 +161,7 @@ test("each role moves only its own stages, only on assigned projects", () => {
   assert.equal(must("designer", "update public.project_stages set status = 'done' where project_id = 'P2' and stage = 'design' returning stage"), "");
   // Nobody but consultation/procurement's owner (admin) touches those stages.
   assert.equal(must("designer", "update public.project_stages set status = 'done' where project_id = 'P1' and stage = 'procurement' returning stage"), "");
+  must('super', `update public.approval_rules set required = stage in ('design', 'cutlist', 'bom', 'final_cutlist', 'fabrication', 'installation')`);
 });
 
 test("only an admin plans dates and assigns; staff can't reschedule", () => {

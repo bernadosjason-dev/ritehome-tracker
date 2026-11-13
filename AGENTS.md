@@ -9,6 +9,11 @@ step, update this file (and any skill under `.claude/skills/`, if one exists) so
 or Codex session knows it without being told. A portal change whose instructions here are stale is
 not finished.
 
+Owner's standing rule (2026-11-13): every change is documented in `MEMORY.md` with a version. Add an
+entry at the top of its version history (what changed, migration, commit, live or pending and why),
+bump `PORTAL_VERSION` in `shell.js` to match (shown under the menu), and keep its "Live state" and
+"Owner to-dos" true. `node --test tests/memory.test.cjs` fails when the two versions differ.
+
 The owner requires storage verification whenever upload controls are added or
 changed. Identify the actual destination and check its configured storage access,
 write permission, sharing permission, file limits and error handling. This tracker
@@ -254,9 +259,34 @@ thing is never typed in two places.
   that project already has BOMs or POs (legacy records are kept). Sheet mode keeps the old tabs.
 - Dashboard ("/", Supabase): `dashboard_overview()` (definer, admin only, counts only) feeds one tile per workspace
   (Leads unanswered, Schedule submitted/blocked/late, Stock out/low, Attendance today and punches to check), each a link,
-  plus "Waiting on you in the Schedule". With figures loaded `data-overview` hides the project lists, company fuel and
+  plus "Waiting on you" (a submitted stage links to /approvals, a blocked one to /schedule). With figures loaded `data-overview` hides the project lists, company fuel and
   the jump buttons (they live on /projects and /fuel); if the call fails the old lists stay. Health and "Who owes us"
   stay on the dashboard.
 Tests: `node --test tests/one-record.test.cjs tests/procurement.test.cjs` and `node tests/dashboard.browser.cjs`,
 plus the leads, schedule and procurement-jobs browser suites.
+
+Approvals (Phase 4; `approvals.html`/`approvals.js`/`approvals.css` at `/approvals`, every active account; SQL in
+`supabase/migrations/20261122000019_approvals.sql`): the department hand-off of the CRM master prompt (section 7).
+`approval_rules` (one row per `stage_key`, admin changes it through `approval_rules_save()`; defaults: design, cutlist,
+bom, final_cutlist, fabrication, installation) says which stages need approval. For those, `stage_approval_guard()`
+(BEFORE UPDATE OF status on `project_stages`, named `project_stages_approval` so it runs before the other guards)
+refuses staff marking the stage done, setting "submitted" without a submission, or moving it while a submission waits.
+Staff hand over with `stage_submit(project, stage, note, link)`: a `stage_submissions` row with the next `version`,
+then the stage turns "submitted". The admin decides with `stage_review(id, 'approved' | 'revise', remarks)`:
+approved = stage done; revise needs remarks and reopens the stage (in_progress). An admin marking a stage done on the
+Schedule approves what was waiting ("Marked done on the Schedule."). A stage can't start (leave not_started) while
+the stage before it (`stage_prev()`: site_visit→design→cutlist→bom→final_cutlist→fabrication→installation→handover;
+procurement waits for bom) needs approval and isn't done; the admin is never held. Submissions are never edited
+after the decision or deleted (`stage_submission_guard()`, privileges revoked; they go only with the project), so
+every version is kept. Reads: `approvals_list(p)` (state, project, stage, limit; admin all, staff their own and their
+stages'), `approval_rules_list()`. Schedule (`schedule.js`): for staff on an approval stage "Approved" is not offered,
+"Submit for review…" asks for the note and link (`window.prompt`), and a waiting stage is read-only; the approval
+calls go through `quiet()` so a database without migration 19 just shows no approvals. Activity log module
+"Approvals"; the bell rings once per submission ('handoff', "Dina submitted Design v2 for review · project"); the
+stage turning "submitted" with it is not a second event. Staff have no bell: they read decisions on /approvals.
+Tests: `node --test tests/approvals.test.cjs` and `node tests/approvals.browser.cjs`. Other suites that move staff
+stages switch approvals off for their own subject and restore the defaults (schedule, supabase-rls).
+
+Versions: `PORTAL_VERSION` in `shell.js` is shown under the menu (`#portalVersion`) and must equal the newest entry in
+`MEMORY.md` (`node --test tests/memory.test.cjs`).
 

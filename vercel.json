@@ -37,6 +37,10 @@
     {
       "source": "/activity",
       "destination": "/activity.html"
+    },
+    {
+      "source": "/approvals",
+      "destination": "/approvals.html"
     }
   ],
   "redirects": [

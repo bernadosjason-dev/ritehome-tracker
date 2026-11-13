@@ -20,6 +20,7 @@
     plus: 'M12 5v14M5 12h14',
     box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8',
     history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2',
+    approve: 'M9 12l2 2 4-4M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18',
     bell: 'M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0',
     close: 'M6 6l12 12M18 6L6 18'
   };
@@ -42,15 +43,30 @@
     if(mode === 'inventory') return CLEAN ? '/inventory' : 'inventory.html';
     if(mode === 'attendance') return CLEAN ? '/attendance' : 'attendance.html';
     if(mode === 'activity') return CLEAN ? '/activity' : 'activity.html';
+    if(mode === 'approvals') return CLEAN ? '/approvals' : 'approvals.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
   window.RitehomeLinks = {href: href};
 
+  // Page-to-page swaps (@view-transition in shell.css): when Chromium skips one (a reload or a redirect
+  // in the middle), its promises reject. Nothing waits on them, so say so instead of leaving them unhandled.
+  function quietTransition(e){
+    var t = e && e.viewTransition;
+    if(!t) return;
+    ['ready', 'finished', 'updateCallbackDone'].forEach(function(k){ if(t[k] && t[k].catch) t[k].catch(function(){}); });
+  }
+  window.addEventListener('pageswap', quietTransition);
+  window.addEventListener('pagereveal', quietTransition);
+
+  // The portal's version, shown under the menu. MEMORY.md's newest entry must match (tests/memory.test.cjs).
+  var PORTAL_VERSION = '2.5';
+  window.RitehomeVersion = PORTAL_VERSION;
+
   // Who may open which workspace. The database decides every read and write; this only keeps the
   // menu to the doors a person can actually open. null = every active account.
   var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
-    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin']};
+    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin'], approvals: null};
   var ROLES_KEY = 'ritehome_roles_v1';
   function canOpen(mode, roles){
     if(!roles || !roles.length) return false;
@@ -144,7 +160,7 @@
     var known = storedRoles();
     // Grouped by who owns the work: the admin sees every group; staff see only the groups they can open.
     var GROUPS = [
-      ['Overview', [['all', 'Dashboard', 'dash'], ['activity', 'Activity', 'history']]],
+      ['Overview', [['all', 'Dashboard', 'dash'], ['approvals', 'Approvals', 'approve'], ['activity', 'Activity', 'history']]],
       ['Sales', [['leads', 'Leads', 'leads']]],
       ['Design and production', [['schedule', 'Schedule', 'gantt'], ['projects', 'Projects', 'projects']]],
       ['Purchasing', [['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box']]],
@@ -174,7 +190,8 @@
     var who = el('div', 'side-who'); who.id = 'sideWho';
     var out = el('button', 'side-out', 'Sign out'); out.type = 'button'; out.id = 'sideSignOut';
     out.addEventListener('click', function(){ applyRoles(null); var b = document.getElementById('forgetKeyBtn'); if(b) b.click(); });
-    foot.appendChild(who); foot.appendChild(out); side.appendChild(foot);
+    var ver = el('div', 'side-ver', 'Portal v' + PORTAL_VERSION); ver.id = 'portalVersion';
+    foot.appendChild(who); foot.appendChild(out); foot.appendChild(ver); side.appendChild(foot);
     if(known) setTimeout(groupHeads, 0);
 
     var top = el('div', 'app-top no-print');
@@ -237,7 +254,7 @@
     return bellRpc('notify_list', {p_limit: 30}).then(function(d){ bell.data = d; bellCount(d.unread); if(bell.panel && !bell.panel.hidden) bellDraw(); });
   }
   function bellHref(link){
-    var m = /^\/(leads|schedule|inventory|attendance|activity|procurement|projects)(.*)$/.exec(link || '');
+    var m = /^\/(leads|schedule|inventory|attendance|activity|approvals|procurement|projects)(.*)$/.exec(link || '');
     return m ? href(m[1]) + m[2] : href('activity');
   }
   function bellDraw(){

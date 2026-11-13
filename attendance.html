@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
 <link rel="stylesheet" href="shell.css?v=2026-11-25.1">
-<link rel="stylesheet" href="attendance.css?v=2026-11-26.1">
+<link rel="stylesheet" href="attendance.css?v=2026-11-27.1">
 <link rel="expect" href="#pageReady" blocking="render">
 <script>window.RitehomePortal = {mode: "attendance"};</script>
 </head>
@@ -122,7 +122,13 @@
       <section class="card" id="ratesCard"><h2>Rates</h2>
         <p class="muted small">A new rate starts on its date; earlier days keep the rate they were worked at. Rates are never edited: a mistake is fixed by adding the right one with the same date.</p>
         <div id="ratesTable"></div></section>
+      <section class="card" id="govCard" hidden><h2>Government contributions</h2>
+        <p class="muted small" id="govSub">A full month at each person's rate, from the statutory rules below. Payroll runs will use actual pay. The employer's share is never taken from the employee.</p>
+        <div id="govTable"></div></section>
       <section class="card" id="settingsCard"><h2>How pay is computed</h2><div id="settingsBox"></div></section>
+      <section class="card" id="rulesCard" hidden><h2>Statutory rules</h2>
+        <p class="muted small">Every rate comes from one of these rows, with its official source and the day it was checked. A rule is never edited: a change in the law is a new version from its effective date. Figures from a rule still waiting for review are estimates.</p>
+        <div id="rulesTable"></div></section>
     </div>
   </div>
 
@@ -145,7 +151,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-11-26.1"></script>
+<script src="attendance.js?v=2026-11-27.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

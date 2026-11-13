@@ -452,6 +452,7 @@
     });
     return first.then(function(){ return Promise.all([loadPayDays(), quiet("salary_rates_list"), quiet("payroll_settings_get")]); }).then(function(r){
       state.rates = r[1] || []; state.settings = r[2]; renderRates(); renderSettings();
+      return loadStatutory();
     });
   }
   function loadPayDays(){
@@ -606,6 +607,93 @@
       h("p", {class: "muted small", text: "The Labor Code's rates, as multiples of the daily rate. Defaults until the accountant signs them off." + (edit ? "" : " Only the admin changes them.")}),
       h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(grid)),
       edit ? h("div", {class: "acct-actions"}, save) : null]));
+  }
+
+  // ---------- government contributions and statutory rules (v4.0, migration 24) ----------
+  var AGENCY_ORDER = ["BIR", "SSS", "PhilHealth", "Pag-IBIG", "DOLE"];
+  function loadStatutory(){
+    var today = state.me.today;
+    return Promise.all([quiet("statutory_overview", {p_date: today}), quiet("statutory_rules_list")]).then(function(r){
+      state.gov = r[0]; state.rules = r[1];
+      $("govCard").hidden = !state.gov; $("rulesCard").hidden = !state.rules;
+      if(!state.gov) return;
+      return Promise.all(state.gov.people.map(function(p){
+        return p.monthly == null ? null : quiet("statutory_month_estimate", {p_user: p.id, p_date: today});
+      })).then(function(est){ state.gov.people.forEach(function(p, i){ p.est = est[i]; }); renderGov(); renderRules(); });
+    });
+  }
+  function pending(x){ return x && x.rule_status && x.rule_status !== "approved"; }
+  function renderGov(){
+    var g = state.gov, admin = state.roles.indexOf("admin") >= 0, low = g.people.filter(function(p){ return p.below_minimum; });
+    var unapproved = g.people.some(function(p){ return p.est && [p.sss, p.philhealth, p.pagibig, p.est.withholding].some(pending); });
+    $("govSub").textContent = "A full month at each person's rate, from the statutory rules below. Payroll runs will use actual pay. The employer's share is never taken from the employee." +
+      (g.minimum_wage ? " Minimum wage here: " + peso(g.minimum_wage) + " a day." : "") + (unapproved ? " Some rules are still waiting for the accountant's review: these are estimates." : "");
+    var warn = low.length ? h("p", {class: "gov-warn", role: "alert", text: low.map(function(p){ return p.name; }).join(", ") + (low.length === 1 ? " is" : " are") +
+      " paid below the " + peso(g.minimum_wage) + " daily minimum wage (Wage Order RX-24). Raise the rate from the date it should have applied, and ask the accountant about back pay."}) : null;
+    function pair(x){ return x && x.employee != null ? peso(x.employee) + " / " + peso(x.employer) : "—"; }
+    put("govTable", h("div", {style: "display:contents"}, [warn, h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+      h("thead", null, h("tr", null, ["Person", "A month at their rate", "SSS (employee / employer)", "PhilHealth", "Pag-IBIG", "Tax withheld a month", "Government numbers"].map(function(t, i){ return h("th", {class: i && i < 6 ? "num" : null, text: t}); }))),
+      h("tbody", null, g.people.map(function(p){
+        var n = p.numbers || {}, have = ["tin", "sss_no", "philhealth_no", "pagibig_no"].filter(function(k){ return n[k]; }).length, may = !p.self || admin;
+        var tax = p.est ? (p.est.withholding.exempt ? "None (minimum wage earner)" : peso(p.est.withholding.tax)) : "—";
+        return h("tr", {"data-gov": p.name}, [
+          h("td", null, [h("strong", {text: p.name || "Unnamed"}), p.below_minimum ? h("div", {class: "neg", style: "font-size:12.5px", text: "Below minimum wage"}) : p.mwe ? h("div", {class: "muted", style: "font-size:12.5px", text: "Minimum wage earner" + (p.mwe_decided ? "" : " (from the rate)")}) : null]),
+          h("td", {class: "num", text: p.monthly != null ? peso(p.monthly) : "No rate"}),
+          h("td", {class: "num", text: pair(p.sss)}), h("td", {class: "num", text: pair(p.philhealth)}), h("td", {class: "num", text: pair(p.pagibig)}),
+          h("td", {class: "num", text: tax}),
+          h("td", null, [h("span", {class: "muted small", text: have + " of 4 "}), may ? h("button", {class: "btn ghost small", type: "button", text: "Edit…", "aria-label": "Government numbers for " + p.name, onclick: function(){ govForm(p); }}) : null])]);
+      }))]))]));
+  }
+  function govForm(p){
+    var n = p.numbers || {}, f = {};
+    var fields = [["tin", "TIN", "123-456-789-000"], ["sss_no", "SSS number", "34-1234567-8"], ["philhealth_no", "PhilHealth number", "12-345678901-2"], ["pagibig_no", "Pag-IBIG MID number", "1212-3456-7890"]];
+    fields.forEach(function(x){ f[x[0]] = h("input", {"aria-label": x[1], value: n[x[0]] || "", placeholder: x[2], inputmode: "numeric", autocomplete: "off"}); });
+    var hired = h("input", {type: "date", "aria-label": "Hired on", value: n.hired_on || ""}), birth = h("input", {type: "date", "aria-label": "Birth date", value: n.birth_date || ""});
+    var mwe = h("select", {"aria-label": "Minimum wage earner"}, [["", "Decide from the rate"], ["true", "Yes: exempt from withholding tax"], ["false", "No"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    mwe.value = n.minimum_wage_earner == null ? "" : String(n.minimum_wage_earner);
+    var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
+    save.addEventListener("click", function(){
+      err.textContent = ""; busy(save, true);
+      var body = {user_id: p.id, birth_date: birth.value, hired_on: hired.value, minimum_wage_earner: mwe.value};
+      fields.forEach(function(x){ body[x[0]] = f[x[0]].value; });
+      rpc("employee_statutory_save", {p: body}).then(function(){ $("look").hidden = true; msg(p.name + ": government numbers saved."); return loadStatutory(); })
+        .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    put("lookBox", h("div", {style: "display:contents"}, [
+      h("h2", {id: "lookTitle", text: "Government numbers · " + p.name}),
+      h("p", {class: "muted small", text: "Digits are enough; the dashes are added. Only the admin and the bookkeeper see these, and the person sees their own."}),
+      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["TIN", f.tin]), h("label", null, ["SSS number", f.sss_no])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["PhilHealth number", f.philhealth_no]), h("label", null, ["Pag-IBIG MID number", f.pagibig_no])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Hired on", hired]), h("label", null, ["Birth date", birth])]),
+        h("label", null, ["Minimum wage earner", mwe])]), err,
+      h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
+    $("look").hidden = false; f.tin.focus();
+  }
+  function renderRules(){
+    var R = state.rules; if(!R) return;
+    var rows = R.rules.slice().sort(function(a, b){ return AGENCY_ORDER.indexOf(a.agency) - AGENCY_ORDER.indexOf(b.agency) || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0) || (a.effective_from < b.effective_from ? 1 : -1); });
+    var waiting = rows.filter(function(r){ return r.status === "pending_review"; }).length;
+    put("rulesTable", h("div", {style: "display:contents"}, [
+      waiting ? h("p", {class: "muted small", text: waiting + (waiting === 1 ? " rule is" : " rules are") + " waiting for review." + (R.can_approve ? " Approve each one only after the accountant has checked it against its source, and name them." : " The admin approves them after the accountant checks.")}) : null,
+      h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+        h("thead", null, h("tr", null, ["Agency", "Rule", "From", "Source", "Checked", "Status", ""].map(function(t){ return h("th", {text: t}); }))),
+        h("tbody", null, rows.map(function(r){
+          var st = r.status === "approved" ? ["good", "Approved"] : r.status === "retired" ? ["", "Retired"] : ["warn", "Waiting for review"];
+          return h("tr", {"data-rule": r.code + "@" + r.effective_from}, [h("td", {text: r.agency}),
+            h("td", null, [h("strong", {text: r.name}), r.in_force ? h("div", {class: "muted", style: "font-size:12.5px", text: "In force today"}) : null,
+              r.notes ? h("div", {class: "muted", style: "font-size:12.5px", text: r.notes}) : null]),
+            h("td", {text: dayName(r.effective_from) + ", " + r.effective_from.slice(0, 4) + (r.effective_to ? " to " + r.effective_to : "")}),
+            h("td", null, r.source_url ? h("a", {href: r.source_url, target: "_blank", rel: "noopener noreferrer", text: r.source_title}) : r.source_title),
+            h("td", {text: r.verified_on + " · " + r.verified_by}),
+            h("td", null, [h("span", {class: "pill " + st[0], text: st[1]}), r.approval_note ? h("div", {class: "muted", style: "font-size:12.5px", text: (r.approver ? r.approver + ": " : "") + r.approval_note}) : null]),
+            h("td", null, R.can_approve && r.status === "pending_review" ? h("button", {class: "btn ghost small", type: "button", text: "Approve…", "aria-label": "Approve " + r.name, onclick: function(){ decideRule(r, "approved"); }})
+              : R.can_approve && r.status === "approved" ? h("button", {class: "btn ghost small", type: "button", text: "Retire…", "aria-label": "Retire " + r.name, onclick: function(){ decideRule(r, "retired"); }}) : null)]);
+        }))]))]));
+  }
+  function decideRule(r, decision){
+    var note = window.prompt(decision === "approved" ? "Approve “" + r.name + "”?\n\nWho checked it against " + r.source_title + "? (e.g. “A. Cruz, CPA, 2026-11-20”)" : "Retire “" + r.name + "”? Why?", "");
+    if(note == null) return;
+    rpc("statutory_rule_decide", {p_id: r.id, p_decision: decision, p_note: note}).then(function(){ msg(decision === "approved" ? "Rule approved." : "Rule retired."); return loadStatutory(); }).catch(fail);
   }
 
   // ---------- start ----------

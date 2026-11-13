@@ -104,6 +104,30 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
+### 4.0 — 2026-11-13 — Statutory rules engine and government numbers (pending: migration 24 not applied)
+Branch `claude/finance-v4.0` (preview only). Migration `20261127000024_statutory_rules.sql` (**not applied**).
+First part of the finance upgrade, built the night of Nov 13 while the owner's answers are pending (none of
+it depends on them). Goes live when the owner runs migration 24 and says "merge".
+- Statutory rules engine: every rate in a versioned `statutory_rules` row (agency, parameters, basis,
+  floor/ceiling, shares, effective dates, official source with link, checked on/by, status). Never edited
+  or deleted: a law change is a new version from its date. Bookkeeper and admin propose; only the admin
+  approves (must name who checked it) or retires.
+- Seeded, checked by the agent on 2026-11-13, all **waiting for the accountant's review**: SSS 2025
+  schedule (official SSS PDF read), PhilHealth 5% 10k-100k (secondary sources; circular number to
+  confirm), Pag-IBIG Circular 460 (via the DBM circular letter; effective month to confirm), BIR
+  withholding tables daily/weekly/semi-monthly/monthly (RR 11-2018 Annex E, official PDF; the PDF's
+  "6,034.00.30" typo read as 6,034.30), Region X minimum wage (RX-24: 486 from Jan 16 2026, 500 from May 1 2026).
+- Formulas in SQL: `stat_sss`, `stat_philhealth`, `stat_pagibig`, `stat_withholding`, `stat_minimum_wage`;
+  each says which rule it used and whether that rule is approved.
+- Government numbers per person (TIN, SSS, PhilHealth, Pag-IBIG, birth date, hired on, minimum-wage
+  earner): admin and bookkeeper keep them (not their own unless admin); each person reads their own.
+- Pay tab: "Government contributions" (a full month at each rate: SSS, PhilHealth, Pag-IBIG employee /
+  employer, tax withheld; minimum-wage earners pay no tax) with a red warning for anyone paid below the
+  minimum wage, and "Statutory rules" (source links, status, Approve…/Retire… for the admin).
+- Tests: `tests/statutory.test.cjs` (figures by hand from the official tables) and `tests/statutory.browser.cjs`.
+- Not in this part (v4.1+): payroll runs, payslips, remittances, filings, compliance calendar, 13th month,
+  dashboard. Deduction timing (decision 4) is applied by payroll runs, not here.
+
 ### 3.3 — 2026-11-13 — Daily salary from attendance (live)
 Migration `20261126000023_salary.sql`: applied 2026-11-13 by the owner in the SQL Editor; the agent then
 verified it through the Supabase connector (all 18 functions match the tested source, whitespace-normalised;

@@ -369,3 +369,17 @@ made-up rates. Pages: Attendance's Pay tab (`tab-pay`: KPIs, per-person days, CS
 picker in schedule.js's event form. They read through `quiet()`, so a database without migration 23 shows no pay
 instead of errors. Tests: `node --test tests/salary.test.cjs tests/attendance-records.test.cjs` and
 `node tests/salary.browser.cjs`.
+
+Statutory rules (v4.0; `supabase/migrations/20261127000024_statutory_rules.sql`): never write a government rate in
+code. Every rate lives in `statutory_rules` (versioned: never edited or deleted, `statutory_rule_guard()`; a law change is
+a new row from its `effective_from`), read by `statutory_rule_on(code, date)` (newest approved or pending in force).
+Codes: `sss_contribution`, `philhealth_premium`, `pagibig_savings`, `bir_withholding_{daily,weekly,semi_monthly,monthly}`,
+`minimum_wage_daily`. Formulas `stat_sss/philhealth/pagibig/withholding/minimum_wage` return the rule id and
+`rule_status`; anything from a 'pending_review' rule must be shown as an estimate. Only the admin approves
+(`statutory_rule_decide`, with a note naming who checked it); the agent never marks a rule approved. Seeded rules were
+checked 2026-11-13 (sources in each row); a rule that can't be verified from an official source goes in as
+pending with the doubt in `notes`, never guessed. `employee_statutory` holds government numbers (formatted by
+`gov_number_format`, kept through `employee_statutory_save`, own row readable). `statutory_overview(date)` /
+`statutory_month_estimate(user, date)` feed the Pay tab's "Government contributions" (admin/bookkeeper). Keep
+`tests/statutory.test.cjs` figures hand-worked from the official tables. Tests: `node --test tests/statutory.test.cjs`
+and `node tests/statutory.browser.cjs`.

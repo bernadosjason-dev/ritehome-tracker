@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
 <link rel="stylesheet" href="shell.css?v=2026-11-25.1">
-<link rel="stylesheet" href="attendance.css?v=2026-11-25.1">
+<link rel="stylesheet" href="attendance.css?v=2026-11-26.1">
 <link rel="expect" href="#pageReady" blocking="render">
 <script>window.RitehomePortal = {mode: "attendance"};</script>
 </head>
@@ -37,6 +37,7 @@
       <button type="button" data-tab="mine" aria-current="page">My attendance</button>
       <button type="button" data-tab="team">Team today</button>
       <button type="button" data-tab="month">Month</button>
+      <button type="button" data-tab="pay">Pay</button>
     </div>
 
     <div id="tab-mine">
@@ -73,6 +74,13 @@
         <div id="recordsList"></div>
       </section>
 
+      <section class="card" id="myPayCard" hidden>
+        <h2 id="myPayTitle">My pay</h2>
+        <p class="muted small" id="myPaySub"></p>
+        <div class="kpis" id="myPayKpis"></div>
+        <div id="myPayDays"></div>
+      </section>
+
       <section class="card" id="historyCard" hidden>
         <h2>Last two weeks</h2>
         <div id="historyTable"></div>
@@ -93,6 +101,28 @@
       <section class="card"><h2 id="monthTitle">Month</h2>
         <p class="muted small">Hours count only matched pairs: morning in to morning out, afternoon in to afternoon out, each at its corrected time where the office recorded a correction. A day with a missing punch shows under Incomplete. Unaccounted: working days already over (Monday to Saturday, not a holiday on the calendar) with no punch, leave or absence recorded: ask about these before payroll.</p>
         <div id="monthTable"></div></section>
+    </div>
+
+    <div id="tab-pay" hidden>
+      <div class="acct-bar no-print pay-bar">
+        <label>From <input type="date" id="payFrom"></label>
+        <label>To <input type="date" id="payTo"></label>
+        <label>Person <select id="payPerson"><option value="">Everyone</option></select></label>
+        <label>Department <select id="payRole"><option value="">All</option></select></label>
+        <label>Employment <select id="payType"><option value="">All</option></select></label>
+        <label>Day <select id="payStatus"><option value="">Every day</option><option value="worked">Worked</option>
+          <option value="leave">Leave</option><option value="absent">Absent</option><option value="unaccounted">Unaccounted</option>
+          <option value="holiday">Holiday or rest day</option><option value="overtime">With overtime</option></select></label>
+        <button class="btn ghost" type="button" id="payCsv">Download CSV</button>
+      </div>
+      <div class="kpis" id="payKpis"></div>
+      <section class="card"><h2 id="payTitle">Estimated pay</h2>
+        <p class="muted small" id="paySub">Estimates from attendance until the cutoff is approved. Late, undertime and halves without both punches are deducted by the minute, never a whole day.</p>
+        <div id="payTable"></div></section>
+      <section class="card" id="ratesCard"><h2>Rates</h2>
+        <p class="muted small">A new rate starts on its date; earlier days keep the rate they were worked at. Rates are never edited: a mistake is fixed by adding the right one with the same date.</p>
+        <div id="ratesTable"></div></section>
+      <section class="card" id="settingsCard"><h2>How pay is computed</h2><div id="settingsBox"></div></section>
     </div>
   </div>
 
@@ -115,7 +145,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-11-25.1"></script>
+<script src="attendance.js?v=2026-11-26.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

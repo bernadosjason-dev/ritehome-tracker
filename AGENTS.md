@@ -364,4 +364,8 @@ place a day's pay is computed; the rules are in the migration's header; `pay_day
 `pay_me()` (own: rate, cutoff to date, release date), `pay_period(date)` (cutoff and release date). Activity log module
 "Payroll". Payroll formulas are defaults pending the accountant: never change a figure in `tests/salary.test.cjs`
 (October 2026 worked by hand) without re-working it by hand. Salaries are confidential: never in chat, tests use
-made-up rates. Tests: `node --test tests/salary.test.cjs tests/attendance-records.test.cjs`.
+made-up rates. Pages: Attendance's Pay tab (`tab-pay`: KPIs, per-person days, CSV, Rates, settings), the Team today
+"Estimated pay" column, "Approve overtime" in Record… (admin), staff "My pay" card (`pay_me`), the holiday-type
+picker in schedule.js's event form. They read through `quiet()`, so a database without migration 23 shows no pay
+instead of errors. Tests: `node --test tests/salary.test.cjs tests/attendance-records.test.cjs` and
+`node tests/salary.browser.cjs`.

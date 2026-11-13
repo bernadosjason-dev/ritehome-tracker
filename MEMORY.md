@@ -94,25 +94,36 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
-### 3.3 — 2026-11-13 — Daily salary from attendance (pending: in progress, not live)
+### 3.3 — 2026-11-13 — Daily salary from attendance (pending: migration 23 not applied)
 Branch `claude/payroll-v3.3` (preview only). Migration `20261126000023_salary.sql` (**not applied**).
-Due Tue Nov 17. Done so far: the database part and its tests; the pages are next.
+Built and tested; goes live when the owner runs migration 23, then the branch is merged into
+`claude/portal-supabase`. Due Tue Nov 17.
 - Rates per person with a history (daily or monthly, daily allowance, employment type, from a date).
-  Set by the admin and the bookkeeper; nobody but the admin sets their own. Never edited or deleted:
-  a new rate starts on its date, a mistake is fixed by a newer row with the same date.
+  Set by the admin and the bookkeeper (Attendance → Pay → Rates); nobody but the admin sets their own.
+  Never edited or deleted: a new rate starts on its date, a mistake is fixed by a newer row with the
+  same date.
 - Each day's estimated pay from attendance: the day less the minute rate for every minute late, early
   or not worked (never a whole day); a half with only one punch isn't paid; paid leave pays the day;
   Sunday work x1.30; regular holiday x1.00 unworked (only if present or on paid leave the working day
   before), x2.00 worked (x2.60 on a Sunday); special day unpaid unless worked (x1.30, x1.50 on a
   Sunday); approved overtime x1.25 (x1.30 of the day's rate on rest days and holidays); allowance on
-  days worked or on paid leave. All rates are the Labor Code's defaults, changeable by the admin only.
-- Overtime: the admin approves it per day in 30-minute blocks, never more than the clock-out allows.
-- Holidays on the calendar are regular (default) or special.
+  days worked or on paid leave. All are Labor Code defaults; only the admin changes them.
+- Pages: Team today has an "Estimated pay" column (total, status, what moved it) and KPI. New Pay tab
+  (admin, bookkeeper): date range (defaults to the current cutoff), filters by person, department,
+  employment type and kind of day, KPIs (estimated pay, deducted, overtime, unaccounted days), each
+  person's days, CSV, Rates, and the payroll settings (bookkeeper reads, admin edits). Staff get "My
+  pay" on their own page: cutoff so far, today, release date, their rate, day by day.
+- Overtime: the admin approves it per day (Record… → Approve overtime) in 30-minute blocks, never more
+  than the clock-out allows.
+- Holidays on the Schedule calendar are regular (default) or special (new picker in the event form).
 - Release date of each cutoff (1-15 -> 15th, 16-end -> 30th or month end), moved earlier off Sundays
   and holidays (the owner can switch to later).
-- Tests: `tests/salary.test.cjs`, October 2026 worked by hand (cutoff Oct 1-15 = 6,451.88).
-- Not yet: the pages (Team today pay column, Pay tab with rates and KPIs, OT approve button, staff
-  self-service, holiday type in the event form). v3.4: cutoffs, approval, payslips, statutory table.
+- Tests: `tests/salary.test.cjs` (October 2026 by hand: cutoff Oct 1-15 = 6,451.88) and
+  `tests/salary.browser.cjs`. Fixed on the way: people without a rate showed a full day "not worked"
+  for every empty day (208 h in the KPI); the unaccounted count now covers paid people only.
+- Not yet (v3.4, Fri Nov 20): cutoffs, approval, payslips, statutory deductions (accountant's table).
+- Holiday types: existing holidays on the calendar count as regular until the admin marks the
+  special ones.
 
 ### 3.2 — 2026-11-13 — Phase 5c: attendance management (live)
 Commit: see `git log` ("Attendance management"). Migration `20261125000022_attendance_records.sql`.

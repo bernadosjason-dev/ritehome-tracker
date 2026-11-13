@@ -194,6 +194,34 @@ begin
   return v_id;
 end $$;
 
+-- The calendar reads the type back, so editing a special day keeps it special (as in 15_multi_role, plus holiday_type).
+create or replace function public.schedule_events(p_from date, p_to date) returns jsonb
+language plpgsql stable security invoker set search_path = public as $$
+declare v_events jsonb; v_leads jsonb := '[]'::jsonb;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'project_id', e.project_id, 'kind', e.kind, 'title', e.title,
+      'starts_at', e.starts_at, 'ends_at', e.ends_at, 'notes', e.notes, 'holiday_type', e.holiday_type) order by e.starts_at), '[]'::jsonb)
+    into v_events
+  from public.project_events e
+  where e.starts_at < ((p_to + 1)::timestamp at time zone 'Asia/Manila')
+    and e.ends_at >= (p_from::timestamp at time zone 'Asia/Manila');
+  -- Other staff never reach the leads table, not even to be refused by row-level security.
+  if public.can_sell() then
+    select coalesce(jsonb_agg(x order by x ->> 'date', x ->> 'name'), '[]'::jsonb) into v_leads from (
+      select jsonb_build_object('lead_id', l.id, 'name', l.name, 'kind', 'follow_up', 'date', l.next_action_at, 'text', l.next_action) x
+      from public.leads l
+      where l.stage not in ('won', 'lost') and l.next_action_at between p_from and p_to
+      union all
+      select jsonb_build_object('lead_id', l.id, 'name', l.name, 'kind', 'visit_request', 'date', left(l.visit_requested, 10),
+        'text', btrim(substr(l.visit_requested, 11)))
+      from public.leads l
+      where l.stage in ('new', 'contacted') and l.visit_requested ~ '^\d{4}-\d{2}-\d{2}'
+        and left(l.visit_requested, 10) between p_from::text and p_to::text
+    ) q;
+  end if;
+  return jsonb_build_object('events', v_events, 'leads', v_leads);
+end $$;
+
 -- 'regular', 'special' or null. A day with both counts as regular.
 create function public.holiday_on(p_date date) returns text
 language sql stable security definer set search_path = public as $$
@@ -346,7 +374,10 @@ begin
 
   if r.id is null then
     return jsonb_build_object('user_id', p_user, 'date', p_date, 'status', v_status, 'holiday', v_hol, 'rest_day', v_rest, 'rate', null,
-      'worked_minutes', w, 'late_minutes', v_late, 'undertime_minutes', v_under, 'unworked_minutes', v_unworked, 'overtime_minutes', v_ot,
+      'worked_minutes', w, 'late_minutes', case when v_hol is null and not v_rest then v_late else 0 end,
+      'undertime_minutes', case when v_hol is null and not v_rest then v_under else 0 end,
+      'unworked_minutes', case when v_hol is null and not v_rest and v_status in ('present', 'incomplete', 'in_progress') then v_unworked else 0 end,
+      'overtime_minutes', v_ot,
       'daily_rate', 0, 'basic', 0, 'deductions', 0, 'premium', 0, 'allowance', 0, 'overtime_pay', 0, 'total', 0);
   end if;
   v_daily := case r.salary_type when 'daily' then r.rate else round(r.rate * 12 / st.divisor, 2) end;

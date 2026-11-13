@@ -13,7 +13,15 @@
   var ROLE = {admin: "Admin", designer: "Designer", sales: "Sales", bookkeeper: "Bookkeeper", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
 
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}});
-  var state = {me: null, tab: "mine", day: null, month: [], flash: null, roles: [], manage: false};
+  var state = {me: null, tab: "mine", day: null, month: [], flash: null, roles: [], manage: false,
+    pay: null, dayPay: {}, payRows: [], rates: [], settings: null, period: null};
+  // Pay (v3.3, supabase/migrations/20261126000023_salary.sql): every figure is computed in pay_day_calc().
+  var STATUS = {present: "Worked", incomplete: "Missing a punch", in_progress: "Working", leave_paid: "Paid leave", leave_unpaid: "Unpaid leave",
+    absent: "Absent", holiday: "Holiday", rest_day: "Rest day", scheduled: "Ahead", not_yet: "Not in yet", unaccounted: "Unaccounted"};
+  var EMPLOY = {regular: "Regular", probationary: "Probationary", contractual: "Contractual", project_based: "Project-based", part_time: "Part-time"};
+  var pesoFmt = new Intl.NumberFormat("en-PH", {style: "currency", currency: "PHP"});
+  function peso(n){ return pesoFmt.format(Number(n) || 0); }
+  function mins(m){ m = Number(m) || 0; var hh = Math.floor(m / 60), mm = m % 60; return hh ? hh + " h" + (mm ? " " + mm + " min" : "") : mm + " min"; }
   var LEAVE = {vacation: "Vacation leave", sick: "Sick leave", emergency: "Emergency leave", bereavement: "Bereavement leave",
     maternity_paternity: "Maternity / paternity leave", unpaid: "Unpaid leave", other: "Leave"};
 
@@ -37,6 +45,8 @@
     return e;
   }
   function put(id, node){ var el = typeof id === "string" ? $(id) : id; el.textContent = ""; if(node) el.appendChild(node); }
+  // A call that may not exist yet (before migration 23 is applied): no figures, no error, nothing reported.
+  function quiet(name, args){ return client.rpc(name, args || {}).then(function(r){ return r.error ? null : r.data; }, function(){ return null; }); }
   function rpc(name, args){
     return client.rpc(name, args || {}).then(function(r){
       if(r.error){ if(window.RitehomeRefused) window.RitehomeRefused(client, "Attendance", name, r.error); throw new Error(r.error.message || "The request failed."); }
@@ -166,12 +176,33 @@
     for(var i = last + 1; i < KINDS.length; i++) if(!done[KINDS[i][0]]) return KINDS[i][0];
     return null;
   }
-  function loadMine(){ return rpc("attendance_me").then(function(me){ state.me = me; renderMine(); }); }
+  function loadMine(){ return Promise.all([rpc("attendance_me"), quiet("pay_me")]).then(function(r){ state.me = r[0]; state.pay = r[1]; renderMine(); }); }
+  function renderMyPay(){
+    var pay = state.pay, card = $("myPayCard");
+    card.hidden = !pay || !pay.rate;
+    if(card.hidden) return;
+    var per = pay.period, todayRow = pay.days.filter(function(d){ return d.date === pay.today; })[0];
+    $("myPaySub").textContent = "Cutoff " + dayName(per.start) + " to " + dayName(per.end) + ". Estimates from your attendance until the admin approves the cutoff; late and early minutes are deducted by the minute.";
+    put("myPayKpis", h("div", {style: "display:contents"}, [
+      ["This cutoff so far", peso(pay.to_date), "Up to today"], ["Today", todayRow ? peso(todayRow.total) : "—", todayRow ? STATUS[todayRow.status] || todayRow.status : ""],
+      ["Release", dayName(per.release), "Pay day for this cutoff"],
+      ["Your rate", pay.rate.salary_type === "daily" ? peso(pay.rate.rate) + " a day" : peso(pay.rate.rate) + " a month", pay.rate.daily_allowance > 0 ? "+ " + peso(pay.rate.daily_allowance) + " allowance a day" : EMPLOY[pay.rate.employment_type] || ""]
+    ].map(function(x, i){ return h("div", {class: "kpi" + (i ? "" : " lead")}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val", text: x[1]}), h("span", {class: "sub", text: x[2]})]); })));
+    var shown = pay.days.filter(function(d){ return d.status !== "scheduled"; }).slice().reverse();
+    put("myPayDays", h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+      h("thead", null, h("tr", null, ["Day", "Status", "Late / early", "Overtime", "Estimate"].map(function(t, i){ return h("th", {class: i > 1 ? "num" : null, text: t}); }))),
+      h("tbody", null, shown.map(function(d){
+        return h("tr", null, [h("td", {text: dayName(d.date)}), h("td", {text: (STATUS[d.status] || d.status) + (d.holiday ? " · " + d.holiday + " holiday" : "")}),
+          h("td", {class: "num", text: d.late_minutes + d.undertime_minutes ? mins(d.late_minutes + d.undertime_minutes) : "—"}),
+          h("td", {class: "num", text: d.overtime_minutes ? mins(d.overtime_minutes) : "—"}), h("td", {class: "num", text: peso(d.total)})]);
+      }))])));
+  }
   function renderMine(){
     var me = state.me, started = !!me.consent_at && me.enrolled;
     $("noticeCard").hidden = !!me.consent_at;
     $("enrollCard").hidden = !me.consent_at || me.enrolled;
     $("todayCard").hidden = !started; $("historyCard").hidden = !started || !me.days.length;
+    renderMyPay();
     var recs = me.records || [];
     $("recordsCard").hidden = !recs.length;
     put("recordsList", recs.length ? h("ul", {class: "rec-list"}, recs.map(function(x){
@@ -234,6 +265,7 @@
   function recordWords(x){
     if(x.kind === "absent") return "Absent" + (x.remarks ? ": " + x.remarks : "");
     if(x.kind === "leave") return (LEAVE[x.leave_type] || "Leave") + (x.paid ? " (paid)" : " (unpaid)") + (x.remarks ? ": " + x.remarks : "");
+    if(x.kind === "overtime") return "Overtime approved: " + mins(x.minutes) + (x.remarks ? " (" + x.remarks + ")" : "");
     if(x.kind === "correction") return (KIND[x.punch_kind] ? KIND[x.punch_kind][1] : "Punch") + " corrected to " + clock(x.at) + ": " + x.remarks;
     return "Remark: " + x.remarks;
   }
@@ -244,8 +276,11 @@
     rpc("attendance_record_void", {p_id: x.id, p_reason: why}).then(function(){ msg("Voided. Add the right record if one is needed."); return loadTeam(); }).catch(fail);
   }
   function recordForm(p){
-    var kind = h("select", {"aria-label": "Kind of record"}, [["correction", "Correction to a punch"], ["leave", "Leave"], ["absent", "Absent"], ["remark", "Remark"]]
-      .map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    var kinds = [["correction", "Correction to a punch"], ["leave", "Leave"], ["absent", "Absent"], ["remark", "Remark"]];
+    if(state.day.can_review) kinds.push(["overtime", "Approve overtime"]);   // the admin alone approves overtime
+    var kind = h("select", {"aria-label": "Kind of record"}, kinds.map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    var otMin = h("select", {"aria-label": "Overtime"}, [30, 60, 90, 120, 150, 180, 210, 240, 300, 360].map(function(m){ return h("option", {value: String(m), text: mins(m)}); }));
+    var otRow = h("div", {class: "rec-row"}, [h("label", null, ["Overtime after 5 PM", otMin])]);
     var punchK = h("select", {"aria-label": "Punch"}, KINDS.map(function(k){ return h("option", {value: k[0], text: k[1]}); }));
     var time = h("input", {type: "time", "aria-label": "Corrected time", value: "08:00"});
     var leave = h("select", {"aria-label": "Kind of leave"}, Object.keys(LEAVE).map(function(k){ return h("option", {value: k, text: LEAVE[k]}); }));
@@ -254,14 +289,14 @@
     var corrRow = h("div", {class: "rec-row"}, [h("label", null, ["Punch", punchK]), h("label", null, ["Right time", time])]);
     var leaveRow = h("div", {class: "rec-row"}, [h("label", null, ["Kind", leave]), h("label", null, ["Pay", paid])]);
     var err = h("p", {class: "form-error", role: "alert"});
-    function sync(){ corrRow.hidden = kind.value !== "correction"; leaveRow.hidden = kind.value !== "leave";
+    function sync(){ corrRow.hidden = kind.value !== "correction"; leaveRow.hidden = kind.value !== "leave"; otRow.hidden = kind.value !== "overtime";
       remarks.placeholder = kind.value === "correction" ? "Why (required): e.g. forgot to clock in, seen in the office" : kind.value === "remark" ? "The remark (required)" : "Remarks (optional)"; }
     kind.addEventListener("change", sync); leave.addEventListener("change", function(){ if(leave.value === "unpaid") paid.value = "false"; });
     var save = h("button", {class: "btn", type: "button", text: "Save record"});
     save.addEventListener("click", function(){
       err.textContent = ""; busy(save, true);
       rpc("attendance_record_add", {p: {user_id: p.id, date: state.day.date, kind: kind.value, punch_kind: punchK.value, time: time.value,
-        leave_type: leave.value, paid: paid.value, remarks: remarks.value}})
+        leave_type: leave.value, paid: paid.value, minutes: otMin.value, remarks: remarks.value}})
         .then(function(){ $("look").hidden = true; msg(p.name + ": recorded for " + dayName(state.day.date) + "."); return loadTeam(); })
         .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
     });
@@ -269,7 +304,7 @@
     put("lookBox", h("div", {style: "display:contents"}, [
       h("h2", {id: "lookTitle", text: p.name + " · " + dayName(state.day.date)}),
       h("p", {class: "muted small", text: "Punches are never changed. A correction is added beside the punch and the month counts the corrected time. A wrong record is voided, never deleted."}),
-      h("div", {class: "rec-form"}, [h("label", null, ["Record", kind]), corrRow, leaveRow, h("label", null, ["Remarks", remarks])]), err,
+      h("div", {class: "rec-form"}, [h("label", null, ["Record", kind]), corrRow, leaveRow, otRow, h("label", null, ["Remarks", remarks])]), err,
       h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
     $("look").hidden = false; kind.focus();
   }
@@ -280,9 +315,22 @@
   }
   function loadTeam(){
     return Promise.all([rpc("attendance_day", {p_date: $("teamDate").value}),
-      state.roles.indexOf("admin") >= 0 ? rpc("attendance_old_selfies", {p_days: 90}) : Promise.resolve([])]).then(function(r){
-      state.day = r[0]; state.old = r[1] || []; renderTeam();
+      state.roles.indexOf("admin") >= 0 ? rpc("attendance_old_selfies", {p_days: 90}) : Promise.resolve([]),
+      quiet("pay_days", {p: {from: $("teamDate").value, to: $("teamDate").value}})]).then(function(r){
+      state.day = r[0]; state.old = r[1] || []; state.dayPay = {};
+      (r[2] || []).forEach(function(x){ state.dayPay[x.user_id] = x; });
+      state.hasPay = !!r[2]; renderTeam();
     });
+  }
+  // The day's estimate beside the attendance status: the total, and what moved it.
+  function payCell(x){
+    if(!x || !x.rate) return h("td", {class: "num none", text: x ? "No rate" : "—"});
+    var bits = [];
+    if(x.deductions > 0) bits.push("− " + peso(x.deductions) + " (" + mins(x.late_minutes + x.undertime_minutes + x.unworked_minutes) + ")");
+    if(x.premium > 0) bits.push("+ " + peso(x.premium) + (x.holiday ? " holiday" : " rest day"));
+    if(x.overtime_pay > 0) bits.push("+ " + peso(x.overtime_pay) + " overtime");
+    return h("td", {class: "num pay-cell", "data-pay": x.status}, [h("strong", {text: peso(x.total)}), h("div", {class: "muted", text: STATUS[x.status] || x.status}),
+      bits.length ? h("div", {class: "muted", text: bits.join(" · ")}) : null]);
   }
   function needsLook(p){ return !p.reviewed_at && (p.flags || []).some(function(f){ return f === "face_mismatch" || f === "no_face_check" || f === "low_gps_accuracy"; }); }
   function renderTeam(){
@@ -294,12 +342,16 @@
     var k = [admin ? ["Photos to check", String(review), review ? "Open each one below" : "Nothing waiting", review > 0] : ["On leave or absent", String(away), "Recorded for this day"],
       ["Clocked in", present + " of " + people.length, people.length - present ? people.length - present + " not yet" : "Everyone"],
       ["Late", String(late), "After 8 AM or 1 PM"], ["Off site", String(off), "More than " + state.day_radius + " m from the office"]];
+    if(state.hasPay){
+      var est = Object.keys(state.dayPay).reduce(function(t, id){ return t + Number(state.dayPay[id].total || 0); }, 0);
+      k.push(["Estimated pay", peso(est), "This day, everyone with a rate"]);
+    }
     put("teamKpis", h("div", {style: "display:contents"}, k.map(function(x){
       return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val" + (x[3] ? " neg" : ""), text: x[1]}), h("span", {class: "sub", text: x[2]})]);
     })));
     $("teamCount").textContent = String(people.length);
     put("teamTable", h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
-      h("thead", null, h("tr", null, ["Person"].concat(KINDS.map(function(k){ return k[1]; })).concat(["Recorded by the office"]).map(function(t){ return h("th", {text: t}); }))),
+      h("thead", null, h("tr", null, ["Person"].concat(KINDS.map(function(k){ return k[1]; })).concat(state.hasPay ? ["Estimated pay"] : []).concat(["Recorded by the office"]).map(function(t){ return h("th", {class: t === "Estimated pay" ? "num" : null, text: t}); }))),
       h("tbody", null, people.map(function(p){
         var by = {}, fix = {}; p.punches.forEach(function(x){ by[x.kind] = x; });
         p.records.forEach(function(x){ if(x.kind === "correction") fix[x.punch_kind] = x; });
@@ -309,7 +361,7 @@
           if(!x) return h("td", {class: c ? null : "none"}, c ? h("div", {class: "cellp"}, [corrected]) : "—");
           return h("td", null, h("div", {class: "cellp"}, [h("span", {class: "t" + (c ? " was" : ""), text: clock(x.at)}), corrected, pills(x, true),
             admin ? h("button", {class: "link", type: "button", text: x.reviewed_at ? "Checked" : needsLook(x) ? "Check photo" : "Photo", "aria-label": p.name + " " + k[1] + " photo", onclick: function(){ look(p, x); }}) : null]));
-        })).concat([h("td", {class: "recs"}, [h("ul", {class: "rec-list"}, p.records.map(function(x){
+        })).concat(state.hasPay ? [payCell(state.dayPay[p.id])] : []).concat([h("td", {class: "recs"}, [h("ul", {class: "rec-list"}, p.records.map(function(x){
           return h("li", null, [recordWords(x), h("span", {class: "muted", text: " · " + (x.by || "")}),
             canRecord(p) ? h("button", {class: "link", type: "button", text: "Void", "aria-label": "Void " + recordWords(x), onclick: function(){ voidRecord(p, x); }}) : null]);
         })), canRecord(p) ? h("button", {class: "btn ghost small", type: "button", text: "Record…", "aria-label": "Record for " + p.name, onclick: function(){ recordForm(p); }}) : null])]));
@@ -392,12 +444,176 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  // ---------- pay (admin and bookkeeper) ----------
+  function loadPay(){
+    var first = state.period ? Promise.resolve() : quiet("pay_period", {p_date: state.me.today}).then(function(per){
+      state.period = per || {start: state.me.today.slice(0, 8) + "01", end: state.me.today};
+      $("payFrom").value = state.period.start; $("payTo").value = state.me.today < state.period.end ? state.me.today : state.period.end;
+    });
+    return first.then(function(){ return Promise.all([loadPayDays(), quiet("salary_rates_list"), quiet("payroll_settings_get")]); }).then(function(r){
+      state.rates = r[1] || []; state.settings = r[2]; renderRates(); renderSettings();
+    });
+  }
+  function loadPayDays(){
+    return quiet("pay_days", {p: {from: $("payFrom").value, to: $("payTo").value}}).then(function(rows){
+      if(rows == null){ state.payRows = []; put("payTable", h("p", {class: "muted", text: "Pay isn't switched on yet (the database update for v3.3 hasn't been applied), or the range is over 62 days."})); return; }
+      state.payRows = rows;
+      var people = {}, roles = {};
+      rows.forEach(function(x){ people[x.user_id] = x.name; roles[x.role] = 1; });
+      fill($("payPerson"), Object.keys(people).sort(function(a, b){ return String(people[a]).localeCompare(people[b]); }).map(function(id){ return [id, people[id] || "Unnamed"]; }));
+      fill($("payRole"), Object.keys(roles).map(function(r){ return [r, ROLE[r] || r]; }));
+      fill($("payType"), Object.keys(EMPLOY).map(function(t){ return [t, EMPLOY[t]]; }));
+      renderPay();
+    });
+  }
+  function fill(sel, opts){ var keep = sel.value; sel.length = 1; opts.forEach(function(o){ sel.appendChild(h("option", {value: o[0], text: o[1]})); }); sel.value = keep; if(sel.value !== keep) sel.value = ""; }
+  function dayMatches(x, f){
+    if(!f) return true;
+    if(f === "worked") return x.worked_minutes > 0;
+    if(f === "leave") return x.status === "leave_paid" || x.status === "leave_unpaid";
+    if(f === "holiday") return !!x.holiday || x.rest_day;
+    if(f === "overtime") return x.overtime_minutes > 0;
+    return x.status === f;
+  }
+  function payFiltered(){
+    var who = $("payPerson").value, role = $("payRole").value, type = $("payType").value, st = $("payStatus").value;
+    return state.payRows.filter(function(x){
+      return (!who || x.user_id === who) && (!role || x.role === role) && (!type || (x.rate && x.rate.employment_type === type)) && dayMatches(x, st);
+    });
+  }
+  function renderPay(){
+    var rows = payFiltered(), by = {}, order = [];
+    rows.forEach(function(x){
+      var p = by[x.user_id];
+      if(!p){ p = by[x.user_id] = {name: x.name, role: x.role, days: [], worked: 0, minutes: 0, late: 0, ded: 0, prem: 0, ot: 0, otMin: 0, allow: 0, total: 0, unacc: 0, rated: false}; order.push(x.user_id); }
+      p.days.push(x); p.rated = p.rated || !!x.rate;
+      if(x.worked_minutes > 0) p.worked++;
+      p.minutes += x.worked_minutes; p.late += x.late_minutes + x.undertime_minutes + x.unworked_minutes;
+      p.ded += Number(x.deductions); p.prem += Number(x.premium); p.ot += Number(x.overtime_pay); p.otMin += x.overtime_minutes;
+      p.allow += Number(x.allowance); p.total += Number(x.total); if(x.status === "unaccounted" && x.rate) p.unacc++;   // only people who are paid
+    });
+    var T = order.reduce(function(t, id){ var p = by[id]; t.total += p.total; t.ded += p.ded; t.late += p.late; t.ot += p.ot; t.otMin += p.otMin; t.unacc += p.unacc; return t; }, {total: 0, ded: 0, late: 0, ot: 0, otMin: 0, unacc: 0});
+    var noRate = order.filter(function(id){ return !by[id].rated; }).length;
+    put("payKpis", h("div", {style: "display:contents"}, [
+      ["Estimated pay", peso(T.total), dayName($("payFrom").value) + " to " + dayName($("payTo").value)],
+      ["Deducted", peso(T.ded), mins(T.late) + " late, early or not worked"],
+      ["Overtime", peso(T.ot), T.otMin ? mins(T.otMin) + " approved" : "None approved"],
+      ["Unaccounted days", String(T.unacc), T.unacc ? "Record leave or absence before payroll" : "Every working day accounted for", T.unacc > 0]
+    ].map(function(x, i){ return h("div", {class: "kpi" + (i ? "" : " lead")}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val" + (x[3] ? " neg" : ""), text: x[1]}), h("span", {class: "sub", text: x[2]})]); })));
+    $("payTitle").textContent = "Estimated pay" + (state.period ? " · release " + dayName(state.period.release) : "");
+    $("paySub").textContent = "Estimates from attendance until the cutoff is approved. Late, undertime and halves without both punches are deducted by the minute, never a whole day." +
+      (noRate ? " " + noRate + (noRate === 1 ? " person has" : " people have") + " no rate yet: set it under Rates." : "");
+    put("payTable", order.length ? h("div", {class: "pay-people"}, order.map(function(id){
+      var p = by[id];
+      return h("details", {class: "pay-person", "data-person": p.name}, [
+        h("summary", null, [h("span", {class: "who"}, [h("strong", {text: p.name || "Unnamed"}), h("span", {class: "muted", text: " · " + (ROLE[p.role] || p.role) + (p.rated ? "" : " · no rate")})]),
+          h("span", {class: "facts muted", text: p.worked + (p.worked === 1 ? " day" : " days") + " · " + (p.minutes / 60).toFixed(1) + " h" + (p.ded ? " · − " + peso(p.ded) : "") + (p.ot ? " · OT " + peso(p.ot) : "") + (p.unacc ? " · " + p.unacc + " unaccounted" : "")}),
+          h("strong", {class: "amt", text: peso(p.total)})]),
+        h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+          h("thead", null, h("tr", null, ["Day", "Status", "Worked", "Late / early / missing", "Deducted", "Premium", "Overtime", "Allowance", "Estimate"].map(function(t, i){ return h("th", {class: i > 1 ? "num" : null, text: t}); }))),
+          h("tbody", null, p.days.map(function(x){
+            return h("tr", {"data-day": x.date}, [h("td", {text: dayName(x.date)}), h("td", {text: (STATUS[x.status] || x.status) + (x.holiday ? " · " + x.holiday + " holiday" : "") + (x.holiday_pay_eligible === false ? " (no holiday pay: absent the working day before)" : "")}),
+              h("td", {class: "num", text: x.worked_minutes ? mins(x.worked_minutes) : "—"}),
+              h("td", {class: "num", text: x.late_minutes + x.undertime_minutes + x.unworked_minutes ? mins(x.late_minutes + x.undertime_minutes + x.unworked_minutes) : "—"}),
+              h("td", {class: "num" + (x.deductions > 0 ? " neg" : ""), text: x.deductions > 0 ? "− " + peso(x.deductions) : "—"}),
+              h("td", {class: "num", text: x.premium > 0 ? peso(x.premium) : "—"}),
+              h("td", {class: "num", text: x.overtime_pay > 0 ? peso(x.overtime_pay) + " (" + mins(x.overtime_minutes) + ")" : "—"}),
+              h("td", {class: "num", text: x.allowance > 0 ? peso(x.allowance) : "—"}), h("td", {class: "num", text: peso(x.total)})]);
+          }))]))]);
+    })) : h("p", {class: "muted", text: "No days match."}));
+  }
+  function payCsv(){
+    var head = ["Person", "Role", "Employment", "Day", "Status", "Holiday", "Daily rate", "Worked min", "Late min", "Undertime min", "Missing min", "Overtime min", "Basic", "Deducted", "Premium", "Overtime pay", "Allowance", "Estimate"];
+    var rows = [head].concat(payFiltered().map(function(x){
+      return [x.name, ROLE[x.role] || x.role, x.rate ? EMPLOY[x.rate.employment_type] : "no rate", x.date, STATUS[x.status] || x.status, x.holiday || "", x.daily_rate,
+        x.worked_minutes, x.late_minutes, x.undertime_minutes, x.unworked_minutes, x.overtime_minutes, x.basic, x.deductions, x.premium, x.overtime_pay, x.allowance, x.total];
+    }));
+    var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
+    var a = h("a", {href: URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv"})), download: "ritehome-pay-" + $("payFrom").value + "-to-" + $("payTo").value + ".csv"});
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function renderRates(){
+    var admin = state.roles.indexOf("admin") >= 0;
+    put("ratesTable", state.rates.length ? h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+      h("thead", null, h("tr", null, ["Person", "Rate", "Daily equivalent", "Allowance a day", "Employment", "Since", ""].map(function(t, i){ return h("th", {class: i && i < 4 ? "num" : null, text: t}); }))),
+      h("tbody", null, state.rates.filter(function(p){ return p.active; }).map(function(p){
+        var c = p.current, may = !p.self || admin;
+        return h("tr", {"data-rate": p.name}, [
+          h("td", null, [h("strong", {text: p.name || "Unnamed"}), h("div", {class: "muted", style: "font-size:12.5px", text: ROLE[p.role] || ""}),
+            p.history.length > 1 ? h("details", {class: "rate-hist"}, [h("summary", {text: p.history.length + " rates on record"}), h("ul", {class: "rec-list"}, p.history.map(function(x){
+              return h("li", {text: dayName(x.effective_from) + ": " + peso(x.rate) + (x.salary_type === "daily" ? " a day" : " a month") + (x.notes ? " · " + x.notes : "") + " · by " + x.by});
+            }))]) : null]),
+          h("td", {class: "num", text: c ? peso(c.rate) + (c.salary_type === "daily" ? " a day" : " a month") : "—"}),
+          h("td", {class: "num", text: c ? peso(c.daily_equivalent) : "—"}), h("td", {class: "num", text: c && c.daily_allowance > 0 ? peso(c.daily_allowance) : "—"}),
+          h("td", {text: c ? EMPLOY[c.employment_type] || c.employment_type : "—"}), h("td", {text: c ? dayName(c.effective_from) : "No rate yet"}),
+          h("td", null, may ? h("button", {class: "btn ghost small", type: "button", text: c ? "Change…" : "Set rate…", "aria-label": "Rate for " + p.name, onclick: function(){ rateForm(p); }}) : h("span", {class: "muted small", text: "The admin sets yours"}))]);
+      }))])) : h("p", {class: "muted", text: "Rates show here once the v3.3 database update is applied."}));
+  }
+  function rateForm(p){
+    var c = p.current || {};
+    var from = h("input", {type: "date", "aria-label": "Starts on", value: state.me.today});
+    var type = h("select", {"aria-label": "Paid by"}, [["daily", "Daily rate"], ["monthly", "Monthly rate"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    type.value = c.salary_type || "daily";
+    var rate = h("input", {inputmode: "decimal", "aria-label": "Rate in pesos", value: c.rate != null ? String(c.rate) : "", placeholder: "e.g. 610"});
+    var allow = h("input", {inputmode: "decimal", "aria-label": "Allowance a day", value: c.daily_allowance != null ? String(c.daily_allowance) : "0"});
+    var emp = h("select", {"aria-label": "Employment"}, Object.keys(EMPLOY).map(function(k){ return h("option", {value: k, text: EMPLOY[k]}); }));
+    emp.value = c.employment_type || "regular";
+    var notes = h("input", {maxlength: "500", "aria-label": "Notes", placeholder: "e.g. Regularised; corrected typo"});
+    var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save rate"});
+    save.addEventListener("click", function(){
+      err.textContent = "";
+      var amount = rate.value.replace(/[,\s₱]/g, ""), al = (allow.value || "0").replace(/[,\s₱]/g, "");
+      if(!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0){ err.textContent = "Enter the rate in pesos, e.g. 610 or 18780.50."; rate.focus(); return; }
+      if(!/^\d+(\.\d{1,2})?$/.test(al)){ err.textContent = "Enter the allowance in pesos, or 0."; allow.focus(); return; }
+      busy(save, true);
+      rpc("salary_rate_add", {p: {user_id: p.id, effective_from: from.value, salary_type: type.value, rate: amount, daily_allowance: al, employment_type: emp.value, notes: notes.value}})
+        .then(function(){ $("look").hidden = true; msg(p.name + ": new rate from " + dayName(from.value) + "."); return loadPay(); })
+        .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    put("lookBox", h("div", {style: "display:contents"}, [
+      h("h2", {id: "lookTitle", text: "Rate for " + p.name}),
+      h("p", {class: "muted small", text: "Starts on the date you choose; days before it keep the old rate. A monthly rate is counted per day as monthly × 12 ÷ " + (state.settings ? state.settings.divisor : 313) + "."}),
+      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Starts on", from]), h("label", null, ["Paid by", type])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Rate (₱)", rate]), h("label", null, ["Allowance a day (₱)", allow])]),
+        h("label", null, ["Employment", emp]), h("label", null, ["Notes", notes])]), err,
+      h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
+    $("look").hidden = false; rate.focus();
+  }
+  var SETTINGS = [["divisor", "Working days a year (monthly rate ÷)"], ["regular_unworked", "Regular holiday, not worked"], ["regular_worked", "Regular holiday, worked"],
+    ["regular_rest_worked", "Regular holiday on a Sunday, worked"], ["special_unworked", "Special day, not worked"], ["special_worked", "Special day, worked"],
+    ["special_rest_worked", "Special day on a Sunday, worked"], ["rest_day_worked", "Sunday, worked"], ["ot_rate", "Overtime, ordinary day"], ["ot_rest_holiday_rate", "Overtime on a Sunday or holiday (× that day's rate)"]];
+  function renderSettings(){
+    var st = state.settings;
+    if(!st){ put("settingsBox", h("p", {class: "muted", text: "Shown once the v3.3 database update is applied."})); return; }
+    var inputs = {}, edit = !!st.can_edit;
+    var rule = h("select", {"aria-label": "Pay day on a Sunday or holiday", disabled: !edit}, [["earlier", "Paid the working day before"], ["later", "Paid the working day after"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    rule.value = st.payday_rule;
+    var save = h("button", {class: "btn", type: "button", text: "Save settings", disabled: true});
+    function dirty(){ save.disabled = rule.value === st.payday_rule && SETTINGS.every(function(x){ return Number(inputs[x[0]].value) === Number(st[x[0]]); }); }
+    rule.addEventListener("change", dirty);
+    var grid = SETTINGS.map(function(x){
+      var i = inputs[x[0]] = h("input", {inputmode: "decimal", value: String(st[x[0]]), "aria-label": x[1], disabled: !edit});
+      i.addEventListener("input", dirty);
+      return h("label", null, [x[1], i]);
+    });
+    save.addEventListener("click", function(){
+      var body = {payday_rule: rule.value}; SETTINGS.forEach(function(x){ body[x[0]] = inputs[x[0]].value; });
+      busy(save, true);
+      rpc("payroll_settings_save", {p: body}).then(function(s){ state.settings = s; msg("Payroll settings saved."); state.period = null; return loadPay(); })
+        .catch(function(e){ busy(save, false); fail(e); });
+    });
+    put("settingsBox", h("div", {style: "display:contents"}, [
+      h("p", {class: "muted small", text: "The Labor Code's rates, as multiples of the daily rate. Defaults until the accountant signs them off." + (edit ? "" : " Only the admin changes them.")}),
+      h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(grid)),
+      edit ? h("div", {class: "acct-actions"}, save) : null]));
+  }
+
   // ---------- start ----------
   function show(tab){
     state.tab = tab;
-    ["mine", "team", "month"].forEach(function(t){ $("tab-" + t).hidden = t !== tab; });
+    ["mine", "team", "month", "pay"].forEach(function(t){ $("tab-" + t).hidden = t !== tab; });
     document.querySelectorAll("#attTabs button").forEach(function(b){ if(b.getAttribute("data-tab") === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
-    return (tab === "team" ? loadTeam() : tab === "month" ? loadMonth() : loadMine()).catch(fail);
+    return (tab === "team" ? loadTeam() : tab === "month" ? loadMonth() : tab === "pay" ? loadPay() : loadMine()).catch(fail);
   }
   function gate(title, text, link){
     $("gate").hidden = false; $("app").hidden = true;
@@ -417,6 +633,9 @@
         $("teamDate").addEventListener("change", function(){ loadTeam().catch(fail); });
         $("monthPick").addEventListener("change", function(){ loadMonth().catch(fail); });
         $("monthCsv").addEventListener("click", monthCsv);
+        ["payFrom", "payTo"].forEach(function(id){ $(id).addEventListener("change", function(){ loadPayDays().catch(fail); }); });
+        ["payPerson", "payRole", "payType", "payStatus"].forEach(function(id){ $(id).addEventListener("change", renderPay); });
+        $("payCsv").addEventListener("click", payCsv);
       }
       $("gate").hidden = true; $("app").hidden = false; document.body.classList.remove("gated", "connecting");
       if(me.consent_at && Face.warm) Face.warm().catch(function(){});   // fetch the face models while the person reads the page

@@ -187,3 +187,10 @@ test('everyone sees their own pay and nobody else\'s', () => {
   assert.equal(days('admin', '2026-10-01', '2026-10-01').length, 3);
   assert.equal(must('super', `select count(*) > 0 from public.audit_log where module = 'Payroll'`), 't');
 });
+
+test('someone with no rate yet: no pay and no phantom minutes', () => {
+  // Sept 30 2026 (a Wednesday) is before anyone's rate starts.
+  const rows = days('book', '2026-09-30', '2026-09-30');
+  assert.equal(rows.length, 3);
+  for (const r of rows) assert.deepEqual([r.rate, r.status, r.unworked_minutes, r.late_minutes, r.total], [null, 'unaccounted', 0, 0, 0]);
+});

@@ -652,11 +652,14 @@
     var t1 = h("input", {id: "evStart", type: "time", value: startT}), t2 = h("input", {id: "evEnd", type: "time", value: endT});
     var ad = h("input", {id: "evAllDay", type: "checkbox"}); ad.checked = allDay || e.kind === "holiday";
     var notes = h("input", {id: "evNotes", maxlength: "2000", value: e.notes || ""});
-    function sync(){ t1.disabled = t2.disabled = ad.checked; }
+    // Pay follows the holiday's type (migration 23): regular (paid unworked) or special (no work, no pay).
+    var htype = options(h("select", {id: "evHolidayType"}), [["regular", "Regular holiday (paid)"], ["special", "Special non-working day"]], e.holiday_type || "regular");
+    var htypeRow = h("label", null, ["Holiday type", htype]);
+    function sync(){ t1.disabled = t2.disabled = ad.checked; htypeRow.hidden = kind.value !== "holiday"; }
     ad.addEventListener("change", sync); sync();
-    kind.addEventListener("change", function(){ if(kind.value === "holiday"){ ad.checked = true; proj.value = ""; sync(); } });
+    kind.addEventListener("change", function(){ if(kind.value === "holiday"){ ad.checked = true; proj.value = ""; } sync(); });
     var form = h("form", {class: "acct-grid", novalidate: true}, [
-      h("label", null, ["What", kind]), h("label", null, ["Project", proj]), h("label", {class: "wide"}, ["Title", title]),
+      h("label", null, ["What", kind]), htypeRow, h("label", null, ["Project", proj]), h("label", {class: "wide"}, ["Title", title]),
       h("label", null, ["Date", d1]), h("label", null, ["Until", d2]),
       h("label", {class: "inline"}, [ad, "All day"]), h("label", null, ["From", t1]), h("label", null, ["To", t2]),
       h("label", {class: "wide"}, ["Notes", notes]),
@@ -675,6 +678,7 @@
       if(!d1.value) return fail(new Error("Pick a date."));
       var last = d2.value && d2.value >= d1.value ? d2.value : d1.value;
       var body = {id: e.id || "", kind: kind.value, project_id: proj.value, title: title.value.trim(), notes: notes.value.trim(),
+        holiday_type: kind.value === "holiday" ? htype.value : "",
         starts_at: d1.value + "T" + (ad.checked ? "00:00" : t1.value || "09:00") + ":00+08:00",
         ends_at: last + "T" + (ad.checked ? "23:59" : t2.value || t1.value || "09:00") + ":00+08:00"};
       if(body.ends_at < body.starts_at) return fail(new Error("The event ends before it starts."));

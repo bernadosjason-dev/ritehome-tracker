@@ -31,7 +31,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 | What | Live | Notes |
 |---|---|---|
-| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 and 19 pending** (2026-11-13: two apply attempts for 18 timed out, the approval card went unanswered; checked afterwards, nothing was applied) |
+| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 and 19 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18 then 19 in the Supabase SQL Editor) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
 | Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase` |

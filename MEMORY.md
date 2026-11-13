@@ -94,6 +94,26 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
+### 3.3 — 2026-11-13 — Daily salary from attendance (pending: in progress, not live)
+Branch `claude/payroll-v3.3` (preview only). Migration `20261126000023_salary.sql` (**not applied**).
+Due Tue Nov 17. Done so far: the database part and its tests; the pages are next.
+- Rates per person with a history (daily or monthly, daily allowance, employment type, from a date).
+  Set by the admin and the bookkeeper; nobody but the admin sets their own. Never edited or deleted:
+  a new rate starts on its date, a mistake is fixed by a newer row with the same date.
+- Each day's estimated pay from attendance: the day less the minute rate for every minute late, early
+  or not worked (never a whole day); a half with only one punch isn't paid; paid leave pays the day;
+  Sunday work x1.30; regular holiday x1.00 unworked (only if present or on paid leave the working day
+  before), x2.00 worked (x2.60 on a Sunday); special day unpaid unless worked (x1.30, x1.50 on a
+  Sunday); approved overtime x1.25 (x1.30 of the day's rate on rest days and holidays); allowance on
+  days worked or on paid leave. All rates are the Labor Code's defaults, changeable by the admin only.
+- Overtime: the admin approves it per day in 30-minute blocks, never more than the clock-out allows.
+- Holidays on the calendar are regular (default) or special.
+- Release date of each cutoff (1-15 -> 15th, 16-end -> 30th or month end), moved earlier off Sundays
+  and holidays (the owner can switch to later).
+- Tests: `tests/salary.test.cjs`, October 2026 worked by hand (cutoff Oct 1-15 = 6,451.88).
+- Not yet: the pages (Team today pay column, Pay tab with rates and KPIs, OT approve button, staff
+  self-service, holiday type in the event form). v3.4: cutoffs, approval, payslips, statutory table.
+
 ### 3.2 — 2026-11-13 — Phase 5c: attendance management (live)
 Commit: see `git log` ("Attendance management"). Migration `20261125000022_attendance_records.sql`.
 - The admin and the bookkeeper record absences, leave (vacation, sick, emergency, bereavement,

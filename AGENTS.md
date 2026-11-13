@@ -350,3 +350,18 @@ leave (a remark doesn't account for a day). `attendance_me()` returns the person
 `node --test tests/attendance-records.test.cjs` (October 2026 worked out by hand in its header: keep it that way) and
 the bookkeeper step 5b in `node tests/attendance.browser.cjs`.
 
+
+Daily salary (v3.3, in progress on `claude/payroll-v3.3`; `supabase/migrations/20261126000023_salary.sql`): the owner's
+2026-11-13 brief, first half. `salary_rates` (daily or monthly `rate`, `daily_allowance`, `employment_type`,
+`effective_from`) is append-only (`salary_rate_guard()`): the rate on a day is the newest row effective on or before it
+(`salary_rate_on()`), so a correction is a newer row with the same date. Read: own rows, or `can_keep_books()`; write only
+through `salary_rate_add(p)` (admin or bookkeeper, never their own unless admin). `payroll_settings` (one row: divisor 313,
+the Labor Code premium rates, `payday_rule` 'earlier'/'later') changes only through `payroll_settings_save(p)` (admin).
+`project_events.holiday_type` ('regular' default / 'special', holidays only; `event_save` passes it); `holiday_on(date)`.
+Overtime is an `attendance_records` kind 'overtime' with `minutes` (30-minute blocks, admin only, at most what the
+effective clock-out after 17:00 allows). `pay_day_calc(user, date)` (internal, not callable from a browser) is the one
+place a day's pay is computed; the rules are in the migration's header; `pay_days(p)` (admin/bookkeeper, ≤ 62 days),
+`pay_me()` (own: rate, cutoff to date, release date), `pay_period(date)` (cutoff and release date). Activity log module
+"Payroll". Payroll formulas are defaults pending the accountant: never change a figure in `tests/salary.test.cjs`
+(October 2026 worked by hand) without re-working it by hand. Salaries are confidential: never in chat, tests use
+made-up rates. Tests: `node --test tests/salary.test.cjs tests/attendance-records.test.cjs`.

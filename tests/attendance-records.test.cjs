@@ -65,7 +65,7 @@ test('the bookkeeper records corrections, leave, absences and remarks; every rul
   r({ user_id: D, date: '2026-10-12', kind: 'correction', punch_kind: 'am_in', time: '8am', remarks: 'x' }, /HH:MM/);
   r({ user_id: D, date: '2026-10-12', kind: 'leave' }, /kind of leave/);
   r({ user_id: D, date: '2026-10-12', kind: 'remark' }, /Write the remark/);
-  r({ user_id: D, date: '2026-10-12', kind: 'holiday' }, /absent, leave, correction or remark/);
+  r({ user_id: D, date: '2026-10-12', kind: 'holiday' }, /absent, leave, correction, overtime or remark/);
   // Nobody but the admin records their own attendance.
   r({ user_id: U.book, date: '2026-10-12', kind: 'leave', leave_type: 'vacation', paid: true }, /Only the admin records your own/);
   add('admin', { user_id: U.book, date: '2026-10-12', kind: 'leave', leave_type: 'vacation', paid: true });

@@ -10,7 +10,7 @@ const BASE='http://127.0.0.1:8000';
  const b=createBackend(),project=b.request({action:'addProject',data:{name:'Client portal project',clientName:'Test Client'}}).id;
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
  try{
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=require('./fixtures/page-errors.cjs').collectErrors(page);
   await require('./fixtures/sheet-mode.cjs').useSheetBackend(page);
   await page.route('https://fonts.googleapis.com/**',r=>r.abort());await page.route('https://script.google.com/**',r=>r.fulfill({json:b.request(r.request().postDataJSON())}));
   const path=()=>new URL(page.url()).pathname+new URL(page.url()).search;
@@ -25,7 +25,7 @@ const BASE='http://127.0.0.1:8000';
   await page.locator('#gateKey').fill('test-only-key');await page.locator('#gateForm').evaluate(f=>f.requestSubmit());
   await page.waitForFunction(()=>((document.getElementById('projectGrid')||{}).textContent||'').includes('Client portal project'));
   assert.equal(await page.locator('.side-link[aria-current="page"]').innerText(),'Dashboard');
-  assert.deepEqual(await page.locator('a.side-link').evaluateAll(a=>a.map(x=>x.getAttribute('href'))),['/','/approvals','/activity','/leads','/schedule','/projects','/procurement','/inventory','/accounting','/fuel','/attendance','/team']);
+  assert.deepEqual(await page.locator('a.side-link').evaluateAll(a=>a.map(x=>x.getAttribute('href'))),['/','/approvals','/activity','/leads','/schedule','/projects','/procurement','/inventory','/company','/accounting','/fuel','/attendance','/team']);
 
   // 2. Fuel, by the menu: short address, fuel only.
   await go('Company fuel');assert.equal(path(),'/fuel');

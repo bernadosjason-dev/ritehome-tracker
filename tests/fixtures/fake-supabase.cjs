@@ -61,6 +61,7 @@ const SHIM = String.raw`(function(){
 
 // opts.rpc(name, args, user) answers any function but my_role / my_roles (e.g. from a real local PostgreSQL).
 // opts.delayMs holds every answer back that long.
+// opts.upload(bucket, path, user, bytes, type) answers uploads (see send()).
 function createFakeSupabase(opts = {}) {
   const users = [
     {id: 'u-admin', email: 'admin@ritehome.test', password: 'admin-pass', role: 'admin', active: true},
@@ -132,6 +133,12 @@ function createFakeSupabase(opts = {}) {
       return {data: null, error: {message: 'unknown function'}};
     }
     if (m.kind === 'query') return query(m.session, m.q);
+    // opts.upload(bucket, path, user, bytes) answers an upload itself (e.g. through the real storage
+    // policies on a local PostgreSQL); null falls through to the stand-ins below.
+    if (m.kind === 'upload' && opts.upload) {
+      const r = opts.upload(m.bucket, m.path, who(m.session), Buffer.from(m.b64, 'base64'), m.type);
+      if (r) { if (!r.error) files.set(m.bucket + ':' + m.path, {type: m.type, bytes: Buffer.from(m.b64, 'base64')}); return r; }
+    }
     if (m.kind === 'upload' && m.bucket === 'attendance-selfies') {   // any active person, their own folder, never overwritten
       const u = who(m.session);
       if (!u || !u.active || !/^[\w-]+\/[\w.-]+\.jpg$/.test(m.path)) return {data: null, error: {statusCode: '403', message: 'new row violates row-level security policy'}};

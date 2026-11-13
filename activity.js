@@ -6,14 +6,15 @@
   'use strict';
   var SUPABASE_URL = "https://laxavfldivkhufeubgmb.supabase.co";
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
-  var MODULES = ["Projects", "Schedule", "Approvals", "Leads", "Procurement", "Inventory", "Attendance", "Accounting", "Company fuel", "Team"];
+  var MODULES = ["Projects", "Schedule", "Approvals", "Leads", "Company", "Procurement", "Inventory", "Attendance", "Accounting", "Company fuel", "Team"];
   var ROLE = {admin: "Admin", designer: "Designer", sales: "Sales", bookkeeper: "Bookkeeper", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
   var VERB = {insert: "added", update: "changed", "delete": "deleted", refused: "was refused"};
   var THING = {tracker_docs: "", project_stages: "stage", project_events: "event", project_files: "file", project_assignments: "assignment",
     leads: "lead", lead_activity: "lead contact:", acct_accounts: "account", acct_settings: "book settings", acct_entries: "journal entry",
     acct_lines: "journal line", acct_project_vat: "project VAT", acct_purchase_vat: "purchase VAT", inventory_items: "stock item",
     inventory_moves: "stock movement", attendance_punches: "punch", profiles: "account",
-    stage_submissions: "submission", approval_rules: "approval rule"};
+    stage_submissions: "submission", approval_rules: "approval rule",
+    company_profile: "company profile", company_documents: "company document"};
   var DOC = {projects: "project", expenses: "expense", companyFuel: "fuel log", companyVehicles: "vehicle", procurementJobs: "procurement job", procurement: "procurement record"};
   var PAGE = 100;
 

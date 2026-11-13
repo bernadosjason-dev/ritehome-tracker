@@ -31,19 +31,36 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 | What | Live | Notes |
 |---|---|---|
-| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 and 19 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18 then 19 in the Supabase SQL Editor) |
+| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18, 19 and 20 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18, 19, 20 in order in the Supabase SQL Editor) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
 | Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase` |
 
 ## Owner to-dos
 
-- Approve migration 18 (and 19, Phase 4) in the Supabase card, then the site is deployed.
+- Run migrations 18, 19 and 20, in that order, in the Supabase SQL Editor (the approval card never
+  reached the owner), then tell the agent "done": it verifies, deploys and records it here.
+- After migration 20: the live storage check below, once.
+- Company profile: fill in the details and upload the permits with their expiry dates.
 - Telegram: add the two Edge Function secrets in the Supabase dashboard (never in chat).
 - Shelf count in Inventory before relying on stock: deliveries before v2.4 are not in stock.
 - Check the clients with more than one open project (Dandan ×3, Ar. Amerol ×2, Mayor Azum ×2):
   separate jobs, or accidental doubles to close.
 - Backups decision (reminder Fri Nov 20).
+
+## Live storage check (company-files bucket, after migration 20)
+
+The tests run the real storage policies on a local database, which is not the live bucket. Once,
+after migration 20 is applied, in the Supabase SQL Editor:
+
+    select id, public, file_size_limit, allowed_mime_types from storage.buckets where id = 'company-files';
+    -- expect: company-files | false | 10485760 | {application/pdf,image/png,image/jpeg,image/webp}
+    select policyname, cmd from pg_policies where schemaname = 'storage' and policyname like 'company files:%';
+    -- expect two: "admin and bookkeeper read" (SELECT), "admin and bookkeeper upload" (INSERT)
+
+Then on portal.ritehomemodular.com/company as the admin: add a small PDF (it appears, Open shows it),
+try a file over 10 MB (refused before upload), and confirm a designer account can't open the page.
+Record the result in "Live state".
 
 ## Roadmap (CRM master prompt)
 
@@ -53,10 +70,27 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 | 2 | Activity log | 2.1 | Nov 12 | live |
 | 3 | Notifications: bell, Telegram | 2.2 | Nov 12 | live (Telegram waits for secrets) |
 | 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | built, pending migration |
-| 5 | Company profile, bookkeeper books, attendance corrections | 3.x | — | not started |
+| 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | 3.0 built, pending migration; 3.1–3.2 next |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 
 ## Version history (newest first)
+
+### 3.0 — 2026-11-13 — Phase 5a: company profile (pending: migration 20 not applied, not deployed)
+Commit: see `git log` ("Company profile"). Migration `20261123000020_company_profile.sql`.
+- New Company profile page (`/company`, Office and finance), for the admin and the bookkeeper only
+  (the master prompt's permission matrix): names, logo, address, contact numbers, email, website,
+  TIN, business type, VAT, registration number, business information, and up to 10 authorised people.
+- Document register: registrations, permits, contracts as PDF or photo (10 MB), each with a kind and
+  an expiry date shown as "Expires in 12 days" / "Expired". The bookkeeper adds and edits; only the
+  admin removes, and removing archives (the record and file are kept).
+- The dashboard shows a "Company documents" tile when a permit is expired or expires within 30 days.
+- The bookkeeper's home page is now the company profile.
+- Files in a private bucket, read through short signed links; no SVG; nothing overwritten or deleted.
+  A failed upload or save keeps the form, and a retry doesn't upload the file twice.
+- Tests: the portals and warm-start suites ignore exactly one Chromium message ("Transition was
+  aborted…", raised when a page-to-page swap is cancelled; invisible to people), via
+  `tests/fixtures/page-errors.cjs`. Every other page error still fails them. Now 0 failures in 8 runs.
+- Fix on the way: saving the company details left Save looking unsaved, so the page skipped redrawing.
 
 ### 2.5 — 2026-11-13 — Phase 4: approvals (pending: migration 19 not applied, not deployed)
 Commit: see `git log` ("Phase 4: approvals"). Migration `20261122000019_approvals.sql`.
@@ -74,8 +108,9 @@ Commit: see `git log` ("Phase 4: approvals"). Migration `20261122000019_approval
   submissions and the decisions on them. The dashboard's "Waiting on you" links there.
 - The admin's bell rings once per submission. Staff have no bell yet: they see decisions on /approvals.
 - The portal version is shown under the menu.
-- Fix: page-to-page transitions that Chromium skips no longer leave an unhandled error (the
-  portals test still trips on it about 1 run in 8; not a user-facing fault).
+- Fix: page-to-page transitions that Chromium skips no longer leave an unhandled error where a page
+  script can catch it. (Corrected in 3.0: the "1 run in 8" reported here was a lucky sample; the
+  portals test still failed about half the time on a Chromium message no script can catch.)
 
 ### 2.4 — 2026-11-12 — One record per fact (pending: migration 18 not applied, not deployed)
 Commit `67237d9`. Migration `20261121000018_one_record.sql`.

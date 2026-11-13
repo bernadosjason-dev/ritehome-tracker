@@ -487,7 +487,7 @@
 </style>
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="portals.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-22.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-23.1">
 <!-- Hold the first paint until #pageReady (end of <body>) is parsed: by then the menu is built and the
      page script has drawn the screen, so no frame of the unfilled page ever shows (Chrome, Edge). -->
 <link rel="expect" href="#pageReady" blocking="render">
@@ -500,7 +500,7 @@
 
 <div class="wrap">
 <!-- The menu is built here, before any content, so no frame ever paints without it. -->
-<script src="shell.js?v=2026-11-22.1"></script>
+<script src="shell.js?v=2026-11-23.1"></script>
   <nav class="workspace-bar no-print" aria-label="Workspace sections">
     <div class="workspace-brand"><span class="brand-mark" aria-hidden="true">R</span><div><strong>RITEHOME</strong><small>Projects · Procurement · Company fuel</small></div></div>
     <div class="workspace-actions" data-ui-view="dashboard">
@@ -1451,7 +1451,7 @@
   var SUPABASE_KEY = "sb_publishable_8vOuny8cDkb-vtwyOP7vnA_VqFYc5T1";
   var USE_SUPABASE = HOSTED && BACKEND === "supabase";
   // Bump on every change to this file: open tabs compare it with the published page and offer a reload.
-  var PAGE_VERSION = "2026-11-22.1";
+  var PAGE_VERSION = "2026-11-23.1";
 
   // ---------- reference data ----------
 
@@ -5384,7 +5384,7 @@
         if(roles.indexOf("admin") >= 0 || purchasing){ warmPut({user: userId, cache: w && w.user === userId ? w.cache || null : null}); return true; }
         warmPut(null);
         var home = A ? A.home(roles) : "schedule";
-        if((home === "inventory" || home === "leads") && window.RitehomeLinks){ location.replace(window.RitehomeLinks.href(home)); return false; }
+        if((home === "inventory" || home === "leads" || home === "company") && window.RitehomeLinks){ location.replace(window.RitehomeLinks.href(home)); return false; }
         showGate(roles.length ? "staff" : "inactive");
         return false;
       });
@@ -5461,6 +5461,11 @@
       {label:"Attendance today", href:L("attendance"), val:n(o.attendance.in_today) + " / " + n(o.attendance.staff), alert:n(o.attendance.to_check) > 0,
         sub: n(o.attendance.to_check) ? plural(n(o.attendance.to_check), "punch", "punches") + " to check" : "clocked in"}
     ];
+    // Permits and registrations: a tile only when one is expired or expires within 30 days.
+    if(o.company && (n(o.company.expired) + n(o.company.expiring)) > 0) tiles.push({label: "Company documents", href: L("company"),
+      val: n(o.company.expired) + n(o.company.expiring), alert: true,
+      sub: (n(o.company.expired) ? n(o.company.expired) + " expired" : "") + (n(o.company.expired) && n(o.company.expiring) ? " · " : "")
+        + (n(o.company.expiring) ? n(o.company.expiring) + " expiring within 30 days" : "")});
     $("ovKpis").innerHTML = tiles.map(function(t){
       return '<a class="kpi ov-tile' + (t.alert ? ' alert' : '') + '" href="' + esc(t.href) + '"><span class="label">' + esc(t.label) + '</span><span class="val">' + esc(String(t.val)) + '</span><span class="sub-line">' + esc(t.sub) + '</span></a>';
     }).join("");

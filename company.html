@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Company profile</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-23.1">
+<link rel="stylesheet" href="company.css?v=2026-11-23.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "company"};</script>
+</head>
+<body class="acct company">
+<main class="wrap">
+<script src="shell.js?v=2026-11-23.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1 id="coTitle">Company profile</h1>
+      <p class="sub" id="coSub">The company's details, the people who sign for it, and its registrations and permits with their expiry dates.</p>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card" id="docsCard">
+      <div class="card-head"><div><h2>Documents</h2><p class="muted" id="docsSub">Registrations, permits and contracts. PDF or photo, up to 10 MB each.</p></div>
+        <button class="btn small" type="button" id="docAddBtn">Add a document</button></div>
+      <form id="docForm" class="co-form" hidden novalidate>
+        <div class="co-grid">
+          <label class="wide">File <input id="dFile" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" required></label>
+          <label>Title <input id="dTitle" maxlength="120" required placeholder="e.g. Mayor's permit 2026"></label>
+          <label>Kind <select id="dKind"></select></label>
+          <label>Expires on <span class="muted">(optional)</span> <input id="dExpires" type="date"></label>
+          <label class="wide">Notes <span class="muted">(optional)</span> <input id="dNotes" maxlength="1000" placeholder="e.g. Renew at City Hall in January"></label>
+        </div>
+        <div class="form-error" id="docError" role="alert"></div>
+        <div class="co-actions"><button class="btn" type="submit" id="docSave">Upload and save</button><button class="btn ghost" type="button" id="docCancel">Cancel</button></div>
+      </form>
+      <div id="docList"></div>
+    </section>
+
+    <section class="card" id="profileCard">
+      <div class="card-head"><div><h2>Details</h2><p class="muted" id="profSub"></p></div></div>
+      <form id="profForm" class="co-form" novalidate>
+        <div class="co-logo">
+          <div class="co-logo-box" id="logoBox"><span class="muted">No logo yet</span></div>
+          <div><label class="btn ghost small co-file">Choose a logo<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+            <p class="muted small">PNG, JPG or WebP, up to 2 MB.</p></div>
+        </div>
+        <div class="co-grid">
+          <label>Registered name <input data-f="legal_name" maxlength="160"></label>
+          <label>Trade name <input data-f="trade_name" maxlength="160"></label>
+          <label class="wide">Business address <input data-f="address" maxlength="400"></label>
+          <label>Contact numbers <input data-f="phones" maxlength="200" placeholder="e.g. 0917 000 0000 · (088) 000 0000"></label>
+          <label>Email <input data-f="email" type="email" maxlength="160"></label>
+          <label>Website <input data-f="website" maxlength="200" placeholder="https://…"></label>
+          <label>TIN <input data-f="tin" maxlength="40"></label>
+          <label>Business type <select data-f="business_type"><option value="">Not set</option><option value="sole_proprietorship">Sole proprietorship</option>
+            <option value="partnership">Partnership</option><option value="corporation">Corporation</option><option value="opc">One person corporation</option></select></label>
+          <label>VAT <select data-f="vat_registered"><option value="">Not set</option><option value="true">VAT registered</option><option value="false">Non-VAT</option></select></label>
+          <label>DTI / SEC registration no. <input data-f="registration_no" maxlength="80"></label>
+          <label class="wide">Business information <textarea data-f="business_info" rows="3" maxlength="4000" placeholder="Line of business, permits held, bank for payments…"></textarea></label>
+        </div>
+        <h3 class="co-h3">Authorised people <span class="muted small">(who signs or represents the company, up to 10)</span></h3>
+        <div id="authList" class="co-auth"></div>
+        <button class="btn ghost small" type="button" id="authAdd">Add a person</button>
+        <div class="form-error" id="profError" role="alert"></div>
+        <div class="co-actions"><button class="btn" type="submit" id="profSave" disabled>Save details</button></div>
+      </form>
+    </section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="company.js?v=2026-11-23.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

@@ -13,8 +13,7 @@ const {createFakeSupabase} = require('./fixtures/fake-supabase.cjs');
   const browser = await chromium.launch({executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-dev-shm-usage']});
   try {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}});
-    const page = await ctx.newPage(), errors = [];
-    page.on('pageerror', e => errors.push(e.message));
+    const page = await ctx.newPage(), errors = require('./fixtures/page-errors.cjs').collectErrors(page);
     await page.route('https://fonts.googleapis.com/**', r => r.abort());
     await sb.attach(page);
     const warm = () => page.evaluate(() => sessionStorage.getItem('ritehome_warm_v1'));

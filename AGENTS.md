@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`, activity.html at `/activity`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`, activity.html at `/activity`, approvals.html at `/approvals`, company.html at `/company`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 Owner's standing rule (2026-11-12): every update to the portal also updates the agents' knowledge
 in the same commit. When a change adds or alters a workspace, role, stage, table, RPC, test or deploy
@@ -290,4 +290,29 @@ stages switch approvals off for their own subject and restore the defaults (sche
 
 Versions: `PORTAL_VERSION` in `shell.js` is shown under the menu (`#portalVersion`) and must equal the newest entry in
 `MEMORY.md` (`node --test tests/memory.test.cjs`).
+
+Company profile (Phase 5a, v3.0; `company.html`/`company.js`/`company.css` at `/company`, admin and bookkeeper; SQL in
+`supabase/migrations/20261123000020_company_profile.sql`): the master prompt's section 14 and its permission matrix
+(Company Profile: admin full, bookkeeper edit, everyone else no). `can_keep_books()` = admin or bookkeeper (any of a
+person's roles). `company_profile` is one row (id 1: names, logo path, address, phones, email, website, TIN, business
+type, VAT, registration no., business info, `authorized` = up to 10 {name, position, phone, email}); `company_documents`
+is the register (title, kind, file, expiry, notes, uploader). Both: read policy `can_keep_books()`, no write privileges;
+writes through `company_profile_save(p)` (only the fields sent), `company_document_save(p)` (new: the file must
+already be in the bucket; or edits) and `company_document_archive(id)` (admin only: archived, record and file kept);
+the page reads `company_get()` (names, `days_left` in Manila days, `can_archive`). Files: private bucket
+`company-files` (10 MB, PDF/PNG/JPEG/WebP; no SVG, it can carry script), paths `logo/<uuid>.<ext>` and
+`documents/<uuid>.<ext>` enforced by the insert policy; no update or delete policy (nothing overwritten or deleted),
+read through signed links (5 min for documents, 1 h for the logo). The page checks type and size before uploading
+(2 MB for the logo), turns storage errors into words, keeps the form on any failure, and on retry reuses the file
+already uploaded (`state.pendingFile`). `dashboard_overview()` gains `company` {expired, expiring (30 days), next}
+and the dashboard shows a "Company documents" tile only when one is expired or expiring. Bookkeepers start on
+`/company` (`homeFor`; tracker.html sends them there from "/"). Activity log module "Company". Tests: `node --test
+tests/company.test.cjs` and `node tests/company.browser.cjs` (uploads pass through the real storage policies on the
+local PostgreSQL via `createFakeSupabase({upload})`). Those are not proof of the live bucket: after migration 20 is
+applied, run the live storage check in MEMORY.md.
+
+Browser-test page errors: `tests/fixtures/page-errors.cjs` (`collectErrors(page)`) records every uncaught page error
+except Chromium's "Transition was aborted because of invalid state" (a cancelled @view-transition page swap; nothing
+visible changes and no page script can catch it). Use it in suites that navigate between pages through the menu
+(portals, warm-start). Don't widen it to any other message.
 

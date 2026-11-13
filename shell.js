@@ -21,6 +21,7 @@
     box: 'M3 8l9-5 9 5v8l-9 5-9-5V8M3 8l9 5 9-5M12 13v8',
     history: 'M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2',
     approve: 'M9 12l2 2 4-4M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18',
+    building: 'M4 21V5l8-3 8 3v16M4 21h16M9 21v-5h6v5M8 8h2M14 8h2M8 12h2M14 12h2',
     bell: 'M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0',
     close: 'M6 6l12 12M18 6L6 18'
   };
@@ -44,6 +45,7 @@
     if(mode === 'attendance') return CLEAN ? '/attendance' : 'attendance.html';
     if(mode === 'activity') return CLEAN ? '/activity' : 'activity.html';
     if(mode === 'approvals') return CLEAN ? '/approvals' : 'approvals.html';
+    if(mode === 'company') return CLEAN ? '/company' : 'company.html';
     if(CLEAN) return mode === 'all' ? '/' : '/' + mode;
     return mode === 'all' ? 'tracker.html' : 'tracker.html?portal=' + mode;
   }
@@ -60,13 +62,13 @@
   window.addEventListener('pagereveal', quietTransition);
 
   // The portal's version, shown under the menu. MEMORY.md's newest entry must match (tests/memory.test.cjs).
-  var PORTAL_VERSION = '2.5';
+  var PORTAL_VERSION = '3.0';
   window.RitehomeVersion = PORTAL_VERSION;
 
   // Who may open which workspace. The database decides every read and write; this only keeps the
   // menu to the doors a person can actually open. null = every active account.
   var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
-    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin'], approvals: null};
+    procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin'], team: ['admin'], activity: ['admin'], approvals: null, company: ['admin', 'bookkeeper']};
   var ROLES_KEY = 'ritehome_roles_v1';
   function canOpen(mode, roles){
     if(!roles || !roles.length) return false;
@@ -77,7 +79,7 @@
   function homeFor(roles){
     roles = roles || [];
     return roles.indexOf('admin') >= 0 ? 'all' : roles.indexOf('sales') >= 0 ? 'leads'
-      : roles.indexOf('purchaser') >= 0 ? 'inventory' : 'schedule';
+      : roles.indexOf('purchaser') >= 0 ? 'inventory' : roles.indexOf('bookkeeper') >= 0 ? 'company' : 'schedule';
   }
   function storedRoles(){
     try { var v = JSON.parse(sessionStorage.getItem(ROLES_KEY)); return Array.isArray(v) ? v : null; } catch(e){ return null; }
@@ -164,7 +166,7 @@
       ['Sales', [['leads', 'Leads', 'leads']]],
       ['Design and production', [['schedule', 'Schedule', 'gantt'], ['projects', 'Projects', 'projects']]],
       ['Purchasing', [['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box']]],
-      ['Office and finance', [['accounting', 'Accounting', 'books'], ['fuel', 'Company fuel', 'fuel']]],
+      ['Office and finance', [['company', 'Company profile', 'building'], ['accounting', 'Accounting', 'books'], ['fuel', 'Company fuel', 'fuel']]],
       ['People', [['attendance', 'Attendance', 'attendance'], ['team', 'Team', 'team']]]
     ];
     var nav = el('nav', 'side-nav'); nav.setAttribute('aria-label', 'Workspaces');
@@ -254,7 +256,7 @@
     return bellRpc('notify_list', {p_limit: 30}).then(function(d){ bell.data = d; bellCount(d.unread); if(bell.panel && !bell.panel.hidden) bellDraw(); });
   }
   function bellHref(link){
-    var m = /^\/(leads|schedule|inventory|attendance|activity|approvals|procurement|projects)(.*)$/.exec(link || '');
+    var m = /^\/(leads|schedule|inventory|attendance|activity|approvals|company|procurement|projects)(.*)$/.exec(link || '');
     return m ? href(m[1]) + m[2] : href('activity');
   }
   function bellDraw(){

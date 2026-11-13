@@ -41,6 +41,10 @@
     {
       "source": "/approvals",
       "destination": "/approvals.html"
+    },
+    {
+      "source": "/company",
+      "destination": "/company.html"
     }
   ],
   "redirects": [

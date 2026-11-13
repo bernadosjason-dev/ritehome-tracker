@@ -73,8 +73,8 @@ test('everyone sees their own; the admin sees the day, reviews, and the month ad
   assert.ok(!('lat' in me.punches[0]) && !('face_match' in me.punches[0]), "the person's own view carries no coordinates or scores");
   assert.equal(JSON.parse(must('purchaser', 'select public.attendance_me()')).punches.length, 0, "not Dina's");
   assert.equal(must('purchaser', 'select count(*) from public.attendance_punches'), '0');
-  refused('designer', `select public.attendance_day('${me.today}')`, /Only an admin/);
-  refused('designer', `select public.attendance_month('${me.today}')`, /Only an admin/);
+  refused('designer', `select public.attendance_day('${me.today}')`, /Only the admin and the bookkeeper/);
+  refused('designer', `select public.attendance_month('${me.today}')`, /Only the admin and the bookkeeper/);
   const day = JSON.parse(must('admin', `select public.attendance_day('${me.today}')`));
   assert.deepEqual(day.people.map((p) => [p.name, p.enrolled, p.punches.length]), [['Dina', true, 4], ['Jason', false, 0], ['Pia', false, 0]]);
   const flagged = day.people[0].punches.find((p) => p.kind === 'am_out');

@@ -190,8 +190,8 @@ role (a check constraint refuses it as an extra; making someone admin clears the
 returns the main role (null when inactive); every permission question uses `my_roles()` / `has_role()`, and
 `can_work_stage()` lets a person work a stage when any of their roles owns it. Sales: the Leads workspace
 (`can_sell()`; converting a lead into a project stays admin-only because it sets price and budget) and the
-consultation and site visit stages. Bookkeeper: Company profile (v3.0, their home page) and Accounting (v3.1); attendance
-management comes in v3.2. The site visit stage sits
+consultation and site visit stages. Bookkeeper: Company profile (v3.0, their home page), Accounting (v3.1) and attendance
+management (v3.2). The site visit stage sits
 between consultation and design (consultation 1 day + site visit 1 day in `schedule-plan.js`; the total stays
 40 working days). Role lists must agree in five places: the enum, `team.js` ROLES, `schedule.js` ROLE,
 `attendance.js` ROLE, and the Edge Function's ROLES in `core.js` (redeploy it when they change). The menu is
@@ -326,4 +326,21 @@ log, and still can't see leads, procurement or anything else). If a view ever re
 or the bookkeeper's books silently lose those figures; `tests/bookkeeper.test.cjs` compares the bookkeeper's trial
 balance with the admin's, figure for figure. Entries stay voided, never edited or deleted. Tests: `node --test
 tests/bookkeeper.test.cjs tests/accounting.test.cjs` and `node tests/accounting.browser.cjs` (bookkeeper step 1b).
+
+Attendance management (Phase 5c, v3.2; `supabase/migrations/20261125000022_attendance_records.sql`, the Team today and
+Month tabs of `attendance.js`): admin and bookkeeper (`can_manage_attendance()`). `attendance_records` holds what the
+office adds: 'absent', 'leave' (leave_type + paid), 'correction' (punch_kind + at, reason required, same Manila day)
+and 'remark'. The owner's rule: punches are never edited; a correction sits beside the punch and the month counts
+its time instead. Records are never edited or deleted (`attendance_record_guard()`): `attendance_record_void(id,
+reason)` once, then add the right one. One absence/leave per person per day and one correction per punch while open
+(partial unique indexes). `attendance_record_add(p)` refuses an absence on a day with punches, and refuses anyone but
+the admin adding or voiding a record about themselves. `attendance_day()` and `attendance_month()` are now definer
+with `can_manage_attendance()`; `punch_json(p, is_admin())` gives the bookkeeper times and flags only (no selfie path,
+GPS or face score), `can_review` is the admin's photo review and face resets (still admin-only). The month: effective
+time per punch slot = correction else punch; late/early out recomputed from it with prepare_punch()'s clock (in after
+8:00/13:00, out before 12:00/17:00); plus absences, paid/unpaid leave, corrections and unaccounted = working days
+(Mon-Sat, not a 'holiday' event) already over, since the account was created, with no punch, correction, absence or
+leave (a remark doesn't account for a day). `attendance_me()` returns the person's own records (31 days). Tests:
+`node --test tests/attendance-records.test.cjs` (October 2026 worked out by hand in its header: keep it that way) and
+the bookkeeper step 5b in `node tests/attendance.browser.cjs`.
 

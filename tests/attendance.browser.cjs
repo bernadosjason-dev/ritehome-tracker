@@ -13,17 +13,21 @@ const OFFICE = {latitude: 8.500563, longitude: 124.622937, accuracy: 12}, SITE =
 const FACE = Array.from({length: 128}, (_, i) => ((i * 37) % 11) / 40);
 (async () => {
   const {U, must} = db;
+  U.book = '00000000-0000-4000-8000-000000000007';
   must('super', `insert into auth.users (id, email, raw_user_meta_data) values ('${U.admin}', 'owner@example.com', '{"full_name":"Jason"}'),
-    ('${U.designer}', 'dina@example.com', '{"full_name":"Dina"}');
+    ('${U.designer}', 'dina@example.com', '{"full_name":"Dina"}'), ('${U.book}', 'bea@example.com', '{"full_name":"Bea"}');
+    update public.profiles set role = 'bookkeeper', active = true, full_name = 'Bea' where id = '${U.book}';
     update public.profiles set role = 'admin', active = true, full_name = 'Jason' where id = '${U.admin}';
     update public.profiles set role = 'designer', active = true, full_name = 'Dina' where id = '${U.designer}';`);
-  const sb = createFakeSupabase({rpc: pgRpc(db)});
+  const sb = createFakeSupabase({rpc: pgRpc(db, {'u-admin': 'admin', 'u-designer': 'designer', 'u-book': 'book'}),
+    users: [{id: 'u-book', email: 'book@ritehome.test', password: 'x', role: 'bookkeeper', active: true}]});
   const browser = await chromium.launch({executablePath: '/usr/bin/chromium', args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']});
   try {
     const context = await browser.newContext({viewport: {width: 1280, height: 900}, permissions: ['camera', 'geolocation'], geolocation: OFFICE});
     const page = await context.newPage(), errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    page.on('dialog', d => d.accept());
+    const answers = [];   // replies to prompts, in order; everything else is accepted
+    page.on('dialog', d => d.type() === 'prompt' ? d.accept(answers.length ? answers.shift() : '') : d.accept());
     await page.route('https://fonts.googleapis.com/**', r => r.abort());
     await page.addInitScript(() => { window.__face = null; window.RitehomeFaceStub = {describe: async () => window.__face}; });
     await sb.attach(page);
@@ -84,7 +88,7 @@ const FACE = Array.from({length: 128}, (_, i) => ((i * 37) % 11) / 40);
     await page.waitForFunction(() => !document.getElementById('app').hidden && !document.getElementById('attTabs').hidden);
     await page.locator('#attTabs [data-tab="team"]').click();
     await page.locator('#teamTable tr[data-person="Dina"]').waitFor();
-    assert.match(await page.locator('#teamKpis').innerText(), /Photos to check\s+1[\s\S]*Clocked in\s+1 of 2[\s\S]*Off site\s+1/i);
+    assert.match(await page.locator('#teamKpis').innerText(), /Photos to check\s+1[\s\S]*Clocked in\s+1 of 3[\s\S]*Off site\s+1/i);
     assert.match(await page.locator('#teamTable tr[data-person="Dina"]').innerText(), /Face not checked/);
     await page.getByRole('button', {name: /Dina .* photo/}).filter({hasText: 'Check photo'}).click();
     await page.waitForFunction(() => { const i = document.querySelectorAll('#lookBox img'); return i.length === 2 && [...i].every(x => x.naturalWidth > 0); });
@@ -103,6 +107,48 @@ const FACE = Array.from({length: 128}, (_, i) => ((i * 37) % 11) / 40);
     await page.getByRole('button', {name: "Reset Dina's reference photo"}).click();
     await msg("Dina's reference photo is reset");
     assert.equal(must('super', `select (face_descriptor is null)::text from public.profiles where id = '${U.designer}'`), 'true');
+
+    // 5b. The bookkeeper (Attendance = Edit): everyone's times and the month, never the photos or GPS.
+    //     Records a correction and a remark, voids one with a reason, can't record their own attendance.
+    await setSession('u-book'); await page.reload({waitUntil: 'domcontentloaded'});
+    await page.waitForFunction(() => !document.getElementById('app').hidden && !document.getElementById('attTabs').hidden);
+    await page.locator('#attTabs [data-tab="team"]').click();
+    await page.locator('#teamTable tr[data-person="Dina"]').waitFor();
+    assert.match(await page.locator('#teamKpis').innerText(), /On leave or absent\s+0/i);
+    assert.doesNotMatch(await page.locator('#teamKpis').innerText(), /Photos to check/);
+    assert.equal(await page.locator('#teamTable button', {hasText: /Photo|Checked/}).count(), 0, 'no photo buttons');
+    assert.equal(await page.locator('#faceCard').isHidden(), true, 'no reference photos');
+    assert.equal(await page.getByRole('button', {name: 'Record for Bea'}).count(), 0, 'only the admin records their own');
+    await page.getByRole('button', {name: 'Record for Dina'}).click();
+    await page.getByLabel('Kind of record').selectOption('correction');
+    await page.getByLabel('Punch', {exact: true}).selectOption('pm_out');
+    await page.getByLabel('Corrected time').fill('17:00');
+    await page.locator('#lookBox').getByRole('button', {name: 'Save record'}).click();
+    await page.waitForFunction(() => /needs the punch, the time and the reason[\s\S]*Nothing you entered was lost/.test(document.querySelector('#lookBox .form-error').textContent));
+    await page.getByLabel('Remarks').fill('Phone died; left at 5, seen by Jason');
+    await page.locator('#lookBox').getByRole('button', {name: 'Save record'}).click();
+    await msg('Dina: recorded for');
+    await page.waitForFunction(() => /5:00\s*PM corrected/i.test(document.querySelector('#teamTable tr[data-person="Dina"]').textContent));
+    await page.getByRole('button', {name: 'Record for Dina'}).click();
+    await page.getByLabel('Kind of record').selectOption('remark');
+    await page.getByLabel('Remarks').fill('Typo, delete me');
+    await page.locator('#lookBox').getByRole('button', {name: 'Save record'}).click();
+    await page.waitForFunction(() => /Remark: Typo, delete me/.test(document.querySelector('#teamTable tr[data-person="Dina"]').textContent));
+    answers.push('Entered by mistake');
+    await page.getByRole('button', {name: 'Void Remark: Typo, delete me'}).click();
+    await msg('Voided');
+    await page.waitForFunction(() => !/Typo, delete me/.test(document.querySelector('#teamTable tr[data-person="Dina"]').textContent));
+    assert.equal(must('super', `select void_reason from public.attendance_records where kind = 'remark'`), 'Entered by mistake');
+    await page.locator('#attTabs [data-tab="month"]').click();
+    await page.waitForFunction(() => /Unaccounted/.test(document.getElementById('monthTable').textContent) && /Dina/.test(document.getElementById('monthTable').textContent));
+    const heads = await page.locator('#monthTable th').allInnerTexts();
+    const dina = await page.locator('#monthTable tr[data-person="Dina"] td').allInnerTexts();
+    assert.equal(dina[heads.indexOf('Corrections')], '1');
+    // Dina sees what the office recorded about her.
+    await setSession('u-designer'); await page.reload({waitUntil: 'domcontentloaded'});
+    await page.waitForFunction(() => !document.getElementById('recordsCard').hidden);
+    assert.match(await page.locator('#recordsList').innerText(), /Afternoon out corrected to 5:00\s*PM: Phone died; left at 5, seen by Jason · by Bea/i);
+    await setSession('u-admin');
 
     // 6. Phone width.
     await page.screenshot({path: '/tmp/ritehome-attendance-team.png', fullPage: true});
@@ -131,6 +177,6 @@ const FACE = Array.from({length: 128}, (_, i) => ((i * 37) % 11) / 40);
     assert.deepEqual(found, {d: null, nets: [true, true, true]});
     assert.deepEqual(realErrors, []);
 
-    console.log('PASS attendance: notice, reference photo needs a face, clock-in with photo + GPS scored in the database, off-site punch without a face flagged, admin checks the photo beside the reference, month, reset, phone width, real face library loads and runs.');
+    console.log('PASS attendance: notice, reference photo needs a face, clock-in with photo + GPS scored in the database, off-site punch without a face flagged, admin checks the photo beside the reference, month, reset; bookkeeper sees times not photos, records a correction (reason required) and a remark, voids with a reason, not their own, month counts it, Dina sees it; phone width, real face library loads and runs.');
   } finally { await browser.close(); db.stop(); }
 })().catch(e => { console.error(e); db.stop(); process.exit(1); });

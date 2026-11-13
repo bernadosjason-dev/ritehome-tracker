@@ -31,14 +31,14 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 
 | What | Live | Notes |
 |---|---|---|
-| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18, 19, 20 and 21 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18, 19, 20, 21 in order in the Supabase SQL Editor) |
+| Supabase project | `laxavfldivkhufeubgmb` | migrations 01–17 applied and md5-checked; **18 to 22 pending** (2026-11-13: three apply attempts for 18 timed out; on the third the owner was waiting for the card and it never reached them; checked afterwards, nothing was applied. Next: owner runs 18 to 22 in order in the Supabase SQL Editor) |
 | Edge Function `team-admin` | v4 | JWT verification off (checks the caller itself) |
 | Edge Function `notify-telegram` | v1 | needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets (owner sets them) |
 | Vercel `ritehome-portal` | commit `2457d30` (v2.3) | portal.ritehomemodular.com; branch `claude/portal-supabase` |
 
 ## Owner to-dos
 
-- Run migrations 18, 19, 20 and 21, in that order, in the Supabase SQL Editor (the approval card never
+- Run migrations 18, 19, 20, 21 and 22, in that order, in the Supabase SQL Editor (the approval card never
   reached the owner), then tell the agent "done": it verifies, deploys and records it here.
 - After migration 20: the live storage check below, once.
 - Company profile: fill in the details and upload the permits with their expiry dates.
@@ -70,10 +70,24 @@ Record the result in "Live state".
 | 2 | Activity log | 2.1 | Nov 12 | live |
 | 3 | Notifications: bell, Telegram | 2.2 | Nov 12 | live (Telegram waits for secrets) |
 | 4 | Approvals: stage hand-offs reviewed by the admin, versions kept | 2.5 | Thu Nov 26 | built, pending migration |
-| 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | 3.0–3.1 built, pending migrations; 3.2 next |
+| 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | built, pending migrations 20–22 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 
 ## Version history (newest first)
+
+### 3.2 — 2026-11-13 — Phase 5c: attendance management (pending: migration 22 not applied, not deployed)
+Commit: see `git log` ("Attendance management"). Migration `20261125000022_attendance_records.sql`.
+- The admin and the bookkeeper record absences, leave (vacation, sick, emergency, bereavement,
+  maternity/paternity, unpaid, other; paid or unpaid), corrections to punches and remarks, from
+  Attendance → Team today → Record…
+- Punches are never changed (owner's rule): a correction (the right time and a required reason) sits
+  beside the punch, struck through, and the month counts the corrected time. A wrong record is voided
+  with a reason, never edited or deleted.
+- Controls: nobody but the admin records or voids their own attendance; the bookkeeper sees times and
+  flags but never selfies, GPS or face scores (photo review and face resets stay with the admin).
+- The month adds Absent, Paid leave, Unpaid leave, Corrections and Unaccounted (working days already
+  over with no punch, leave or absence: the days to ask about before payroll), in the table and the CSV.
+- Staff see what the office recorded about them on their own Attendance page.
 
 ### 3.1 — 2026-11-13 — Phase 5b: the bookkeeper keeps the books (pending: migration 21 not applied, not deployed)
 Commit: see `git log` ("Bookkeeper in Accounting"). Migration `20261124000021_bookkeeper_books.sql`.

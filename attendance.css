@@ -39,3 +39,16 @@
   .today-act{align-items:stretch;width:100%}
   .att .btn.big{width:100%}
 }
+/* Records the office adds (v3.2): leave, absences, corrections, remarks. */
+.rec-list{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}
+.rec-list .link{margin-left:6px}
+td.recs{min-width:220px}
+td.recs .btn{margin-top:6px}
+.cellp .fix{font-size:12px;font-weight:600;color:var(--warn)}
+.cellp .t.was{text-decoration:line-through;color:var(--ink-muted)}
+.rec-form{display:grid;gap:10px;margin:8px 0}
+.rec-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-muted)}
+.rec-form select,.rec-form input{min-height:36px;font:inherit;font-size:14px;padding:6px 9px;color:var(--ink)}
+.rec-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rec-row[hidden]{display:none}
+.rec-list .link{background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--accent);text-decoration:underline;cursor:pointer}

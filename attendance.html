@@ -9,14 +9,14 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="ui.css?v=2026-11-13.1">
 <link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
-<link rel="stylesheet" href="shell.css?v=2026-11-24.1">
-<link rel="stylesheet" href="attendance.css?v=2026-11-16.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-25.1">
+<link rel="stylesheet" href="attendance.css?v=2026-11-25.1">
 <link rel="expect" href="#pageReady" blocking="render">
 <script>window.RitehomePortal = {mode: "attendance"};</script>
 </head>
 <body class="acct att">
 <main class="wrap">
-<script src="shell.js?v=2026-11-24.1"></script>
+<script src="shell.js?v=2026-11-25.1"></script>
   <header class="acct-head">
     <div>
       <h1 id="attTitle">Attendance</h1>
@@ -46,7 +46,7 @@
           <p><b>What is recorded.</b> Each time you clock in or out: a photo of your face, your phone's location at that moment, and the time. Once, at the start: a reference photo and a face template made from it (128 numbers that describe your face; it can't be turned back into a photo).</p>
           <p><b>What is not.</b> Your location is never followed between punches, and your photos are not sent to any outside company. The face check runs on your own phone and in Ritehome's own database.</p>
           <p><b>Why.</b> To record working time for payroll, and to confirm it was you who clocked in.</p>
-          <p><b>Who sees it.</b> You see your own times. Only the admin sees everyone's photos, locations and face-check results.</p>
+          <p><b>Who sees it.</b> You see your own times. The admin and the bookkeeper see everyone's times for payroll. Only the admin sees photos, locations and face-check results.</p>
           <p><b>How long.</b> Photos are deleted after 90 days. Times are kept as payroll records. You may ask the admin to see, correct or delete your records, as the Data Privacy Act (RA 10173) provides.</p>
         </div>
         <div class="acct-actions"><button class="btn" type="button" id="noticeAccept">I understand and agree</button></div>
@@ -67,6 +67,12 @@
         <div class="slots" id="todaySlots"></div>
       </section>
 
+      <section class="card" id="recordsCard" hidden>
+        <h2>Recorded by the office</h2>
+        <p class="muted small">Leave, absences, corrections to your punches and remarks from the last month. Ask the admin if one is wrong.</p>
+        <div id="recordsList"></div>
+      </section>
+
       <section class="card" id="historyCard" hidden>
         <h2>Last two weeks</h2>
         <div id="historyTable"></div>
@@ -78,14 +84,14 @@
       <div class="kpis" id="teamKpis"></div>
       <section class="card" id="oldCard" hidden></section>
       <section class="card"><h2>Punches <span class="count" id="teamCount"></span></h2><div id="teamTable"></div></section>
-      <section class="card"><h2>Reference photos</h2><div id="faceTable"></div></section>
+      <section class="card" id="faceCard"><h2>Reference photos</h2><div id="faceTable"></div></section>
     </div>
 
     <div id="tab-month" hidden>
       <div class="acct-bar no-print"><label>Month <input type="month" id="monthPick"></label>
         <button class="btn ghost" type="button" id="monthCsv">Download CSV</button></div>
       <section class="card"><h2 id="monthTitle">Month</h2>
-        <p class="muted small">Hours count only matched pairs: morning in to morning out, afternoon in to afternoon out. A day with a missing punch shows under Incomplete.</p>
+        <p class="muted small">Hours count only matched pairs: morning in to morning out, afternoon in to afternoon out, each at its corrected time where the office recorded a correction. A day with a missing punch shows under Incomplete. Unaccounted: working days already over (Monday to Saturday, not a holiday on the calendar) with no punch, leave or absence recorded: ask about these before payroll.</p>
         <div id="monthTable"></div></section>
     </div>
   </div>
@@ -109,7 +115,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-11-20.1"></script>
+<script src="attendance.js?v=2026-11-25.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

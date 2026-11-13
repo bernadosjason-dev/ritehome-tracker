@@ -13,7 +13,9 @@
   var ROLE = {admin: "Admin", designer: "Designer", sales: "Sales", bookkeeper: "Bookkeeper", purchaser: "Purchaser", fabrication: "Workshop", installer: "Installer"};
 
   var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: false}});
-  var state = {me: null, tab: "mine", day: null, month: [], flash: null};
+  var state = {me: null, tab: "mine", day: null, month: [], flash: null, roles: [], manage: false};
+  var LEAVE = {vacation: "Vacation leave", sick: "Sick leave", emergency: "Emergency leave", bereavement: "Bereavement leave",
+    maternity_paternity: "Maternity / paternity leave", unpaid: "Unpaid leave", other: "Leave"};
 
   function $(id){ return document.getElementById(id); }
   function h(tag, attrs, kids){
@@ -170,6 +172,11 @@
     $("noticeCard").hidden = !!me.consent_at;
     $("enrollCard").hidden = !me.consent_at || me.enrolled;
     $("todayCard").hidden = !started; $("historyCard").hidden = !started || !me.days.length;
+    var recs = me.records || [];
+    $("recordsCard").hidden = !recs.length;
+    put("recordsList", recs.length ? h("ul", {class: "rec-list"}, recs.map(function(x){
+      return h("li", null, [h("b", {text: dayName(x.date) + " · "}), recordWords(x), x.by ? h("span", {class: "muted", text: " · by " + x.by}) : null]);
+    })) : null);
     if(!started) return;
     var done = {}; me.punches.forEach(function(p){ done[p.kind] = p; });
     // Punches only move forward through the day: after the afternoon ones, the morning can't be filled in.
@@ -223,12 +230,57 @@
     }).catch(function(e){ busy($("enrollBtn"), false); fail(e); });
   }
 
+  // ---------- records the office adds (attendance_records: 20261125000022) ----------
+  function recordWords(x){
+    if(x.kind === "absent") return "Absent" + (x.remarks ? ": " + x.remarks : "");
+    if(x.kind === "leave") return (LEAVE[x.leave_type] || "Leave") + (x.paid ? " (paid)" : " (unpaid)") + (x.remarks ? ": " + x.remarks : "");
+    if(x.kind === "correction") return (KIND[x.punch_kind] ? KIND[x.punch_kind][1] : "Punch") + " corrected to " + clock(x.at) + ": " + x.remarks;
+    return "Remark: " + x.remarks;
+  }
+  function canRecord(p){ return state.manage && (!p.self || state.day.can_review); }   // only the admin records their own
+  function voidRecord(p, x){
+    var why = window.prompt("Void this record for " + p.name + "?\n\n" + recordWords(x) + "\n\nIt stays in the history. Why is it void?", "");
+    if(why == null) return;
+    rpc("attendance_record_void", {p_id: x.id, p_reason: why}).then(function(){ msg("Voided. Add the right record if one is needed."); return loadTeam(); }).catch(fail);
+  }
+  function recordForm(p){
+    var kind = h("select", {"aria-label": "Kind of record"}, [["correction", "Correction to a punch"], ["leave", "Leave"], ["absent", "Absent"], ["remark", "Remark"]]
+      .map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    var punchK = h("select", {"aria-label": "Punch"}, KINDS.map(function(k){ return h("option", {value: k[0], text: k[1]}); }));
+    var time = h("input", {type: "time", "aria-label": "Corrected time", value: "08:00"});
+    var leave = h("select", {"aria-label": "Kind of leave"}, Object.keys(LEAVE).map(function(k){ return h("option", {value: k, text: LEAVE[k]}); }));
+    var paid = h("select", {"aria-label": "Paid"}, [h("option", {value: "true", text: "Paid"}), h("option", {value: "false", text: "Unpaid"})]);
+    var remarks = h("input", {maxlength: "1000", "aria-label": "Remarks", placeholder: "Reason or remark"});
+    var corrRow = h("div", {class: "rec-row"}, [h("label", null, ["Punch", punchK]), h("label", null, ["Right time", time])]);
+    var leaveRow = h("div", {class: "rec-row"}, [h("label", null, ["Kind", leave]), h("label", null, ["Pay", paid])]);
+    var err = h("p", {class: "form-error", role: "alert"});
+    function sync(){ corrRow.hidden = kind.value !== "correction"; leaveRow.hidden = kind.value !== "leave";
+      remarks.placeholder = kind.value === "correction" ? "Why (required): e.g. forgot to clock in, seen in the office" : kind.value === "remark" ? "The remark (required)" : "Remarks (optional)"; }
+    kind.addEventListener("change", sync); leave.addEventListener("change", function(){ if(leave.value === "unpaid") paid.value = "false"; });
+    var save = h("button", {class: "btn", type: "button", text: "Save record"});
+    save.addEventListener("click", function(){
+      err.textContent = ""; busy(save, true);
+      rpc("attendance_record_add", {p: {user_id: p.id, date: state.day.date, kind: kind.value, punch_kind: punchK.value, time: time.value,
+        leave_type: leave.value, paid: paid.value, remarks: remarks.value}})
+        .then(function(){ $("look").hidden = true; msg(p.name + ": recorded for " + dayName(state.day.date) + "."); return loadTeam(); })
+        .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    sync();
+    put("lookBox", h("div", {style: "display:contents"}, [
+      h("h2", {id: "lookTitle", text: p.name + " · " + dayName(state.day.date)}),
+      h("p", {class: "muted small", text: "Punches are never changed. A correction is added beside the punch and the month counts the corrected time. A wrong record is voided, never deleted."}),
+      h("div", {class: "rec-form"}, [h("label", null, ["Record", kind]), corrRow, leaveRow, h("label", null, ["Remarks", remarks])]), err,
+      h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
+    $("look").hidden = false; kind.focus();
+  }
+
   // ---------- admin: the team's day ----------
   function signed(path){
     return client.storage.from(BUCKET).createSignedUrl(path, 300).then(function(r){ if(r.error || !r.data) throw new Error("That photo can't be opened."); return r.data.signedUrl; });
   }
   function loadTeam(){
-    return Promise.all([rpc("attendance_day", {p_date: $("teamDate").value}), rpc("attendance_old_selfies", {p_days: 90})]).then(function(r){
+    return Promise.all([rpc("attendance_day", {p_date: $("teamDate").value}),
+      state.roles.indexOf("admin") >= 0 ? rpc("attendance_old_selfies", {p_days: 90}) : Promise.resolve([])]).then(function(r){
       state.day = r[0]; state.old = r[1] || []; renderTeam();
     });
   }
@@ -238,23 +290,31 @@
     people.forEach(function(p){ p.punches.forEach(function(x){ all.push(x); }); });
     var review = all.filter(needsLook).length, present = people.filter(function(p){ return p.punches.length; }).length;
     var late = all.filter(function(x){ return x.flags.indexOf("late") >= 0; }).length, off = people.filter(function(p){ return p.punches.some(function(x){ return x.flags.indexOf("off_site") >= 0; }); }).length;
-    var k = [["Photos to check", String(review), review ? "Open each one below" : "Nothing waiting", review > 0], ["Clocked in", present + " of " + people.length, people.length - present ? people.length - present + " not yet" : "Everyone"],
+    var admin = !!state.day.can_review, away = people.filter(function(p){ return p.records.some(function(x){ return x.kind === "absent" || x.kind === "leave"; }); }).length;
+    var k = [admin ? ["Photos to check", String(review), review ? "Open each one below" : "Nothing waiting", review > 0] : ["On leave or absent", String(away), "Recorded for this day"],
+      ["Clocked in", present + " of " + people.length, people.length - present ? people.length - present + " not yet" : "Everyone"],
       ["Late", String(late), "After 8 AM or 1 PM"], ["Off site", String(off), "More than " + state.day_radius + " m from the office"]];
     put("teamKpis", h("div", {style: "display:contents"}, k.map(function(x){
       return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val" + (x[3] ? " neg" : ""), text: x[1]}), h("span", {class: "sub", text: x[2]})]);
     })));
     $("teamCount").textContent = String(people.length);
     put("teamTable", h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
-      h("thead", null, h("tr", null, ["Person"].concat(KINDS.map(function(k){ return k[1]; })).map(function(t){ return h("th", {text: t}); }))),
+      h("thead", null, h("tr", null, ["Person"].concat(KINDS.map(function(k){ return k[1]; })).concat(["Recorded by the office"]).map(function(t){ return h("th", {text: t}); }))),
       h("tbody", null, people.map(function(p){
-        var by = {}; p.punches.forEach(function(x){ by[x.kind] = x; });
+        var by = {}, fix = {}; p.punches.forEach(function(x){ by[x.kind] = x; });
+        p.records.forEach(function(x){ if(x.kind === "correction") fix[x.punch_kind] = x; });
         return h("tr", {"data-person": p.name}, [h("td", null, [h("strong", {text: p.name || "Unnamed"}), h("div", {class: "muted", style: "font-size:12.5px", text: ROLE[p.role] || ""})])].concat(KINDS.map(function(k){
-          var x = by[k[0]];
-          if(!x) return h("td", {class: "none", text: "—"});
-          return h("td", null, h("div", {class: "cellp"}, [h("span", {class: "t", text: clock(x.at)}), pills(x, true),
-            h("button", {class: "link", type: "button", text: x.reviewed_at ? "Checked" : needsLook(x) ? "Check photo" : "Photo", "aria-label": p.name + " " + k[1] + " photo", onclick: function(){ look(p, x); }})]));
-        })));
+          var x = by[k[0]], c = fix[k[0]];
+          var corrected = c ? h("span", {class: "fix", title: c.remarks, text: (x ? "→ " : "") + clock(c.at) + " corrected"}) : null;
+          if(!x) return h("td", {class: c ? null : "none"}, c ? h("div", {class: "cellp"}, [corrected]) : "—");
+          return h("td", null, h("div", {class: "cellp"}, [h("span", {class: "t" + (c ? " was" : ""), text: clock(x.at)}), corrected, pills(x, true),
+            admin ? h("button", {class: "link", type: "button", text: x.reviewed_at ? "Checked" : needsLook(x) ? "Check photo" : "Photo", "aria-label": p.name + " " + k[1] + " photo", onclick: function(){ look(p, x); }}) : null]));
+        })).concat([h("td", {class: "recs"}, [h("ul", {class: "rec-list"}, p.records.map(function(x){
+          return h("li", null, [recordWords(x), h("span", {class: "muted", text: " · " + (x.by || "")}),
+            canRecord(p) ? h("button", {class: "link", type: "button", text: "Void", "aria-label": "Void " + recordWords(x), onclick: function(){ voidRecord(p, x); }}) : null]);
+        })), canRecord(p) ? h("button", {class: "btn ghost small", type: "button", text: "Record…", "aria-label": "Record for " + p.name, onclick: function(){ recordForm(p); }}) : null])]));
       }))])));
+    $("faceCard").hidden = !admin;
     put("faceTable", h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
       h("thead", null, h("tr", null, ["Person", "Notice", "Reference photo", ""].map(function(t){ return h("th", {text: t}); }))),
       h("tbody", null, people.map(function(p){
@@ -307,21 +367,26 @@
   }
 
   // ---------- admin: the month ----------
+  // [heading, value, shown red when above zero]
+  var MONTH_COLS = [["Person"], ["Days", function(m){ return m.days; }], ["Hours", function(m){ return Number(m.hours).toFixed(2); }],
+    ["Late", function(m){ return m.lates; }], ["Left early", function(m){ return m.early_outs; }], ["Incomplete", function(m){ return m.incomplete_days; }],
+    ["Absent", function(m){ return m.absences || 0; }], ["Paid leave", function(m){ return m.leave_paid || 0; }], ["Unpaid leave", function(m){ return m.leave_unpaid || 0; }],
+    ["Corrections", function(m){ return m.corrections || 0; }], ["Unaccounted", function(m){ return m.unaccounted || 0; }, true], ["To check", function(m){ return m.to_review; }]];
   function loadMonth(){
     return rpc("attendance_month", {p_month: $("monthPick").value + "-01"}).then(function(rows){ state.month = rows || []; renderMonth(); });
   }
   function renderMonth(){
     $("monthTitle").textContent = new Date($("monthPick").value + "-01T00:00:00+08:00").toLocaleDateString("en-PH", {month: "long", year: "numeric", timeZone: "Asia/Manila"});
     put("monthTable", h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
-      h("thead", null, h("tr", null, ["Person", "Days", "Hours", "Late", "Left early", "Incomplete", "To check"].map(function(t, i){ return h("th", {class: i ? "num" : null, text: t}); }))),
+      h("thead", null, h("tr", null, MONTH_COLS.map(function(c, i){ return h("th", {class: i ? "num" : null, text: c[0]}); }))),
       h("tbody", null, state.month.map(function(m){
-        return h("tr", null, [h("td", null, [m.name || "Unnamed", h("span", {class: "muted", text: " · " + (ROLE[m.role] || "")})])].concat(
-          [m.days, Number(m.hours).toFixed(2), m.lates, m.early_outs, m.incomplete_days, m.to_review].map(function(v){ return h("td", {class: "num", text: String(v)}); })));
+        return h("tr", {"data-person": m.name}, [h("td", null, [m.name || "Unnamed", h("span", {class: "muted", text: " · " + (ROLE[m.role] || "")})])].concat(
+          MONTH_COLS.slice(1).map(function(c){ var v = c[1](m); return h("td", {class: "num" + (c[2] && Number(v) > 0 ? " neg" : ""), text: String(v)}); })));
       }))])));
   }
   function monthCsv(){
-    var rows = [["Person", "Role", "Days", "Hours", "Late", "Left early", "Incomplete days", "To check"]].concat(state.month.map(function(m){
-      return [m.name, ROLE[m.role] || m.role, m.days, Number(m.hours).toFixed(2), m.lates, m.early_outs, m.incomplete_days, m.to_review]; }));
+    var rows = [["Person", "Role"].concat(MONTH_COLS.slice(1).map(function(c){ return c[0]; }))].concat(state.month.map(function(m){
+      return [m.name, ROLE[m.role] || m.role].concat(MONTH_COLS.slice(1).map(function(c){ return c[1](m); })); }));
     var csv = rows.map(function(r){ return r.map(function(c){ return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
     var a = h("a", {href: URL.createObjectURL(new Blob(["﻿" + csv], {type: "text/csv"})), download: "ritehome-attendance-" + $("monthPick").value + ".csv"});
     document.body.appendChild(a); a.click(); a.remove();
@@ -346,7 +411,7 @@
     $("punchKind").addEventListener("change", function(){ $("punchBtn").textContent = KIND[$("punchKind").value][2]; });
     return loadMine().then(function(){
       var me = state.me; state.day_radius = me.office.radius_m;
-      if(me.role === "admin"){
+      if(state.manage){
         $("attTabs").hidden = false; $("teamDate").value = me.today; $("monthPick").value = me.today.slice(0, 7);
         $("attTabs").addEventListener("click", function(e){ var b = e.target.closest("[data-tab]"); if(b) show(b.getAttribute("data-tab")); });
         $("teamDate").addEventListener("change", function(){ loadTeam().catch(fail); });
@@ -371,6 +436,7 @@
       roles = roles || [];
       if(window.RitehomeAccess) window.RitehomeAccess.apply(roles, client);
       if(!roles.length) return gate("Your account isn't active yet", "Ask the admin to switch it on.");
+      state.roles = roles; state.manage = roles.indexOf("admin") >= 0 || roles.indexOf("bookkeeper") >= 0;
       return start();
     });
   }).catch(function(e){ gate("Couldn't open attendance", e && e.message ? e.message : String(e)); });

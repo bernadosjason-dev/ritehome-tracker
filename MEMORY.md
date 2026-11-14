@@ -50,6 +50,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–24 applied (18–24 by the owner in the SQL Editor). **Verified 2026-11-13 by the agent through the Supabase connector:** all 155 public functions match a local load of 01–24 (comment- and whitespace-normalised: none differ, none missing, none extra); rolled-back smoke test 25/25 (admin calls work; anon refused for dashboard, company, approvals, salaries, pay, statutory); company-files bucket and its two policies exactly as expected; 18–24 registered in `supabase_migrations.schema_migrations` (24 rows) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Registered in `supabase_migrations` 2026-11-13 |
+| Migration 28 (v4.5 13th month) | applied 2026-11-14 | owner ran it (second try); agent verified (14/14 functions match, privileges right, smoke 11/11) and registered it. 0 people covered until rates and earlier earnings are entered |
 | Migrations 26–27 (v4.2 dashboard, v4.3 compliance) | applied 2026-11-14 | owner ran them; agent verified (9/9 functions match, privileges right, live run as the admin works) and registered both. Live finding: cash in the books is **-3,400** (no opening balance posted), shown as a critical risk. Compliance tracking starts Dec 1 2026 |
 | Migration 25 (v4.1 payroll runs) | applied 2026-11-13 | owner ran it; agent verified (20/20 payroll functions match; browser can't call compute or write tables); registered. Settings: contributions on the 16-end payday, allowance taxable (defaults until the owner decides). No runs yet |
 | Migration 24 (v4.0 statutory rules) | applied 2026-11-13 | owner ran it; agent verified (16/16 functions match, live figures match the tests). 9 rules seeded, all **waiting for the accountant's review**. Registered in `supabase_migrations` 2026-11-13 |
@@ -72,7 +73,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
-- 13th month (v4.5): run migration 28 in the SQL Editor, then say "merge". Then, by Fri Dec 11: enter each person's
+- 13th month (v4.5, live Nov 14): by Fri Dec 11, enter each person's
   Jan-Sep basic salary from the old payroll records (Attendance → Pay → 13th-month pay → Add earlier earnings), mark
   managerial staff in Government numbers, and get the accountant to answer: is paid leave part of basic salary at Ritehome?
   Prepare the run after the Dec 1-15 payroll is approved; approve and release by Thu Dec 24.
@@ -116,9 +117,12 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
-### 4.5 — 2026-11-14 — 13th-month pay (pending: migration 28 not applied; branch `claude/thirteenth-v4.5`)
-Migration `20261201000028_thirteenth_month.sql`, not applied. Due Fri Nov 20; built Nov 14. Goes live when the owner runs
-migration 28 in the SQL Editor and says "merge" (production must not get this code first). Coordinating agent T02-A02.
+### 4.5 — 2026-11-14 — 13th-month pay (live)
+Migration `20261201000028_thirteenth_month.sql`: applied by the owner 2026-11-14 (the first "done" didn't reach the
+database: the agent found 0 functions and held the merge; the second run worked). Verified by the agent through the
+connector: all 14 changed functions match the tested source, 192 public functions on both sides, browser can't call
+`thirteenth_person`/`thirteenth_run_compute` or write the tables, rolled-back smoke test 11/11, registered (28 rows).
+Branch `claude/thirteenth-v4.5` merged into production Nov 14, six days before the Fri Nov 20 due date. Coordinating agent T02-A02.
 - Law checked 2026-11-14: PD 851 and its 1987 Revised Guidelines (1/12 of basic salary earned in the calendar year, pro rata
   for anyone who left, rank-and-file, on or before Dec 24); NIRC 32(B)(7)(e) as amended by RA 10963 (13th month and other
   benefits tax-free up to 90,000). Basic salary leaves out overtime, premiums, night differential, holiday pay, allowances

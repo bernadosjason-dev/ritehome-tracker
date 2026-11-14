@@ -417,3 +417,12 @@ status from `compliance_records`. "Done" means a record of the kind the rule nee
 reference; generating anything never marks it done. Records are void-only (admin). The executive dashboard merges
 `compliance_list` client-side (risks, calendar, timeline). Tests: `node --test tests/compliance.test.cjs` and
 `node tests/compliance.browser.cjs`.
+
+AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
+`.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's
+"AI Organization" skill). Claude Code loads it as a skill; Codex: read that file before starting work. Route each
+task to its coordinating agent, label material work by agent ID, classify priority (P0-P3) and risk tier (T1-T3), and
+stop at its human gates (live migrations, deploys, statutory rules, pay, filings, hiring, contracts, live data writes,
+secrets, deletions). It is a working method for one agent, not separate AIs, and it never overrides this file or
+MEMORY.md: this file says how each workspace works, the skill says who works a task and where it must stop. When a
+workspace or gate changes, update the skill's routing table and roster in the same commit.

@@ -40,6 +40,8 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
   accountant signs off: divisor 313 days (monthly-paid equivalent daily rate), and statutory
   deductions (SSS, PhilHealth, Pag-IBIG, withholding tax) left as an empty table the accountant fills,
   with a gross-pay export meanwhile.
+- 2026-11-14 Agents work through the Ritehome AI organization (`.claude/skills/ritehome-ai-org/SKILL.md`): route,
+  classify, stop at the owner's gates, record here.
 - Brutal honesty in reports to the owner; every task has a deadline.
 
 ## Live state (update when it changes)
@@ -109,6 +111,18 @@ Record the result in "Live state".
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.4 — 2026-11-14 — AI organization for the agents, no portal feature change (live)
+Owner's request: integrate his 26-agent "AI Organization" skill into this repo.
+- `.claude/skills/ritehome-ai-org/SKILL.md`: the 8 teams, 26 agents and orchestrator adapted to the portal: a routing
+  table from Ritehome work to agent IDs, each agent's remit in this repo (files, migrations, rules it owns), triage
+  (P0-P3, T1-T3), the Ritehome human gates (live migrations, deploys, statutory rules, pay, filings, hiring, contracts,
+  live data writes, secrets, deletions), separation of duties (a second agent ID re-works money figures; the
+  accountant approves rules), QA checklist tied to this repo's tests, and MEMORY.md as the organization's decision log.
+- AGENTS.md points Codex to it; Claude Code loads it as a project skill. `.claude` added to `.vercelignore` so the
+  skill isn't served on the website (the repo itself is public).
+- Honest limit: it is a working method for one agent at a time, not 26 separate AIs. It changes how work is routed,
+  checked and reported, not what the portal does.
 
 ### 4.3 — 2026-11-14 — Compliance records and calendar (live)
 Migration `20261130000027_compliance.sql`: applied by the owner 2026-11-14; verified by the agent through the connector

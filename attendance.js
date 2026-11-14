@@ -176,7 +176,7 @@
     for(var i = last + 1; i < KINDS.length; i++) if(!done[KINDS[i][0]]) return KINDS[i][0];
     return null;
   }
-  function loadMine(){ return Promise.all([rpc("attendance_me"), quiet("pay_me"), quiet("payslips_mine")]).then(function(r){ state.me = r[0]; state.pay = r[1]; state.slips = r[2] || []; renderMine(); }); }
+  function loadMine(){ return Promise.all([rpc("attendance_me"), quiet("pay_me"), quiet("payslips_mine"), quiet("thirteenth_mine")]).then(function(r){ state.me = r[0]; state.pay = r[1]; state.slips = r[2] || []; state.myTh = r[3] || []; renderMine(); }); }
   // One payslip: pay, then what was taken, then net. Shared by the staff card and the run view.
   function slipBody(l, adjustments){
     var rows = [["Basic pay", l.basic_pay], ["Holiday and rest-day premiums", l.premium], ["Overtime", l.overtime_pay], ["Allowance", l.allowance]];
@@ -206,6 +206,18 @@
           h("div", {class: "acct-actions no-print"}, h("button", {class: "btn ghost small", type: "button", text: "Print", onclick: function(){ printSlip(d); }}))])]);
       return d;
     })) : null);
+  }
+  function renderMyThirteenth(){
+    var rows = state.myTh || [];
+    $("myThCard").hidden = !rows.length;
+    put("myThList", rows.length ? h("div", {class: "acct-scroll"}, h("table", {class: "acct-table"}, [
+      h("thead", null, h("tr", null, ["Year", "Basic salary counted", "13th-month pay", "Status"].map(function(t, i){ return h("th", {class: i === 1 || i === 2 ? "num" : null, text: t}); }))),
+      h("tbody", null, rows.map(function(l){
+        return h("tr", {"data-my-th": String(l.year)}, [h("td", {text: String(l.year)}),
+          h("td", {class: "num", text: peso(Number(l.earlier) + Number(l.portal) + Number(l.projected_basic))}),
+          h("td", {class: "num"}, h("strong", {text: peso(l.amount)})),
+          h("td", {text: l.status === "released" ? "Released " + dayName(String(l.released_at).slice(0, 10)) : "Approved, to be released"})]);
+      }))])) : null);
   }
   function printSlip(el){
     document.querySelectorAll(".slip.print-me").forEach(function(x){ x.classList.remove("print-me"); });
@@ -237,7 +249,7 @@
     $("noticeCard").hidden = !!me.consent_at;
     $("enrollCard").hidden = !me.consent_at || me.enrolled;
     $("todayCard").hidden = !started; $("historyCard").hidden = !started || !me.days.length;
-    renderMyPay(); renderSlips();
+    renderMyPay(); renderSlips(); renderMyThirteenth();
     var recs = me.records || [];
     $("recordsCard").hidden = !recs.length;
     put("recordsList", recs.length ? h("ul", {class: "rec-list"}, recs.map(function(x){
@@ -487,7 +499,7 @@
     });
     return first.then(function(){ return Promise.all([loadPayDays(), quiet("salary_rates_list"), quiet("payroll_settings_get")]); }).then(function(r){
       state.rates = r[1] || []; state.settings = r[2]; renderRates(); renderSettings();
-      return Promise.all([loadStatutory(), loadRuns()]);
+      return Promise.all([loadStatutory(), loadRuns(), loadThirteenth()]);
     });
   }
   function loadPayDays(){
@@ -812,10 +824,12 @@
     var hired = h("input", {type: "date", "aria-label": "Hired on", value: n.hired_on || ""}), birth = h("input", {type: "date", "aria-label": "Birth date", value: n.birth_date || ""});
     var mwe = h("select", {"aria-label": "Minimum wage earner"}, [["", "Decide from the rate"], ["true", "Yes: exempt from withholding tax"], ["false", "No"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
     mwe.value = n.minimum_wage_earner == null ? "" : String(n.minimum_wage_earner);
+    var raf = h("select", {"aria-label": "13th-month pay"}, [["true", "Rank-and-file: gets 13th-month pay"], ["false", "Managerial: not covered"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    raf.value = n.rank_and_file === false ? "false" : "true";
     var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
     save.addEventListener("click", function(){
       err.textContent = ""; busy(save, true);
-      var body = {user_id: p.id, birth_date: birth.value, hired_on: hired.value, minimum_wage_earner: mwe.value};
+      var body = {user_id: p.id, birth_date: birth.value, hired_on: hired.value, minimum_wage_earner: mwe.value, rank_and_file: raf.value};
       fields.forEach(function(x){ body[x[0]] = f[x[0]].value; });
       rpc("employee_statutory_save", {p: body}).then(function(){ $("look").hidden = true; msg(p.name + ": government numbers saved."); return loadStatutory(); })
         .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
@@ -826,7 +840,7 @@
       h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["TIN", f.tin]), h("label", null, ["SSS number", f.sss_no])]),
         h("div", {class: "rec-row"}, [h("label", null, ["PhilHealth number", f.philhealth_no]), h("label", null, ["Pag-IBIG MID number", f.pagibig_no])]),
         h("div", {class: "rec-row"}, [h("label", null, ["Hired on", hired]), h("label", null, ["Birth date", birth])]),
-        h("label", null, ["Minimum wage earner", mwe])]), err,
+        h("div", {class: "rec-row"}, [h("label", null, ["Minimum wage earner", mwe]), h("label", null, ["13th-month pay", raf])])]), err,
       h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
     $("look").hidden = false; f.tin.focus();
   }
@@ -857,6 +871,108 @@
     rpc("statutory_rule_decide", {p_id: r.id, p_decision: decision, p_note: note}).then(function(){ msg(decision === "approved" ? "Rule approved." : "Rule retired."); return loadStatutory(); }).catch(fail);
   }
 
+  // ---------- 13th-month pay (v4.5, migration 28) ----------
+  var TH_STATUS = {draft: ["warn", "Draft"], submitted: ["warn", "Waiting for the admin"], approved: ["good", "Approved"], released: ["good", "Released"]};
+  function loadThirteenth(){
+    if(!$("thYear").value) $("thYear").value = state.me.today.slice(0, 4);
+    return quiet("thirteenth_overview", {p_year: Number($("thYear").value)}).then(function(o){
+      state.th = o; $("thCard").hidden = !o;
+      if(o) renderThirteenth();
+    });
+  }
+  function thAct(action, note, done){
+    return function(e){
+      var b = e && e.currentTarget; busy(b, true);
+      rpc("thirteenth_run_act", {p_run: state.th.run.id, p_action: action, p_note: note || ""}).then(function(o){ msg(done); state.th = o; renderThirteenth(); })
+        .catch(function(err){ busy(b, false); fail(err); });
+    };
+  }
+  function plural(n){ return n + (n === 1 ? " person" : " people"); }
+  function renderThirteenth(){
+    var o = state.th, run = o.run, admin = !!o.can_approve, year = o.year;
+    var yearOver = state.me.today > year + "-12-31";
+    var pending = o.rule && o.rule.status !== "approved";
+    var people = o.people.filter(function(p){ return p.rank_and_file; }), managers = o.people.filter(function(p){ return !p.rank_and_file; });
+    var sum = function(k){ return people.reduce(function(a, p){ return a + Number(p[k] || 0); }, 0); };
+    var noEarlier = people.filter(function(p){ return !Number(p.earlier); });
+    var actions = [];
+    if(!run) actions.push(h("button", {class: "btn", type: "button", text: "Prepare " + year + " 13th month", onclick: function(e){
+      var b = e.currentTarget; busy(b, true);
+      rpc("thirteenth_run_prepare", {p_year: year}).then(function(r){ msg("13th month prepared: check it, then submit."); state.th = r; renderThirteenth(); }).catch(function(err){ busy(b, false); fail(err); }); }}));
+    else {
+      if(run.status === "draft"){
+        actions.push(h("button", {class: "btn ghost", type: "button", text: "Recompute", onclick: thAct("recompute", "", "Recomputed.")}));
+        actions.push(h("button", {class: "btn", type: "button", text: "Submit for approval", onclick: thAct("submit", "", "Submitted to the admin.")}));
+      }
+      if(run.status === "submitted" && admin){
+        actions.push(h("button", {class: "btn", type: "button", text: "Approve 13th month", onclick: function(e){
+          var note = window.prompt("Approve the " + year + " 13th month (" + peso(run.totals.amount) + ")? A note, if any:", ""); if(note == null) return; thAct("approve", note, "13th month approved.")(e); }}));
+        actions.push(h("button", {class: "btn ghost", type: "button", text: "Return…", onclick: function(e){
+          var note = window.prompt("What needs fixing?", ""); if(note == null) return; thAct("return", note, "Returned to the bookkeeper.")(e); }}));
+      }
+      if(run.status === "approved") actions.push(h("button", {class: "btn", type: "button", text: "Record release…", onclick: function(e){
+        var ref = window.prompt("The release reference: the bank batch number, or “cash, signed sheet”.", ""); if(ref == null) return; thAct("release", ref, "Release recorded.")(e); }}));
+      if(admin && run.status !== "released") actions.push(h("button", {class: "btn ghost danger", type: "button", text: "Void…", onclick: function(e){
+        var why = window.prompt("Void this 13th-month run? It stays in the history. Why?", ""); if(why == null) return; thAct("void", why, "13th-month run voided.")(e); }}));
+    }
+    actions.push(h("button", {class: "btn ghost", type: "button", text: "Add earlier earnings…", onclick: earlierForm}));
+    var st = run ? TH_STATUS[run.status] || ["", run.status] : null;
+    var lines = run ? run.lines : null, byUser = {};
+    (lines || []).forEach(function(l){ byUser[l.user_id] = l; });
+    put("thBox", h("div", {style: "display:contents"}, [
+      pending ? h("p", {class: "muted small", text: "The 13th-month rule is still waiting for the accountant's review: treat these figures as estimates until it is approved."}) : null,
+      noEarlier.length ? h("p", {class: "gov-warn", text: "No earlier earnings for " + noEarlier.map(function(p){ return p.name; }).join(", ") + ". The portal only knows pay from approved payroll runs; add what each person earned before that (from the old payroll records) or their 13th month comes out too low."}) : null,
+      h("div", {class: "kpis"}, [
+        [run ? "In this run" : "Projected for " + year, peso(run ? run.totals.amount : sum("projected")), run ? plural(run.totals.people || 0) : plural(people.length) + " · " + (yearOver ? "the year is over" : "if pay stays as it is")],
+        ["Earned so far", peso(sum("to_date")), "1/12 of basic salary to date"],
+        ["Due", dayName(year + "-12-24"), "PD 851: on or before"]].map(function(x){ return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val", text: x[1]}), h("span", {class: "sub", text: x[2]})]); })),
+      run ? h("div", {class: "run-title"}, [h("h3", {text: year + " 13th month"}), h("span", {class: "pill " + st[0], text: st[1]})]) : null,
+      run && run.returned_note ? h("p", {class: "gov-warn", text: "Returned: " + run.returned_note}) : null,
+      run && run.approver ? h("p", {class: "muted small", text: "Approved by " + run.approver + (run.release_ref ? " · released (" + run.release_ref + ")" : "") + "."}) : null,
+      h("div", {class: "acct-actions"}, actions),
+      h("div", {class: "acct-scroll"}, h("table", {class: "acct-table th-table"}, [
+        h("thead", null, h("tr", null, ["Person", "Earlier", "From payroll", "Rest of year (est.)", "Earned so far", "Projected", run ? "To pay" : ""].map(function(t, i){ return h("th", {class: i && i < 6 || i === 6 && run ? "num" : null, text: t}); }))),
+        h("tbody", null, people.map(function(p){
+          var l = byUser[p.user_id];
+          return h("tr", {"data-th": p.name}, [h("td", null, [h("strong", {text: p.name}), p.separated_on ? h("div", {class: "muted", style: "font-size:12.5px", text: "Left " + dayName(p.separated_on)}) : null,
+              p.covered_through ? h("div", {class: "muted", style: "font-size:12.5px", text: "Payroll to " + dayName(p.covered_through)}) : h("div", {class: "muted", style: "font-size:12.5px", text: "No approved payroll yet"})]),
+            h("td", {class: "num", text: Number(p.earlier) ? peso(p.earlier) : "—"}), h("td", {class: "num", text: peso(p.portal)}),
+            h("td", {class: "num", text: peso(p.projected_basic)}), h("td", {class: "num", text: peso(p.to_date)}), h("td", {class: "num", text: peso(p.projected)}),
+            run ? h("td", {class: "num"}, l ? [h("strong", {text: peso(l.amount)}), Number(l.taxable_excess) ? h("div", {class: "neg", style: "font-size:12.5px", text: peso(l.taxable_excess) + " over the tax-free 90,000"}) : null] : "—") : h("td")]);
+        }))])),
+      managers.length ? h("p", {class: "muted small", text: "Not counted (managerial, set in Government numbers): " + managers.map(function(p){ return p.name; }).join(", ") + "."}) : null,
+      o.earlier.length ? h("details", {class: "th-earlier"}, [h("summary", {text: "Earlier earnings entered (" + o.earlier.length + ")"}),
+        h("ul", {class: "rec-list"}, o.earlier.map(function(x){
+          var who = (o.people.filter(function(p){ return p.user_id === x.user_id; })[0] || {}).name || "Someone";
+          return h("li", {"data-earlier": who}, [h("b", {text: who + ": "}), peso(x.amount) + " · " + x.reference + (x.note ? " · " + x.note : ""), h("span", {class: "muted", text: " · by " + x.by}),
+            admin ? h("button", {class: "link", type: "button", text: "Void", "aria-label": "Void earlier earnings for " + who, onclick: function(){
+              var why = window.prompt("Void this entry? Why?", ""); if(why == null) return;
+              rpc("thirteenth_earlier_void", {p_id: x.id, p_reason: why}).then(function(){ msg("Entry voided."); return loadThirteenth(); }).catch(fail); }}) : null]);
+        }))]) : null]));
+  }
+  function earlierForm(){
+    var o = state.th;
+    var admin = !!o.can_approve;
+    var who = h("select", {"aria-label": "Person"}, o.people.map(function(p){ return h("option", {value: p.user_id, text: p.name}); }));
+    var amount = h("input", {inputmode: "decimal", "aria-label": "Basic salary earned", placeholder: "e.g. 54000"});
+    var ref = h("input", {maxlength: "200", "aria-label": "Where it comes from", placeholder: "e.g. Old payroll sheets Jan-Sep " + o.year});
+    var note = h("input", {maxlength: "500", "aria-label": "Note", placeholder: "Note (optional)"});
+    var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
+    save.addEventListener("click", function(){
+      err.textContent = ""; busy(save, true);
+      rpc("thirteenth_earlier_add", {p: {user_id: who.value, year: o.year, amount: amount.value.replace(/[,\s₱]/g, ""), reference: ref.value, note: note.value}})
+        .then(function(){ $("look").hidden = true; msg("Earlier earnings saved."); return loadThirteenth(); })
+        .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    put("lookBox", h("div", {style: "display:contents"}, [
+      h("h2", {id: "lookTitle", text: "Earlier earnings · " + o.year}),
+      h("p", {class: "muted small", text: "Basic salary each person earned in " + o.year + " before the portal's first approved payroll: days worked at their rate, without overtime, holiday pay, allowances or paid leave. Entries are never edited: the admin voids a wrong one and you add the right one."}),
+      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Person", who]), h("label", null, ["Basic salary earned (₱)", amount])]),
+        h("label", null, ["Where it comes from", ref]), h("label", null, ["Note", note])]), err,
+      h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
+    $("look").hidden = false; amount.focus();
+  }
+
   // ---------- start ----------
   function show(tab){
     state.tab = tab;
@@ -885,6 +1001,7 @@
         ["payFrom", "payTo"].forEach(function(id){ $(id).addEventListener("change", function(){ loadPayDays().catch(fail); }); });
         ["payPerson", "payRole", "payType", "payStatus"].forEach(function(id){ $(id).addEventListener("change", renderPay); });
         $("payCsv").addEventListener("click", payCsv);
+        $("thYear").addEventListener("change", function(){ loadThirteenth().catch(fail); });
         $("runPrepare").addEventListener("click", function(e){
           var b = e.currentTarget; busy(b, true);
           rpc("payroll_run_prepare", {p_date: $("runDate").value}).then(function(r){ busy(b, false); msg("Payroll prepared from attendance: check it, then submit."); state.openRun = r.id; return loadRuns(); })

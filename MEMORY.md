@@ -72,6 +72,10 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
+- 13th month (v4.5): run migration 28 in the SQL Editor, then say "merge". Then, by Fri Dec 11: enter each person's
+  Jan-Sep basic salary from the old payroll records (Attendance → Pay → 13th-month pay → Add earlier earnings), mark
+  managerial staff in Government numbers, and get the accountant to answer: is paid leave part of basic salary at Ritehome?
+  Prepare the run after the Dec 1-15 payroll is approved; approve and release by Thu Dec 24.
 - Payroll: enter each person's rate (Attendance → Pay → Rates) by Mon Nov 16 for the Nov 16-30
   parallel run.
 - Statutory rules: have the accountant check the 9 rules (Attendance → Pay → Statutory rules), then approve each
@@ -111,6 +115,28 @@ Record the result in "Live state".
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.5 — 2026-11-14 — 13th-month pay (pending: migration 28 not applied; branch `claude/thirteenth-v4.5`)
+Migration `20261201000028_thirteenth_month.sql`, not applied. Due Fri Nov 20; built Nov 14. Goes live when the owner runs
+migration 28 in the SQL Editor and says "merge" (production must not get this code first). Coordinating agent T02-A02.
+- Law checked 2026-11-14: PD 851 and its 1987 Revised Guidelines (1/12 of basic salary earned in the calendar year, pro rata
+  for anyone who left, rank-and-file, on or before Dec 24); NIRC 32(B)(7)(e) as amended by RA 10963 (13th month and other
+  benefits tax-free up to 90,000). Basic salary leaves out overtime, premiums, night differential, holiday pay, allowances
+  and COLA, and (Supreme Court: San Miguel v. Inciong, Honda v. Samahan) paid leave unless company practice includes it.
+  Seeded as statutory rule `thirteenth_month`, waiting for the accountant (rules waiting: 17).
+- Attendance → Pay → 13th-month pay (admin, bookkeeper): per person earlier earnings, basic from approved payroll, the rest
+  of the year estimated at their rate, earned so far (1/12) and projected; a run (prepare → submit → admin approves →
+  release recorded with its reference; void by the admin, never once released). Before Dec 31 the run pays the projected
+  figure; the to-date figure sits beside it for the accountant's true-up. Excess over 90,000 is flagged as taxable.
+- Earlier earnings: the portal only has payroll from Oct 2026 at the earliest, so Jan-Sep basic must be entered per person
+  from the old payroll records, with a reference (the card warns until it is). Never edited; the admin voids a wrong one.
+- Managerial employees: "13th-month pay" in Government numbers (rank-and-file by default). The admin's account is never counted.
+- Staff see their own figure once approved ("My 13th-month pay").
+- Open for the owner and accountant: does Ritehome's practice count paid leave as basic salary (the default here: no)?
+  Other benefits that share the 90,000 cap are not tracked yet.
+- Tests: `tests/thirteenth.test.cjs` (October 2026 by hand: Dina 5,747.92 to date / 8,347.92 projected; Bea 41,666.67 /
+  50,000.00) and `tests/thirteenth.browser.cjs`. Rule counts 16 → 17 in the statutory and executive tests. Full run: 215 unit
+  tests and every browser suite pass.
 
 ### 4.4 — 2026-11-14 — AI organization for the agents, no portal feature change (live)
 Owner's request: integrate his 26-agent "AI Organization" skill into this repo.

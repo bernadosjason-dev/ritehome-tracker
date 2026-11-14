@@ -102,7 +102,7 @@ owns here.
 - **T02-A01 Financial Planning & Control Analyst**: Accounting (`accounting.*`, migration 05/21), project health
   (`project-health.js`), executive money boxes and forecasts (migration 26). Hand-worked test figures. Never moves money.
 - **T02-A02 Accounting, Tax & Compliance Coordinator**: payroll maths (`pay_day_calc`, payroll runs), statutory rules
-  (migration 24), Compliance (migration 27), 13th month, BIR forms. Verifies BIR/SSS/PhilHealth/Pag-IBIG/DOLE rules from
+  (migration 24), Compliance (migration 27), 13th month (migration 28, `thirteenth_*`), BIR forms. Verifies BIR/SSS/PhilHealth/Pag-IBIG/DOLE rules from
   primary sources; the accountant signs off.
 - **T02-A03 Legal, Contracts & IP Analyst**: client and supplier terms, Data Privacy Act (RA 10173) issue-spotting
   (attendance selfies, government numbers), public-repo exposure (never commit business data). Counsel decides.

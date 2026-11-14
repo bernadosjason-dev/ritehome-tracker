@@ -418,6 +418,24 @@ reference; generating anything never marks it done. Records are void-only (admin
 `compliance_list` client-side (risks, calendar, timeline). Tests: `node --test tests/compliance.test.cjs` and
 `node tests/compliance.browser.cjs`.
 
+13th-month pay (v4.5; Attendance → Pay → "13th-month pay" in `attendance.js`, SQL in
+`supabase/migrations/20261201000028_thirteenth_month.sql`): PD 851, 1/12 of the basic salary earned in the calendar year,
+due by Dec 24. The rule is the `statutory_rules` row `thirteenth_month` (divisor, tax-free cap 90,000; pending the
+accountant): never write either in code. `thirteenth_person(user, year)` (internal) is the one place it is computed:
+earlier = `thirteenth_earlier` rows (basic earned before the portal's payroll, each with a reference; void-only, added by
+`can_keep_books()` but never about oneself unless admin, voided by the admin); portal = approved/released `payroll_lines`
+of the year (daily-paid: each ordinary working day worked, basic less deductions, from `days`; holidays, rest days, leave,
+premiums, overtime and allowance left out; monthly-paid: `basic_pay`); projected = the rest of the year at the rate in force
+(daily: Mon-Sat non-holiday days; monthly: half the rate per cutoff left), stopping at `employee_statutory.separated_on`.
+Covered: non-admin, `employee_statutory.rank_and_file` (default true), active or separated that year, with a rate or
+earlier earnings. Runs (`thirteenth_runs`, one non-void per year; `thirteenth_lines` rewritten only while draft) pay the
+projected figure before the year is over and the to-date figure after; workflow `thirteenth_run_prepare(year)` and
+`thirteenth_run_act(run, action, note)` (recompute/submit/release: books; approve/return/void: admin; released never void).
+Staff read `thirteenth_mine()` (approved/released). Leave pay is excluded per Supreme Court rulings unless company practice
+includes it: the owner and accountant decide; changing that is a new migration and new hand-worked figures. Tests:
+`node --test tests/thirteenth.test.cjs` (October 2026 by hand in its header: keep it that way) and
+`node tests/thirteenth.browser.cjs`.
+
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's
 "AI Organization" skill). Claude Code loads it as a skill; Codex: read that file before starting work. Route each

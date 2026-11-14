@@ -87,6 +87,12 @@
         <div id="slipsList"></div>
       </section>
 
+      <section class="card" id="myThCard" hidden>
+        <h2>My 13th-month pay</h2>
+        <p class="muted small">One twelfth of your basic salary for the year, paid by Dec 24.</p>
+        <div id="myThList"></div>
+      </section>
+
       <section class="card" id="historyCard" hidden>
         <h2>Last two weeks</h2>
         <div id="historyTable"></div>
@@ -130,6 +136,10 @@
           <button class="btn" type="button" id="runPrepare">Prepare payroll</button></div></div>
         <p class="muted small">The bookkeeper prepares a cutoff from attendance; the admin approves it; the release is then recorded with its reference. Nothing here moves money. Approved runs are locked.</p>
         <div id="runsList"></div><div id="runBox"></div></section>
+      <section class="card" id="thCard" hidden><div class="card-head runs-head"><h2>13th-month pay</h2>
+          <div class="runs-new no-print"><label>Year <input type="number" id="thYear" min="2020" max="2100" step="1" inputmode="numeric"></label></div></div>
+        <p class="muted small" id="thSub">One twelfth of the basic salary earned in the year (PD 851), due on or before Dec 24. Basic salary means days actually worked: overtime, premiums, holiday pay, allowances and paid leave are left out. Rank-and-file only; the admin's own account isn't counted.</p>
+        <div id="thBox"></div></section>
       <section class="card" id="ratesCard"><h2>Rates</h2>
         <p class="muted small">A new rate starts on its date; earlier days keep the rate they were worked at. Rates are never edited: a mistake is fixed by adding the right one with the same date.</p>
         <div id="ratesTable"></div></section>
@@ -162,7 +172,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-11-28.1"></script>
+<script src="attendance.js?v=2026-12-01.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

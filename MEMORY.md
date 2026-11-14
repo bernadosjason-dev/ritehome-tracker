@@ -48,6 +48,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–24 applied (18–24 by the owner in the SQL Editor). **Verified 2026-11-13 by the agent through the Supabase connector:** all 155 public functions match a local load of 01–24 (comment- and whitespace-normalised: none differ, none missing, none extra); rolled-back smoke test 25/25 (admin calls work; anon refused for dashboard, company, approvals, salaries, pay, statutory); company-files bucket and its two policies exactly as expected; 18–24 registered in `supabase_migrations.schema_migrations` (24 rows) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Registered in `supabase_migrations` 2026-11-13 |
+| Migrations 26–27 (v4.2 dashboard, v4.3 compliance) | applied 2026-11-14 | owner ran them; agent verified (9/9 functions match, privileges right, live run as the admin works) and registered both. Live finding: cash in the books is **-3,400** (no opening balance posted), shown as a critical risk. Compliance tracking starts Dec 1 2026 |
 | Migration 25 (v4.1 payroll runs) | applied 2026-11-13 | owner ran it; agent verified (20/20 payroll functions match; browser can't call compute or write tables); registered. Settings: contributions on the 16-end payday, allowance taxable (defaults until the owner decides). No runs yet |
 | Migration 24 (v4.0 statutory rules) | applied 2026-11-13 | owner ran it; agent verified (16/16 functions match, live figures match the tests). 9 rules seeded, all **waiting for the accountant's review**. Registered in `supabase_migrations` 2026-11-13 |
 | Holidays on the calendar | 36 loaded 2026-11-13 by the agent (owner: "we follow what's online") | National list from Proclamation No. 1006 s. 2025 (2026) and No. 1427 s. 2026 (2027), read from the PCO PDFs: 10 regular + 8 special each year, typed regular/special, source in each event's notes. Not included: Eid'l Fitr / Eid'l Adha (proclaimed separately each year), NCR-only days, Cagayan de Oro local days (owner to add if the company observes them), the EDSA special *working* day. Release dates now: Nov 16-30 -> Sat Nov 28, Dec 16-31 -> Tue Dec 29 |
@@ -67,6 +68,8 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
   separate jobs, or accidental doubles to close.
 - Backups decision (reminder Fri Nov 20).
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
+- Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
+  books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
 - Payroll: enter each person's rate (Attendance → Pay → Rates) by Mon Nov 16 for the Nov 16-30
   parallel run.
 - Statutory rules: have the accountant check the 9 rules (Attendance → Pay → Statutory rules), then approve each
@@ -102,14 +105,15 @@ Record the result in "Live state".
 | 5 | Company profile (3.0), bookkeeper in Accounting (3.1), attendance management (3.2) | 3.0–3.2 | Thu Nov 26 | live Nov 13 |
 | 6 | Role dashboards and reports | 3.x | — | not started |
 | — | Daily salary + semi-monthly payroll from attendance: rates with history, daily estimated earnings beside attendance, OT approval, holidays, cutoffs, approval, payslips, self-service (owner's brief 2026-11-13) | 3.3–3.4 | proposed Tue Nov 17 / Fri Nov 20 | owner decided 2026-11-13 (see decisions); building v3.3 on branch `claude/payroll-v3.3`; formulas need the accountant's sign-off; parallel run Nov 16–30, official from Dec 1–15 |
-| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0 and 4.1 live, 4.2 dashboard and 4.3 compliance built): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
+| — | Finance & compliance + executive dashboard (owner's brief 2026-11-13, "MAJOR PORTAL UPGRADE"; 4.0-4.3 live): statutory rules engine (BIR, SSS, PhilHealth, Pag-IBIG, versioned with sources), payroll runs with approval and payslips, remittances and filings, compliance calendar, 13th month, benefits, executive dashboard (finance, payroll, calendar, Gantt, risks), AI recommendations | 4.0–4.6 | proposed Nov 17 → Dec 11 | plan proposed 2026-11-13; waiting for 8 owner decisions; needs v3.3 live first; 13th month must be payable by Dec 24 |
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
 
-### 4.3 — 2026-11-14 — Compliance records and calendar (pending: migrations 26 and 27 not applied)
-Branch `claude/compliance-v4.3` (built on 4.2; preview only). Migration `20261130000027_compliance.sql` (**not applied**;
-needs 26 first). Due Thu Nov 26; built Nov 14.
+### 4.3 — 2026-11-14 — Compliance records and calendar (live)
+Migration `20261130000027_compliance.sql`: applied by the owner 2026-11-14; verified by the agent through the connector
+(functions match the tested source; internals and tables closed to browsers; registered). Merged into production with 4.2.
+Due Thu Nov 26; live Nov 14.
 - Accounting → Compliance: every tax and contribution obligation with its due date, the amount from approved
   payroll runs, and its status (overdue / due soon / upcoming / done). Views: this month, quarter, year,
   overdue, completed. Done only when someone records the reference of the filing or payment made in the
@@ -131,8 +135,10 @@ needs 26 first). Due Thu Nov 26; built Nov 14.
 - Tests: `tests/compliance.test.cjs` (October payroll amounts and due dates by hand) and `tests/compliance.browser.cjs`.
   Full run: 211 unit tests and every browser suite pass.
 
-### 4.2 — 2026-11-14 — Executive dashboard (pending: migration 26 not applied)
-Branch `claude/dashboard-v4.2` (preview only). Migration `20261129000026_executive_dashboard.sql` (**not applied**).
+### 4.2 — 2026-11-14 — Executive dashboard (live)
+Migration `20261129000026_executive_dashboard.sql`: applied by the owner 2026-11-14; verified by the agent (functions
+match; STABLE; anon refused; a live run as the admin works: 8 risks, cash in the books -3,400 because no opening
+balance is posted). Registered. Merged into production 2026-11-14.
 Owner's decision (2026-11-14): the dashboard before the compliance records (order "a"); compliance becomes v4.3.
 Due Tue Nov 17; built early on Nov 14. Goes live when the owner runs migration 26 and says "merge".
 - "/" for the admin becomes a read-only executive dashboard (`exec-dashboard.js`/`.css`): headline computed

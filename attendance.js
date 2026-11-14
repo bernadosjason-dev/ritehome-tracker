@@ -182,15 +182,20 @@
     var rows = [["Basic pay", l.basic_pay], ["Holiday and rest-day premiums", l.premium], ["Overtime", l.overtime_pay], ["Allowance", l.allowance]];
     (adjustments || []).forEach(function(a){ if(a.kind !== "deduction") rows.push([a.reason, a.amount]); });
     var less = [["SSS", l.sss_ee], ["PhilHealth", l.ph_ee], ["Pag-IBIG", l.pi_ee]].filter(function(x){ return Number(x[1]); })
-      .concat([["Withholding tax" + (l.mwe ? " (minimum wage earner: none)" : ""), l.tax]]);
+      .concat([[yearEndLabel(l), l.tax]]);
     (adjustments || []).forEach(function(a){ if(a.kind === "deduction") less.push([a.reason, a.amount]); });
-    function tr(x, neg){ return h("tr", null, [h("td", {text: x[0]}), h("td", {class: "num", text: (neg && Number(x[1]) ? "− " : "") + peso(x[1])})]); }
+    function tr(x, neg){ var v = Number(x[1]); return h("tr", null, [h("td", {text: x[0]}), h("td", {class: "num", text: (neg && v > 0 ? "− " : neg && v < 0 ? "+ " : "") + peso(Math.abs(v))})]); }
     return h("table", {class: "acct-table slip-table"}, [h("tbody", null, [].concat(
       rows.filter(function(x){ return Number(x[1]); }).map(function(x){ return tr(x); }),
       [h("tr", {class: "sum"}, [h("td", {text: "Gross pay"}), h("td", {class: "num", text: peso(l.gross)})])],
       less.map(function(x){ return tr(x, true); }),
       [h("tr", {class: "sum net"}, [h("td", {text: "Net pay"}), h("td", {class: "num", text: peso(l.net)})])],
       !Number(l.sss_ee) && !Number(l.ph_ee) && !Number(l.pi_ee) ? [h("tr", null, h("td", {colspan: "2", class: "muted small", text: "SSS, PhilHealth and Pag-IBIG for the month come off the 16–end payslip."}))] : []))]);
+  }
+  function yearEndLabel(l){
+    var w = l.basis && l.basis.withholding;
+    if(l.year_end === "adjusted" || (w && w.year_end === "adjusted")) return Number(l.tax) < 0 ? "Year-end tax refund (over-withheld this year)" : "Withholding tax, year-end adjustment";
+    return "Withholding tax" + (l.mwe ? " (minimum wage earner: none)" : "");
   }
   function renderSlips(){
     var slips = state.slips || [];
@@ -499,7 +504,7 @@
     });
     return first.then(function(){ return Promise.all([loadPayDays(), quiet("salary_rates_list"), quiet("payroll_settings_get")]); }).then(function(r){
       state.rates = r[1] || []; state.settings = r[2]; renderRates(); renderSettings();
-      return Promise.all([loadStatutory(), loadRuns(), loadThirteenth()]);
+      return Promise.all([loadStatutory(), loadRuns(), loadThirteenth(), loadYearEnd()]);
     });
   }
   function loadPayDays(){
@@ -638,12 +643,14 @@
     rule.value = st.payday_rule;
     var timing = h("select", {"aria-label": "Government contributions deducted", disabled: !edit}, [["second", "All on the 16–end payday"], ["split", "Half each payday"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
     var allowTax = h("select", {"aria-label": "Allowance taxable", disabled: !edit}, [["true", "Taxable"], ["false", "Not taxable (de minimis)"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
-    var hasRuns = st.contributions_timing != null;
+    var hasRuns = st.contributions_timing != null, hasYE = st.year_end_adjustment != null;
+    var yearEnd = h("select", {"aria-label": "Year-end tax adjustment", disabled: !edit}, [["true", "On the Dec 16–31 payroll (RR 11-2018)"], ["false", "Off: ordinary table in December"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
     if(hasRuns){ timing.value = st.contributions_timing; allowTax.value = String(st.allowance_taxable); }
+    if(hasYE) yearEnd.value = String(st.year_end_adjustment);
     var save = h("button", {class: "btn", type: "button", text: "Save settings", disabled: true});
-    function dirty(){ save.disabled = rule.value === st.payday_rule && (!hasRuns || (timing.value === st.contributions_timing && allowTax.value === String(st.allowance_taxable)))
+    function dirty(){ save.disabled = rule.value === st.payday_rule && (!hasRuns || (timing.value === st.contributions_timing && allowTax.value === String(st.allowance_taxable))) && (!hasYE || yearEnd.value === String(st.year_end_adjustment))
       && SETTINGS.every(function(x){ return Number(inputs[x[0]].value) === Number(st[x[0]]); }); }
-    rule.addEventListener("change", dirty); timing.addEventListener("change", dirty); allowTax.addEventListener("change", dirty);
+    rule.addEventListener("change", dirty); timing.addEventListener("change", dirty); allowTax.addEventListener("change", dirty); yearEnd.addEventListener("change", dirty);
     var grid = SETTINGS.map(function(x){
       var i = inputs[x[0]] = h("input", {inputmode: "decimal", value: String(st[x[0]]), "aria-label": x[1], disabled: !edit});
       i.addEventListener("input", dirty);
@@ -652,13 +659,14 @@
     save.addEventListener("click", function(){
       var body = {payday_rule: rule.value}; SETTINGS.forEach(function(x){ body[x[0]] = inputs[x[0]].value; });
       if(hasRuns){ body.contributions_timing = timing.value; body.allowance_taxable = allowTax.value === "true"; }
+      if(hasYE) body.year_end_adjustment = yearEnd.value === "true";
       busy(save, true);
       rpc("payroll_settings_save", {p: body}).then(function(s){ state.settings = s; msg("Payroll settings saved."); state.period = null; return loadPay(); })
         .catch(function(e){ busy(save, false); fail(e); });
     });
     put("settingsBox", h("div", {style: "display:contents"}, [
       h("p", {class: "muted small", text: "The Labor Code's rates, as multiples of the daily rate. Defaults until the accountant signs them off." + (edit ? "" : " Only the admin changes them.")}),
-      h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(hasRuns ? [h("label", null, ["Government contributions deducted", timing]), h("label", null, ["Daily allowance", allowTax])] : [], grid)),
+      h("div", {class: "rec-form pay-settings"}, [h("label", null, ["Pay day on a Sunday or holiday", rule])].concat(hasRuns ? [h("label", null, ["Government contributions deducted", timing]), h("label", null, ["Daily allowance", allowTax])] : [], hasYE ? [h("label", null, ["Year-end tax", yearEnd])] : [], grid)),
       edit ? h("div", {class: "acct-actions"}, save) : null]));
   }
 
@@ -973,6 +981,85 @@
     $("look").hidden = false; amount.focus();
   }
 
+  // ---------- year-end tax and the 2316 figures (v4.6, migration 29) ----------
+  function loadYearEnd(){
+    if(!$("yeYear").value) $("yeYear").value = state.me.today.slice(0, 4);
+    return quiet("annual_tax_list", {p_year: Number($("yeYear").value)}).then(function(o){
+      state.ye = o; $("yeCard").hidden = !o;
+      if(o) renderYearEnd();
+    });
+  }
+  function renderYearEnd(){
+    var o = state.ye, year = o.year, people = o.people, admin = !!o.can_void;
+    var missing = people.filter(function(p){ return p.active !== false && !p.history_complete; });
+    var due = people.reduce(function(a, p){ return a + Math.max(Number(p.difference), 0); }, 0), back = people.reduce(function(a, p){ return a + Math.max(-Number(p.difference), 0); }, 0);
+    var diff = function(p){ var d = Number(p.difference); return !d ? "—" : d > 0 ? "Withhold " + peso(d) : "Refund " + peso(-d); };
+    put("yeBox", h("div", {style: "display:contents"}, [
+      o.rule && o.rule.status !== "approved" ? h("p", {class: "muted small", text: "The annual tax table is still waiting for the accountant's review: these figures are estimates until it is approved."}) : null,
+      o.settings && o.settings.year_end_adjustment === false ? h("p", {class: "gov-warn", text: "The year-end adjustment is switched off in How pay is computed: the Dec 16–31 payroll will use the ordinary table."}) : null,
+      missing.length ? h("p", {class: "gov-warn", text: "Pay before the portal is missing for " + missing.map(function(p){ return p.name; }).join(", ") + ". Enter it (Add earlier pay…) from the old payroll or the previous employer's BIR 2316: the Dec 16–31 payroll can't be submitted without it."}) : null,
+      h("div", {class: "kpis"}, [
+        ["Still to withhold", peso(due), "In the Dec 16–31 payroll"], ["To refund", peso(back), "By Jan 25, " + (year + 1)],
+        ["2316 to employees", "By Jan 31, " + (year + 1), "BIR Form 2316, signed"]].map(function(x){ return h("div", {class: "kpi"}, [h("span", {class: "label", text: x[0]}), h("span", {class: "val", text: x[1]}), h("span", {class: "sub", text: x[2]})]); })),
+      h("div", {class: "acct-actions"}, [h("button", {class: "btn ghost", type: "button", text: "Add earlier pay…", onclick: yeForm}), h("button", {class: "btn ghost", type: "button", text: "Download CSV", onclick: yeCsv})]),
+      h("div", {class: "acct-scroll"}, h("table", {class: "acct-table ye-table"}, [
+        h("thead", null, h("tr", null, ["Person", "Gross pay", "Non-taxable benefits", "Taxable", "Tax due", "Withheld", "Difference"].map(function(t, i){ return h("th", {class: i ? "num" : null, text: t}); }))),
+        h("tbody", null, people.map(function(p){
+          return h("tr", {"data-ye": p.name}, [h("td", null, [h("strong", {text: p.name}),
+              !p.history_complete ? h("div", {class: "neg", style: "font-size:12.5px", text: "Pay before the portal missing"}) : p.earlier.entries ? h("div", {class: "muted", style: "font-size:12.5px", text: "Includes earlier pay"}) : null,
+              p.december && p.december.basis && p.december.basis.year_end === "adjusted" ? h("div", {class: "muted", style: "font-size:12.5px", text: "Dec 16–31: " + (Number(p.december.tax) < 0 ? "refund " + peso(-p.december.tax) : "withheld " + peso(p.december.tax))}) : null]),
+            h("td", {class: "num", text: peso(p.gross)}), h("td", {class: "num", text: peso(p.benefits)}),
+            h("td", {class: "num", text: peso(p.taxable)}), h("td", {class: "num", text: peso(p.annual_tax)}), h("td", {class: "num", text: peso(p.withheld)}),
+            h("td", {class: "num", text: diff(p)})]);
+        }))])),
+      h("p", {class: "muted small", text: "Taxable = pay less the 13th month and other benefits up to the tax-free cap, de minimis, a minimum-wage earner's exempt pay, and the employee's SSS, PhilHealth and Pag-IBIG. These are the figures for each person's BIR 2316 and the 1604-C alphalist; the portal doesn't file anything."}),
+      o.earlier.length ? h("details", {class: "th-earlier"}, [h("summary", {text: "Earlier pay entered (" + o.earlier.length + ")"}),
+        h("ul", {class: "rec-list"}, o.earlier.map(function(x){
+          return h("li", {"data-ye-earlier": x.person}, [h("b", {text: x.person + ": "}), (x.source === "previous_employer" ? "previous employer " + x.employer_name : "this employer") +
+              " · taxable " + peso(x.taxable) + " · benefits " + peso(x.benefits) + " · tax withheld " + peso(x.tax_withheld) + " · " + x.reference, h("span", {class: "muted", text: " · by " + x.by}),
+            admin ? h("button", {class: "link", type: "button", text: "Void", "aria-label": "Void earlier pay for " + x.person, onclick: function(){
+              var why = window.prompt("Void this entry? Why?", ""); if(why == null) return;
+              rpc("tax_year_earlier_void", {p_id: x.id, p_reason: why}).then(function(){ msg("Entry voided."); return loadYearEnd(); }).catch(fail); }}) : null]);
+        }))]) : null]));
+  }
+  function yeForm(){
+    var o = state.ye;
+    var who = h("select", {"aria-label": "Person"}, o.people.map(function(p){ return h("option", {value: p.user_id, text: p.name}); }));
+    var src = h("select", {"aria-label": "Where it was earned"}, [["this_employer", "Ritehome, before the portal"], ["previous_employer", "A previous employer this year"]].map(function(x){ return h("option", {value: x[0], text: x[1]}); }));
+    var emp = h("input", {maxlength: "160", "aria-label": "Previous employer", placeholder: "Previous employer's name"}), tin = h("input", {maxlength: "20", "aria-label": "Previous employer's TIN", placeholder: "TIN"});
+    var f = {}; [["taxable", "Taxable pay"], ["benefits", "13th month and other benefits"], ["de_minimis", "De minimis"], ["contributions", "Employee SSS, PhilHealth, Pag-IBIG"], ["mwe_exempt", "Minimum-wage exempt pay"], ["tax_withheld", "Tax withheld"]]
+      .forEach(function(x){ f[x[0]] = h("input", {inputmode: "decimal", "aria-label": x[1], placeholder: "0"}); });
+    var ref = h("input", {maxlength: "200", "aria-label": "Where the figures come from", placeholder: "e.g. Old payroll Jan-Nov " + o.year + ", or the previous employer's 2316"});
+    var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
+    function sync(){ emp.parentNode.hidden = tin.parentNode.hidden = src.value !== "previous_employer"; }
+    save.addEventListener("click", function(){
+      err.textContent = ""; busy(save, true);
+      var body = {user_id: who.value, year: o.year, source: src.value, employer_name: emp.value, employer_tin: tin.value, reference: ref.value};
+      Object.keys(f).forEach(function(k){ body[k] = f[k].value.replace(/[,\s₱]/g, ""); });
+      rpc("tax_year_earlier_add", {p: body}).then(function(){ $("look").hidden = true; msg("Earlier pay saved."); return Promise.all([loadYearEnd(), loadRuns()]); })
+        .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
+    });
+    put("lookBox", h("div", {style: "display:contents"}, [
+      h("h2", {id: "lookTitle", text: "Earlier pay · " + o.year}),
+      h("p", {class: "muted small", text: "What the person was paid in " + o.year + " before the portal's first payroll, from the old payroll records or a previous employer's BIR 2316. Taxable pay is after the non-taxable items and the employee's contributions. Someone with no earlier pay: save with zeros and say so. Entries are never edited: the admin voids a wrong one."}),
+      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Person", who]), h("label", null, ["Where it was earned", src])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Previous employer", emp]), h("label", null, ["Their TIN", tin])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Taxable pay (₱)", f.taxable]), h("label", null, ["Tax withheld (₱)", f.tax_withheld])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["13th month and other benefits (₱)", f.benefits]), h("label", null, ["De minimis (₱)", f.de_minimis])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Employee SSS, PhilHealth, Pag-IBIG (₱)", f.contributions]), h("label", null, ["Minimum-wage exempt pay (₱)", f.mwe_exempt])]),
+        h("label", null, ["Where the figures come from", ref])]), err,
+      h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
+    src.addEventListener("change", sync); sync();
+    $("look").hidden = false; f.taxable.focus();
+  }
+  function yeCsv(){
+    var o = state.ye, cols = ["Person", "Gross pay", "Earlier gross", "Portal gross", "13th month", "Non-taxable benefits", "Benefits over the cap", "De minimis (earlier)", "Employee contributions", "Minimum-wage exempt pay", "Taxable", "Tax due", "Withheld", "Difference", "History complete"];
+    var rows = o.people.map(function(p){ return [p.name, p.gross, p.earlier.gross, p.portal.gross, p.thirteenth, p.benefits, p.benefits_excess, p.earlier.de_minimis,
+      Number(p.earlier.contributions) + Number(p.portal.contributions), Number(p.earlier.mwe_exempt) + Number(p.portal.mwe_exempt), p.taxable, p.annual_tax, p.withheld, p.difference, p.history_complete ? "yes" : "no"]; });
+    var csv = [cols].concat(rows).map(function(r){ return r.map(function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(","); }).join("\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "ritehome-2316-" + o.year + ".csv"; a.click();
+  }
+
   // ---------- start ----------
   function show(tab){
     state.tab = tab;
@@ -1002,6 +1089,7 @@
         ["payPerson", "payRole", "payType", "payStatus"].forEach(function(id){ $(id).addEventListener("change", renderPay); });
         $("payCsv").addEventListener("click", payCsv);
         $("thYear").addEventListener("change", function(){ loadThirteenth().catch(fail); });
+        $("yeYear").addEventListener("change", function(){ loadYearEnd().catch(fail); });
         $("runPrepare").addEventListener("click", function(e){
           var b = e.currentTarget; busy(b, true);
           rpc("payroll_run_prepare", {p_date: $("runDate").value}).then(function(r){ busy(b, false); msg("Payroll prepared from attendance: check it, then submit."); state.openRun = r.id; return loadRuns(); })

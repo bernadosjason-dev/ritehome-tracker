@@ -8,7 +8,7 @@
 //      payables 2,000 (tracked); October income 20,000, costs 17,000, cash in 120,000, cash out 15,000.
 //   Forecast: 1 month of books before this month -> no forecast, and it says why.
 //   Risks: Dina 480 a day < 500 minimum (critical); P2 finished but owes 30,000 (high); Ana kitchen design blocked
-//   (high), cutlist 10 days late (high), consultation late since Oct 20; Sam has no rate (moderate); 17 rules waiting (moderate).
+//   (high), cutlist 10 days late (high), consultation late since Oct 20; Sam has no rate (moderate); 18 rules waiting (moderate).
 //   Calendar Oct 2026: pay days Oct 15 and Oct 29 (Oct 30 a holiday, moved earlier); received Oct 1 100,000 and
 //   Oct 10 20,000; paid out Oct 5 15,000.
 //   node --test tests/executive-dashboard.test.cjs
@@ -73,14 +73,14 @@ test('risks are real records, ranked by severity, each with its reason and where
   assert.equal(t(/Ana kitchen · Design is blocked/).severity, 'high');
   assert.equal(t(/Ana kitchen · Initial cutlist is 10 days late/).severity, 'high');
   assert.equal(t(/1 person has no pay rate/).severity, 'moderate');
-  assert.equal(t(/17 statutory rules are waiting/).severity, 'moderate');
+  assert.equal(t(/18 statutory rules are waiting/).severity, 'moderate');
   const rank = { critical: 0, high: 1, moderate: 2, low: 3 };
   for (let i = 1; i < o.risks.length; i++) assert.ok(rank[o.risks[i - 1].severity] <= rank[o.risks[i].severity], 'sorted by severity');
   assert.ok(o.risks.every((r) => r.why && r.link && r.area));
   assert.deepEqual([o.org.people, o.org.staff, o.org.projects.open, o.org.pending.stages_blocked, o.org.pending.stages_late], [4, 3, 1, 1, 2]);   // late: cutlist and consultation (Oct 20)
   assert.equal(o.org.trend.length, 14);
   assert.equal(o.payroll.people_without_rate, 1);
-  assert.equal(o.payroll.rules_pending, 17);   // 9 rates + 7 deadlines + 13th month
+  assert.equal(o.payroll.rules_pending, 18);   // 9 rates + 7 deadlines + 13th month + annual tax table
   assert.ok(o.payroll.forecast_assumption);
 });
 

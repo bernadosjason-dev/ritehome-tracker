@@ -62,7 +62,7 @@
   window.addEventListener('pagereveal', quietTransition);
 
   // The portal's version, shown under the menu. MEMORY.md's newest entry must match (tests/memory.test.cjs).
-  var PORTAL_VERSION = '4.5';
+  var PORTAL_VERSION = '4.6';
   window.RitehomeVersion = PORTAL_VERSION;
 
   // Who may open which workspace. The database decides every read and write; this only keeps the

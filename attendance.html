@@ -140,6 +140,10 @@
           <div class="runs-new no-print"><label>Year <input type="number" id="thYear" min="2020" max="2100" step="1" inputmode="numeric"></label></div></div>
         <p class="muted small" id="thSub">One twelfth of the basic salary earned in the year (PD 851), due on or before Dec 24. Basic salary means days actually worked: overtime, premiums, holiday pay, allowances and paid leave are left out. Rank-and-file only; the admin's own account isn't counted.</p>
         <div id="thBox"></div></section>
+      <section class="card" id="yeCard" hidden><div class="card-head runs-head"><h2>Year-end tax (BIR 2316)</h2>
+          <div class="runs-new no-print"><label>Year <input type="number" id="yeYear" min="2020" max="2100" step="1" inputmode="numeric"></label></div></div>
+        <p class="muted small">The whole year's tax on each person's pay (RR 11-2018): a shortfall is withheld from the Dec 16–31 payroll, an over-withholding is refunded with it.</p>
+        <div id="yeBox"></div></section>
       <section class="card" id="ratesCard"><h2>Rates</h2>
         <p class="muted small">A new rate starts on its date; earlier days keep the rate they were worked at. Rates are never edited: a mistake is fixed by adding the right one with the same date.</p>
         <div id="ratesTable"></div></section>
@@ -172,7 +176,7 @@
   <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
 </main>
 <script src="vendor/supabase-js-2.118.0.js"></script>
-<script src="attendance.js?v=2026-12-01.1"></script>
+<script src="attendance.js?v=2026-12-02.1"></script>
 <span id="pageReady" hidden></span>
 </body>
 </html>

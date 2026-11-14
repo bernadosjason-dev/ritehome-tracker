@@ -41,7 +41,7 @@ const db = startLocalPg();
     assert.match(await page.locator('#govTable .gov-warn').innerText(), /Dina is paid below the ₱500\.00 daily minimum wage/);
     const row = await page.locator('#govTable tr[data-gov="Dina"]').innerText();
     assert.match(row, /₱12,520\.00[\s\S]*₱625\.00 \/ ₱1,260\.00[\s\S]*None \(minimum wage earner\)/);
-    assert.match(await page.locator('#rulesTable').innerText(), /17 rules are waiting for review/);
+    assert.match(await page.locator('#rulesTable').innerText(), /18 rules are waiting for review/);
     assert.equal(await page.getByRole('button', {name: /^Approve /}).count(), 0);
     // Government numbers: a bad SSS number keeps the form; digits are formatted.
     await page.getByRole('button', {name: 'Government numbers for Dina'}).click();

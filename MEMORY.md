@@ -73,6 +73,10 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
+- Year-end tax (v4.6): run migration 29 in the SQL Editor, then say "merge" (before the Dec 16-31 payroll). By Fri Dec 11, for
+  each person, enter their Jan-Nov taxable pay, 13th month/benefits already paid, contributions and tax withheld from the old
+  payroll (Attendance → Pay → Year-end tax → Add earlier pay); for anyone hired this year, their previous employer's 2316.
+  Accountant: approve the annual tax table rule. Refunds by Jan 25 2027; BIR 2316 to each employee by Jan 31 2027.
 - 13th month (v4.5, live Nov 14): by Fri Dec 11, enter each person's
   Jan-Sep basic salary from the old payroll records (Attendance → Pay → 13th-month pay → Add earlier earnings), mark
   managerial staff in Government numbers, and get the accountant to answer: is paid leave part of basic salary at Ritehome?
@@ -116,6 +120,29 @@ Record the result in "Live state".
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (pending: migration 29 not applied; branch `claude/annual-tax-v4.6`)
+Migration `20261202000029_annual_tax.sql`, not applied. Goes live when the owner runs migration 29 in the SQL Editor and says
+"merge" (production must not get this code first: it changes how the Dec 16-31 payroll computes tax). Coordinating agent T02-A02.
+Must be live before the Dec 16-31 payroll is prepared (released Tue Dec 29).
+- Law read 2026-11-14 from BIR's own PDF of RR 11-2018, Sec. 2.79(B)(5)(b): on the last pay of December the employer computes
+  the whole year's tax with the annual table; a shortfall is withheld from that pay (what can't be withheld is the employer's to
+  settle), an excess is refunded by Jan 25 and deducted from the remittance. Annual table 2023 onwards: 0 to 250,000 none; 15%
+  over 250,000; 22,500 + 20% over 400,000; 102,500 + 25% over 800,000; 402,500 + 30% over 2M; 2,202,500 + 35% over 8M (same in
+  RMC 34-2025 Annex A and PwC). Seeded as statutory rule `bir_annual_income_tax`, waiting for the accountant (rules waiting: 18).
+- The Dec 16-31 payroll: each person's tax becomes the year-end adjustment (withhold the shortfall, or refund the excess with
+  that pay). Admin setting "Year-end tax" (on by default) in How pay is computed.
+- The portal only has payroll from the first approved run, so each person's pay before it (Jan-Nov from the old payroll, or a
+  previous employer's 2316 for someone hired this year) must be entered under Year-end tax → Add earlier pay. The December run
+  can't be submitted until it is (someone hired on or after their first portal cutoff needs nothing). Never edited; admin voids.
+- Year-end tax card: per person gross, non-taxable benefits, taxable, tax due, withheld, difference; still to withhold / to
+  refund; CSV of the 2316 / 1604-C alphalist figures. Nothing is filed; BIR forms themselves are not generated yet.
+- Payslips name the line: "Withholding tax, year-end adjustment" or "Year-end tax refund".
+- For the accountant: minimum-wage earners' rest-day premiums treated as exempt with the minimum wage; the 90,000 cap counts only
+  the 13th month and the "benefits" entered as earlier pay (other benefits aren't tracked); refunds net against December's 1601-C.
+- Tests: `tests/annual-tax.test.cjs` (December 2025 by hand: Bea withholds 1,255.90 with 40,000 of 13th month over the cap,
+  Dina refunded 1,504.10, Sam blocked until his earlier pay is entered; RR 11-2018's Illustration 15 income on the 2023 table
+  = 64,500) and `tests/annual-tax.browser.cjs`. Rule counts 17 -> 18. Full run: 220 unit tests and every browser suite pass.
 
 ### 4.5 — 2026-11-14 — 13th-month pay (live)
 Migration `20261201000028_thirteenth_month.sql`: applied by the owner 2026-11-14 (the first "done" didn't reach the

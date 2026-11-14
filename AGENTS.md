@@ -436,6 +436,22 @@ includes it: the owner and accountant decide; changing that is a new migration a
 `node --test tests/thirteenth.test.cjs` (October 2026 by hand in its header: keep it that way) and
 `node tests/thirteenth.browser.cjs`.
 
+Year-end tax (v4.6; Attendance → Pay → "Year-end tax (BIR 2316)" in `attendance.js`, SQL in
+`supabase/migrations/20261202000029_annual_tax.sql`): RR 11-2018 Sec. 2.79(B)(5)(b). The annual table is the statutory rule
+`bir_annual_income_tax` (pending the accountant), read by `stat_annual_tax(taxable, date)` (internal); never write a bracket in
+code. `annual_tax_person(user, year, exclude_run, cutoff_start)` (internal) is the one place a year is summed: approved/released
+`payroll_lines` (non-MWE: taxable less employee contributions; MWE: only the taxable allowance and taxable adjustments, their
+minimum wage, holiday pay, premiums and overtime stay exempt), approved/released 13th month (over the `thirteenth_month` cap is
+taxable), and `tax_year_earlier` (pay before the portal or from a previous employer this year: taxable, benefits, de minimis,
+contributions, MWE-exempt, tax withheld, reference; void-only, books add but not about themselves unless admin, admin voids).
+"History complete" = an earlier entry for the year, or hired on/after their first portal cutoff of the year. `payroll_run_compute`
+(redefined in 29) makes the 16-31 December run's tax the year-end adjustment when `payroll_settings.year_end_adjustment` (default
+true): annual tax on the year less everything withheld before; negative = refund paid with that cutoff (it nets against the
+1601-C remittance, as the regulation allows); a shortfall above the pay is recorded as `unwithheld` in `basis.withholding`.
+`payroll_run_submit` refuses that run while anyone's history is missing. `annual_tax_list(year)` (books) gives each person's 2316
+figures and the December adjustment; `payslips_mine()` now carries `year_end`. Tests: `node --test tests/annual-tax.test.cjs`
+(December 2025 by hand in its header: keep it that way) and `node tests/annual-tax.browser.cjs`.
+
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's
 "AI Organization" skill). Claude Code loads it as a skill; Codex: read that file before starting work. Route each

@@ -74,8 +74,8 @@ test('rules: admin and bookkeeper read and propose; only the admin approves (nam
   assert.equal(must('designer', `select count(*) from public.statutory_rules`), '0');
   const list = J('book', 'public.statutory_rules_list()');
   assert.equal(list.can_approve, false);
-  assert.equal(list.rules.length, 17);   // 9 rates (migration 24) + 7 deadlines (migration 27) + 13th month (migration 28)
-  assert.equal(list.rules.filter((r) => !r.code.startsWith('deadline_')).length, 10);
+  assert.equal(list.rules.length, 18);   // 9 rates (24) + 7 deadlines (27) + 13th month (28) + annual tax table (29)
+  assert.equal(list.rules.filter((r) => !r.code.startsWith('deadline_')).length, 11);
   assert.ok(list.rules.every((r) => r.status === 'pending_review' && r.source_title && r.verified_on));
   const sss = list.rules.find((r) => r.code === 'sss_contribution');
   refused('book', `select public.statutory_rule_decide('${sss.id}', 'approved', 'Checked by our accountant')`, /Only the admin approves/);

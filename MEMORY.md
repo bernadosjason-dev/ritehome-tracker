@@ -50,6 +50,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–24 applied (18–24 by the owner in the SQL Editor). **Verified 2026-11-13 by the agent through the Supabase connector:** all 155 public functions match a local load of 01–24 (comment- and whitespace-normalised: none differ, none missing, none extra); rolled-back smoke test 25/25 (admin calls work; anon refused for dashboard, company, approvals, salaries, pay, statutory); company-files bucket and its two policies exactly as expected; 18–24 registered in `supabase_migrations.schema_migrations` (24 rows) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Registered in `supabase_migrations` 2026-11-13 |
+| Migration 29 (v4.6 year-end tax) | applied 2026-11-14 | owner ran it; agent verified (11/11 functions match, privileges right, smoke 12/12, live table figures match the tests) and registered it. Year-end adjustment on; 0 earlier-pay entries yet, so the Dec 16-31 payroll will refuse to submit for anyone employed before the portal's payroll until theirs is entered |
 | Migration 28 (v4.5 13th month) | applied 2026-11-14 | owner ran it (second try); agent verified (14/14 functions match, privileges right, smoke 11/11) and registered it. 0 people covered until rates and earlier earnings are entered |
 | Migrations 26–27 (v4.2 dashboard, v4.3 compliance) | applied 2026-11-14 | owner ran them; agent verified (9/9 functions match, privileges right, live run as the admin works) and registered both. Live finding: cash in the books is **-3,400** (no opening balance posted), shown as a critical risk. Compliance tracking starts Dec 1 2026 |
 | Migration 25 (v4.1 payroll runs) | applied 2026-11-13 | owner ran it; agent verified (20/20 payroll functions match; browser can't call compute or write tables); registered. Settings: contributions on the 16-end payday, allowance taxable (defaults until the owner decides). No runs yet |
@@ -73,7 +74,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
-- Year-end tax (v4.6): run migration 29 in the SQL Editor, then say "merge" (before the Dec 16-31 payroll). By Fri Dec 11, for
+- Year-end tax (v4.6, live Nov 14): by Fri Dec 11, for
   each person, enter their Jan-Nov taxable pay, 13th month/benefits already paid, contributions and tax withheld from the old
   payroll (Attendance → Pay → Year-end tax → Add earlier pay); for anyone hired this year, their previous employer's 2316.
   Accountant: approve the annual tax table rule. Refunds by Jan 25 2027; BIR 2316 to each employee by Jan 31 2027.
@@ -121,9 +122,12 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
-### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (pending: migration 29 not applied; branch `claude/annual-tax-v4.6`)
-Migration `20261202000029_annual_tax.sql`, not applied. Goes live when the owner runs migration 29 in the SQL Editor and says
-"merge" (production must not get this code first: it changes how the Dec 16-31 payroll computes tax). Coordinating agent T02-A02.
+### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (live)
+Migration `20261202000029_annual_tax.sql`: applied by the owner 2026-11-14 (first try). Verified by the agent through the
+connector: all 11 new or changed functions (including `payroll_run_compute`, `payroll_run_submit`, `payslips_mine`) match the
+tested source, 198 public functions on both sides, the browser can't call the internals or write the table, year-end setting on,
+live annual table gives 606,800 -> 63,860 and 275,000 -> 3,750 as in the tests, rolled-back smoke test 12/12, registered (29 rows).
+Branch `claude/annual-tax-v4.6` merged into production Nov 14. Coordinating agent T02-A02.
 Must be live before the Dec 16-31 payroll is prepared (released Tue Dec 29).
 - Law read 2026-11-14 from BIR's own PDF of RR 11-2018, Sec. 2.79(B)(5)(b): on the last pay of December the employer computes
   the whole year's tax with the annual table; a shortfall is withheld from that pay (what can't be withheld is the employer's to

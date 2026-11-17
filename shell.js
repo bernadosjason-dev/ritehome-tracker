@@ -15,6 +15,7 @@
     attendance: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2',
     team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 1 0 0-6M22 21c0-3-2-5-5-5',
     leads: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M12 12h.01',
+    chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
     books: 'M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4M5 18a2 2 0 0 1 2-2h12M9 8h6M9 11h4',
     menu: 'M4 7h16M4 12h16M4 17h16',
     plus: 'M12 5v14M5 12h14',
@@ -39,6 +40,7 @@
   function href(mode){
     if(mode === 'accounting') return CLEAN ? '/accounting' : 'accounting.html';
     if(mode === 'leads') return CLEAN ? '/leads' : 'leads.html';
+    if(mode === 'sales') return CLEAN ? '/sales' : 'sales.html';
     if(mode === 'schedule') return CLEAN ? '/schedule' : 'schedule.html';
     if(mode === 'team') return CLEAN ? '/team' : 'team.html';
     if(mode === 'inventory') return CLEAN ? '/inventory' : 'inventory.html';
@@ -62,12 +64,12 @@
   window.addEventListener('pagereveal', quietTransition);
 
   // The portal's version, shown under the menu. MEMORY.md's newest entry must match (tests/memory.test.cjs).
-  var PORTAL_VERSION = '4.7';
+  var PORTAL_VERSION = '4.8';
   window.RitehomeVersion = PORTAL_VERSION;
 
   // Who may open which workspace. The database decides every read and write; this only keeps the
   // menu to the doors a person can actually open. null = every active account.
-  var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], projects: ['admin'], schedule: null, attendance: null,
+  var ACCESS = {all: ['admin'], leads: ['admin', 'sales'], sales: ['admin', 'sales', 'bookkeeper'], projects: ['admin'], schedule: null, attendance: null,
     procurement: ['admin', 'purchaser'], inventory: ['admin', 'purchaser'], fuel: ['admin'], accounting: ['admin', 'bookkeeper'], team: ['admin'], activity: ['admin'], approvals: null, company: ['admin', 'bookkeeper']};
   var ROLES_KEY = 'ritehome_roles_v1';
   function canOpen(mode, roles){
@@ -163,7 +165,7 @@
     // Grouped by who owns the work: the admin sees every group; staff see only the groups they can open.
     var GROUPS = [
       ['Overview', [['all', 'Dashboard', 'dash'], ['approvals', 'Approvals', 'approve'], ['activity', 'Activity', 'history']]],
-      ['Sales', [['leads', 'Leads', 'leads']]],
+      ['Sales', [['leads', 'Leads', 'leads'], ['sales', 'Sales summary', 'chart']]],
       ['Design and production', [['schedule', 'Schedule', 'gantt'], ['projects', 'Projects', 'projects']]],
       ['Purchasing', [['procurement', 'Procurement', 'procurement'], ['inventory', 'Inventory', 'box']]],
       ['Office and finance', [['company', 'Company profile', 'building'], ['accounting', 'Accounting', 'books'], ['fuel', 'Company fuel', 'fuel']]],
@@ -256,7 +258,7 @@
     return bellRpc('notify_list', {p_limit: 30}).then(function(d){ bell.data = d; bellCount(d.unread); if(bell.panel && !bell.panel.hidden) bellDraw(); });
   }
   function bellHref(link){
-    var m = /^\/(leads|schedule|inventory|attendance|activity|approvals|company|procurement|projects)(.*)$/.exec(link || '');
+    var m = /^\/(leads|sales|schedule|inventory|attendance|activity|approvals|company|procurement|projects)(.*)$/.exec(link || '');
     return m ? href(m[1]) + m[2] : href('activity');
   }
   function bellDraw(){

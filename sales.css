@@ -1,0 +1,27 @@
+/* Sales summary (sales.html). Base pieces come from accounting.css; theme from shell.css. */
+.sl-bar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.sl-bar label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-muted)}
+.sl-bar select{min-height:38px;font-size:14px}
+.sales .card{margin-top:14px}
+.sl-month{margin-top:14px}
+.sl-month:first-child{margin-top:0}
+.sl-month h3{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:15px;margin:0 0 6px}
+.sl-month h3 span{font-variant-numeric:tabular-nums}
+.sl-table td.num,.sl-table th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sl-table td{vertical-align:top}
+.sl-table .sl-desc{max-width:340px;overflow-wrap:anywhere}
+.sl-table .muted{font-size:12.5px}
+.sl-people td.hit{background:var(--good-bg,#e6f4ea);color:var(--good,#1e7b34);font-weight:600}
+.sl-people td.zero{color:var(--ink-muted)}
+.sl-pill{display:inline-flex;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-muted)}
+.sl-pill.paid{background:var(--good-bg,#e6f4ea);color:var(--good,#1e7b34)}
+.sl-pill.awaiting_payment,.sl-pill.on_hold{background:var(--warn-bg,#fdf3e1);color:var(--warn,#9a6200)}
+.sl-pill.cancelled{text-decoration:line-through}
+tr.cancelled td{color:var(--ink-muted)}
+.sl-check{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+.sl-form .rec-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.sl-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-muted)}
+.sl-form input,.sl-form select{min-height:38px;font-size:14px}
+.sl-flags{margin:2px 0 0;padding-left:16px;font-size:12.5px;color:var(--warn,#9a6200)}
+.sl-file{cursor:pointer}
+#importBox .acct-scroll{max-height:520px;overflow:auto}

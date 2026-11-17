@@ -74,6 +74,9 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
+- Sales summary (v4.8): after migration 30, run migration 31 and say "merge". Then on /sales: set the quotas (2025-2026: each
+  salesperson a month; 2024: the team a quarter), import 2024, 2025 and 2026 from the workbooks, and work the "To check" list.
+  Decide SC 487 (used twice) before importing 2025: the second one is skipped until it has its real number.
 - Pag-IBIG file (v4.7): run migration 30, then say "merge". Then enter the Pag-IBIG employer ID (Accounting → Compliance →
   Employer registrations) and, per member, names as on their Pag-IBIG record, MID, program, MP2 and any chosen higher share
   (Government numbers). Check the two members whose daily rate in the 13th-month sheet is under 500 after May 1, 2026.
@@ -124,6 +127,29 @@ Record the result in "Live state".
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.8 — 2026-11-17 — Sales summary (pending: migrations 30 and 31 not applied; branch `claude/sales-summary-v4.8`, built on 4.7)
+Migration `20261204000031_sales_summary.sql`, not applied (needs 30 first). Goes live when the owner runs 30 then 31 and says
+"merge". Owner's request 2026-11-17 ("this is the example of sales summary, also add this in our portal", his SALES SUMMARY
+workbooks for 2024, 2025, 2026). Coordinating agent T04-A02; T02-A01 checked the totals.
+- New page Sales summary (`/sales`, menu group Sales; admin, sales, bookkeeper): every sales contract once (SC no., date,
+  customer, project, amount, salesperson, status, note). Month by month as in his "MNTHLY SALES" sheet; By salesperson × month
+  as in his "Total Individual Sales" sheet, months at quota in green; To check: SC numbers skipped, no amount, no salesperson,
+  no date. Quotas from a date: each salesperson a month, or the team a quarter (his 2024 workbook used a team quarterly quota).
+- Who changes what: sales add their own (always under their own name) and update the status and notes of their own; the
+  bookkeeper updates status and notes on any; only the admin changes SC no., date, customer, amount or salesperson, cancels
+  (never deletes) and sets quotas. Every change is in the activity log ("Sales").
+- Import: the admin picks a year's workbook; it's read in the browser, previewed with every judgement flagged (dates written
+  three ways or with the wrong year, missing dates, amounts as formulas, the salesperson only when the split sheet agrees on SC
+  number and amount), then saved together; SC numbers already in the register are skipped, never overwritten.
+- Read on 2026-11-17 (figures not written here: the repo is public): his 2026 workbook's monthly list and individual split
+  agree, but its per-person yearly summary table doesn't (formulas pointing at the wrong person or month, November missing for
+  some); the 2025 monthly list and per-person grand total differ; SC 487 is used for two different contracts (Dec 2024 and early
+  2025); the split sheets have SC numbers typed against the wrong contract in places; 2024 and 2025 have SC numbers missing.
+- Tests: `tests/sales.test.cjs` (made-up year by hand), `tests/sales-import.test.cjs` (the extraction rules on made-up sheets laid
+  out like his) and `tests/sales.browser.cjs` (imports a made-up workbook through the page). The leads and company browser tests
+  now expect "Sales summary" in the sales and bookkeeper menus. Full run: 231 unit tests and every browser suite pass
+  (approvals.browser failed once in the back-to-back run and passed alone, the known timing flake).
 
 ### 4.7 — 2026-11-17 — Pag-IBIG remittance file; days × rate for 13th-month history (pending: migration 30 not applied; branch `claude/pagibig-file-v4.7`)
 Migration `20261203000030_pagibig_file.sql`, not applied. Goes live when the owner runs migration 30 and says "merge" (it

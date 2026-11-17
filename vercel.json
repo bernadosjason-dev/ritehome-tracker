@@ -19,6 +19,10 @@
       "destination": "/leads.html"
     },
     {
+      "source": "/sales",
+      "destination": "/sales.html"
+    },
+    {
       "source": "/schedule",
       "destination": "/schedule.html"
     },

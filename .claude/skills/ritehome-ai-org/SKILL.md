@@ -69,7 +69,7 @@ Proportionality: a typo fix is T1 and needs no ceremony; payroll, tax, live data
 | Portal roadmap, which workspace does what, feature scope | T03-A02 | T05-A01, T03-A03 |
 | Portal UX, design rules (shell.css review), mobile, accessibility, charts | T03-A03 | T05-A02 |
 | Website, lead generation, campaigns | T04-A01 | T03-A01 |
-| Leads workspace, sales pipeline, quotes, lead scoring | T04-A02 | T02-A01 |
+| Leads workspace, sales pipeline, quotes, lead scoring, Sales summary (`/sales`, migration 31, quotas, workbook import) | T04-A02 | T02-A01 |
 | Client experience, handover, feedback | T04-A03 | T06-A02 |
 | Architecture: Supabase, Vercel, migrations, Edge Functions, integrations | T05-A01 | T05-A02, T05-A04 |
 | Code, tests, deploys, bug fixes, reliability | T05-A02 | T05-A01 |

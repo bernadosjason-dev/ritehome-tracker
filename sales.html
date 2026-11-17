@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">
+<title>Ritehome · Sales summary</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/favicon-192.png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="ui.css?v=2026-11-13.1">
+<link rel="stylesheet" href="accounting.css?v=2026-11-13.1">
+<link rel="stylesheet" href="shell.css?v=2026-11-25.1">
+<link rel="stylesheet" href="sales.css?v=2026-12-04.1">
+<link rel="expect" href="#pageReady" blocking="render">
+<script>window.RitehomePortal = {mode: "sales"};</script>
+</head>
+<body class="acct sales">
+<main class="wrap">
+<script src="shell.js?v=2026-12-04.1"></script>
+  <header class="acct-head">
+    <div>
+      <h1 id="slTitle">Sales summary</h1>
+      <p class="sub" id="slSub">Every sales contract once: the month-by-month list, each salesperson against the quota, and what to check.</p>
+    </div>
+    <div class="sl-bar no-print">
+      <label>Year <select id="slYear" aria-label="Year"></select></label>
+      <button class="btn" type="button" id="slAdd">Add contract</button>
+    </div>
+  </header>
+
+  <div id="acctMsg" class="acct-msg" role="status" aria-live="polite" hidden></div>
+
+  <section id="gate" class="card acct-gate" hidden>
+    <h2 id="gateTitle">Checking your account…</h2>
+    <p id="gateText" class="muted"></p>
+    <p id="gateLinkRow" hidden><a class="btn" id="gateLink" href="/">Sign in</a></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card sl-form" id="formCard" hidden></section>
+    <div class="kpis" id="slKpis"></div>
+    <section class="card" id="checkCard" hidden><h2>To check</h2><div id="checkBox"></div></section>
+    <section class="card"><div class="card-head"><h2>By salesperson</h2></div>
+      <p class="muted small" id="peopleSub"></p><div id="peopleBox"></div></section>
+    <section class="card"><div class="card-head"><h2>Month by month</h2></div><div id="monthsBox"></div></section>
+    <section class="card" id="importCard" hidden><div class="card-head"><h2>Import a year from the Excel summary</h2></div>
+      <p class="muted small">Choose the office's SALES SUMMARY workbook for one year. It is read here in your browser; you see every contract and every row that needs a decision before anything is saved. SC numbers already in the register are skipped, never overwritten.</p>
+      <div class="acct-actions"><label class="btn ghost sl-file">Choose workbook… <input type="file" id="slFile" accept=".xlsx" hidden></label></div>
+      <div id="importBox"></div></section>
+    <section class="card" id="quotaCard"><div class="card-head"><h2>Quotas</h2></div><div id="quotaBox"></div></section>
+  </div>
+  <button type="button" id="forgetKeyBtn" hidden>Sign out</button>
+</main>
+<script src="vendor/supabase-js-2.118.0.js"></script>
+<script src="vendor/fflate-0.8.2.js"></script>
+<script src="sales-import.js?v=2026-12-04.1"></script>
+<script src="sales.js?v=2026-12-04.1"></script>
+<span id="pageReady" hidden></span>
+</body>
+</html>

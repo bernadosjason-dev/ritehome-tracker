@@ -591,8 +591,23 @@
       x.status === "done" ? null : h("div", {class: "acct-actions"}, [
         x.done_kind === "paid" ? h("button", {class: "btn ghost small", type: "button", text: "Record payment…", onclick: function(){ open("paid"); }}) : null,
         h("button", {class: "btn ghost small", type: "button", text: "Record filing…", onclick: function(){ open("filed"); }}),
+        x.code === "deadline_pagibig" ? h("button", {class: "btn ghost small", type: "button", text: "Download Pag-IBIG file", "aria-label": "Download Pag-IBIG file " + x.period, onclick: function(e){ pagibigFile(x, e.currentTarget); }}) : null,
         x.source_url ? h("a", {class: "small", href: x.source_url, target: "_blank", rel: "noopener noreferrer", text: "Source"}) : null]),
       form]);
+  }
+  // The month's Pag-IBIG remittance as an .xlsx in Ritehome's sheet layout (v4.7). Built only from approved payroll.
+  function pagibigFile(x, btn){
+    if(btn) btn.disabled = true;
+    rpc("pagibig_remittance", {p_month: x.period + "-01"}).then(function(f){
+      if(btn) btn.disabled = false;
+      var approved = f.runs.filter(function(r){ return r.status === "approved" || r.status === "released"; }).length;
+      if(!f.complete) return msg("The Pag-IBIG file for " + x.period + " needs both payrolls of the month approved (" + approved + " of 2 so far).", true);
+      if(!f.employer.id) return msg("Enter the Pag-IBIG employer ID under Employer registrations first.", true);
+      var gaps = f.rows.filter(function(r){ return r.problems.length; });
+      if(gaps.length) return msg("Fix these in Attendance → Pay → Government numbers first: " + gaps.map(function(r){ return r.name + " (" + r.problems.join(", ") + ")"; }).join("; ") + ".", true);
+      window.RitehomeXlsx.download("PAGIBIG-" + f.employer.id.replace(/\D/g, "") + "-" + f.percov + ".xlsx", {sheet: "MCRF " + f.percov, rows: window.RitehomeXlsx.pagibigRows(f), widths: [18, 18, 20, 18, 18, 10, 18, 10, 11, 11, 16]});
+      msg("Pag-IBIG file for " + x.period + ": " + f.totals.members + " members, EE " + peso(f.totals.ee) + ", ER " + peso(f.totals.er) + ". Check it before you upload it; uploading and paying are still done on the Fund's site.");
+    }).catch(function(e){ if(btn) btn.disabled = false; fail(e); });
   }
   function renderCompSettings(){
     var s = COMP.data.settings, admin = !!COMP.data.can_void, f = {};

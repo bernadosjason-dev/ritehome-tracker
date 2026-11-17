@@ -74,6 +74,9 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
+- Pag-IBIG file (v4.7): run migration 30, then say "merge". Then enter the Pag-IBIG employer ID (Accounting → Compliance →
+  Employer registrations) and, per member, names as on their Pag-IBIG record, MID, program, MP2 and any chosen higher share
+  (Government numbers). Check the two members whose daily rate in the 13th-month sheet is under 500 after May 1, 2026.
 - Year-end tax (v4.6, live Nov 14): by Fri Dec 11, for
   each person, enter their Jan-Nov taxable pay, 13th month/benefits already paid, contributions and tax withheld from the old
   payroll (Attendance → Pay → Year-end tax → Add earlier pay); for anyone hired this year, their previous employer's 2316.
@@ -121,6 +124,28 @@ Record the result in "Live state".
 | — | Inventory v4: unique codes, QR/barcode labels, scanner, IN/OUT checkout engine, statuses, reports (owner's brief 2026-11-13) | 4.0–4.2 | proposed Fri Nov 20 | plan proposed 2026-11-13; after payroll (owner 2026-11-13); still needs the owner's answers to 5 decisions |
 
 ## Version history (newest first)
+
+### 4.7 — 2026-11-17 — Pag-IBIG remittance file; days × rate for 13th-month history (pending: migration 30 not applied; branch `claude/pagibig-file-v4.7`)
+Migration `20261203000030_pagibig_file.sql`, not applied. Goes live when the owner runs migration 30 and says "merge" (it
+redefines `payroll_run_compute`). Coordinating agent T02-A02. Owner's request 2026-11-17 (his Pag-IBIG sheet as the format).
+- Accounting → Compliance → Pag-IBIG row → "Download Pag-IBIG file": an .xlsx in the owner's sheet layout from the month's
+  approved payroll (both cutoffs), IDs as text so Excel can't change them, totals at the bottom. Refused (with the reason) until
+  both payrolls are approved, the Pag-IBIG employer ID is entered, and every member has a MID and names.
+- Government numbers gain last / first / middle name, extension, Pag-IBIG program (1 or 2), MP2 account, and "Pag-IBIG share
+  they chose" (the owner's sheet has one member at 400): payroll deducts the extra on the contribution cutoff; only the
+  mandatory share lowers taxable pay (for the accountant to confirm).
+- Remarks follow the MCRF guidelines (N = newly hired, RS = resigned/separated, mm/dd/yy, only in the month it happens). The
+  owner's sheet used NH / S / N with mixed date formats and kept old hire remarks every month: flagged to him, not copied.
+  Pag-IBIG's own site blocks automated reading, so the file follows his accepted sheet; check the first upload with the Fund.
+- 13th month: "Add earlier earnings" takes days worked × daily rate (the owner's 13th-month sheet counts days), one entry per
+  rate when it changed in the year.
+- Findings from the owner's sheets (2026-11-17, not stored anywhere): the Pag-IBIG sheet lists about 20 members while the
+  portal has 3 active accounts; the 13th-month sheet stops at Nov 15 (the year runs to Dec 31), applies one rate to the whole
+  year (the minimum wage rose 486 -> 500 on May 1), shows two rows with a rate under 500 and days after May 1, and one row whose
+  monthly cells look like running totals.
+- Tests: `tests/pagibig-file.test.cjs` (Nov split / Dec 16-31, voluntary 400, tax 1,964.10, net 19,635.90 by hand) and
+  `tests/pagibig-file.browser.cjs` (downloads and reads the .xlsx); the 13th-month browser test covers the calculator.
+  Full run: 223 unit tests and every browser suite pass.
 
 ### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (live)
 Migration `20261202000029_annual_tax.sql`: applied by the owner 2026-11-14 (first try). Verified by the agent through the

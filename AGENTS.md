@@ -452,6 +452,19 @@ true): annual tax on the year less everything withheld before; negative = refund
 figures and the December adjustment; `payslips_mine()` now carries `year_end`. Tests: `node --test tests/annual-tax.test.cjs`
 (December 2025 by hand in its header: keep it that way) and `node tests/annual-tax.browser.cjs`.
 
+Pag-IBIG remittance file (v4.7; Accounting → Compliance → "Download Pag-IBIG file" on the `deadline_pagibig` row, SQL in
+`supabase/migrations/20261203000030_pagibig_file.sql`, writer `xlsx-write.js` on the vendored fflate): the layout of Ritehome's
+own monthly sheet (employer ID, name, address, contact, email; then MID, MP2, program "F1-Pag-IBIG 1/2", last, first,
+extension, middle, PERCOV YYYYMM, EE, ER, remarks), every ID a text cell. `pagibig_remittance(month)` (books) sums `pi_ee`/
+`pi_er` of the month's approved/released payroll lines only; the page refuses the download until both cutoffs are approved,
+the Pag-IBIG employer ID is set (Compliance settings) and every member has a MID and last/first name. Remarks follow the MCRF
+guidelines: only changes in the month, `N mm/dd/yy` (hired_on) or `RS mm/dd/yy` (separated_on). `employee_statutory` gained
+last/first/middle name, name_ext, `pagibig_program` ('pagibig1'/'pagibig2'), `mp2_account`, and `pagibig_ee_monthly` (a higher
+monthly share the employee chose): `payroll_run_compute` (redefined in 30) adds the part above the mandatory share on the
+contribution cutoff(s) (split: half each) and records it as `basis.pagibig_voluntary`; it is deducted but NOT excluded from
+taxable pay (withholding and `annual_tax_person` add it back). Never put real members' names or numbers in tests. Tests:
+`node --test tests/pagibig-file.test.cjs` (Nov/Dec 2025 by hand) and `node tests/pagibig-file.browser.cjs` (opens the .xlsx).
+
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's
 "AI Organization" skill). Claude Code loads it as a skill; Codex: read that file before starting work. Route each

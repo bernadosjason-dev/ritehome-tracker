@@ -28,6 +28,13 @@ function workbook(sheets,extra={}){
   const shared=await read(workbook([{name:'Shared',rows:row(1,{A:'Material',B:'Specification',C:'Unit',D:'Quantity'})+row(2,{A:{xml:'<v>0</v>',toString:()=>''},B:'',C:'pcs',D:1}).replace('<c r="A2">','<c r="A2" t="s">')}],{'xl/sharedStrings.xml':'<sst><si><r><t>Shared </t></r><r><t>material</t></r></si></sst>'}));assert.equal(shared.results[0].items[0].material,'Shared material');
   for(const qty of [-1,'bad',{xml:'<f>1+1</f>'},{xml:'<f>1+1</f><v/>'},{xml:'<v>#REF!</v>'}])assert((await read(workbook([{name:'Bad',rows:flat(qty)}]))).results[0].issues.length,'invalid quantities blocked');
   assert.equal((await read(workbook([{name:'Scientific',rows:flat({xml:'<v>1E-6</v>'})}]))).results[0].items[0].quantity,0.000001);
+  // The owner's case (2026-11-19): two rows with a quantity but no unit no longer block the sheet; they are named, with what they have.
+  const partialRows=row(1,{A:'Material',B:'Specification',C:'Unit',D:'Quantity'})+row(2,{A:'Metal rail',B:'3 m',C:'Lgs',D:8})+row(3,{A:'Hinge',B:'soft close',D:4})+row(4,{C:'pcs',D:2})+row(5,{A:'Screws',C:'box',D:{xml:'<f>A1*2</f><v></v>'}})+row(6,{A:'Glue',C:'can',D:1});
+  const partial=(await read(workbook([{name:'Partial',rows:partialRows}]))).results[0];
+  assert.deepEqual(partial.issues,[]);assert.deepEqual(partial.items.map(i=>i.material),['Metal rail','Glue']);
+  assert.deepEqual(await page.evaluate(left=>left.map(BomImport.describe),partial.left),['Row 3 (Hinge, qty 4): no unit','Row 4 (qty 2, unit pcs): no material name','Row 5: quantity: Formula has no saved result. Recalculate and save in Excel first.']);
+  const allBad=(await read(workbook([{name:'All bad',rows:row(1,{A:'Material',C:'Unit',D:'Qty'})+row(2,{A:'Hinge',D:4})}]))).results[0];
+  assert.match(allBad.issues.join(' '),/No material row on this sheet could be read: Row 2 \(Hinge, qty 4\): no unit/);
   assert.match((await read(Buffer.from('not Excel'))).error,/Cannot read/);
   assert.match((await read(workbook([{name:'Bad XML',rows:'<broken>'}]))).error,/damaged XML/);
   assert.match((await read(workbook([{name:'Missing unit',rows:row(1,{A:'Material',B:'Qty'})+row(2,{A:'Board',B:3})}]))).results[0].issues.join(' '),/Unit headers/);
@@ -43,6 +50,9 @@ function workbook(sheets,extra={}){
   page.once('dialog',d=>d.dismiss());await page.locator('#pr-import-file').setInputFiles(payload);await page.waitForFunction(()=>!document.getElementById('pr-fields-bom').disabled);assert(!/Reading/.test(await page.locator('#pr-import-status').innerText()),'cancelled replacement restores prior status');
   page.once('dialog',d=>d.accept());await page.locator('#pr-import-sheet').selectOption('0');assert.equal(await page.locator('#pr-bom-items tr').count(),3);
   await page.locator('#pr-import-file').setInputFiles({...payload,name:'Broken.xlsx',buffer:Buffer.from('broken')});await page.waitForFunction(()=>document.getElementById('pr-import-status').textContent.includes('Cannot read'));assert.equal(await page.locator('#pr-bom-items tr').count(),3);
+  await page.locator('#pr-import-file').setInputFiles({...payload,name:'Partial.xlsx',buffer:workbook([{name:'Partial',rows:partialRows}])});await page.waitForFunction(()=>document.getElementById('pr-import-status').textContent.includes('rows were left out'));
+  assert.match(await page.locator('#pr-import-status').innerText(),/2 materials added below[\s\S]*3 rows were left out, add them below by hand[\s\S]*Row 3 \(Hinge, qty 4\): no unit/);assert.equal(await page.locator('#pr-import-status.err').count()+await page.locator('#pr-import-status[class*=err]').count()>0,true,'shown as a warning');
+  await page.locator('#pr-import-file').setInputFiles({...payload});await page.waitForFunction(()=>document.getElementById('pr-import-status').textContent.includes('2 materials added')&&!document.getElementById('pr-import-status').textContent.includes('left out'));
   await page.locator('#pr-import-file').setInputFiles({...payload,name:'Wrong.pdf'});assert.match(await page.locator('#pr-import-status').innerText(),/Choose an .xlsx/);
   await page.locator('#pr-import-file').setInputFiles({...payload,buffer:Buffer.alloc(5*1024*1024+1)});assert.match(await page.locator('#pr-import-status').innerText(),/5 MB/);
   failure='Spreadsheet write permission denied';await page.locator('#pr-bom-form').evaluate(f=>f.requestSubmit());await page.waitForFunction(()=>document.getElementById('pr-status').textContent.includes('permission denied'));assert.equal(await page.locator('#pr-bom-items tr').count(),3);assert.equal(b.request({action:'getProcurement',projectId:job}).revision,0);

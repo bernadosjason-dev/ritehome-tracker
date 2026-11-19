@@ -47,7 +47,7 @@
     }};
   }
   function extract(rows){
-    var items=[],issues=[],skipped=0,headers=null,section='',recognized=0;
+    var items=[],issues=[],left=[],skipped=0,headers=null,section='',recognized=0;
     rows.forEach(function(row){
       var c=row.cells,keys=c.map(key),q=keys.findIndex(function(k){return /^(qty|quantity|requiredquantity|requiredqty)$/.test(k);});
       if(q>=0){
@@ -60,12 +60,12 @@
       if(/^[A-Z]\.\s+/.test(first)){section=first.replace(/^[A-Z]\.\s+/,'');headers=null;return;}
       if(!headers||/^(?:grand\s*)?(?:sub\s*)?total\b/i.test(first))return;
       var raw=c[headers.quantity];
-      if(raw&&typeof raw==='object'){issues.push('Row '+row.number+': '+raw.error);return;}
+      if(raw&&typeof raw==='object'){left.push({row:row.number,reason:'quantity: '+raw.error});return;}
       if(label(raw)===''){skipped++;return;}
       var text=label(raw),quantity=Number(text.replace(/,/g,''));
-      if((typeof raw!=='number'&&!/^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(text))||!Number.isFinite(quantity)||quantity<0||quantity>1e12){issues.push('Row '+row.number+': quantity must be a positive number or zero.');return;}
+      if((typeof raw!=='number'&&!/^(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(text))||!Number.isFinite(quantity)||quantity<0||quantity>1e12){left.push({row:row.number,reason:'quantity "'+text+'" is not a number'});return;}
       if(quantity===0){skipped++;return;}
-      if(quantity<0.000001){issues.push('Row '+row.number+': the minimum material quantity is 0.000001.');return;}
+      if(quantity<0.000001){left.push({row:row.number,reason:'quantity is below 0.000001'});return;}
       var mc=headers.material;
       // Ritehome merges the Material heading over the item number and name columns.
       if((!label(c[mc])||/^\d+$/.test(label(c[mc])))&&mc+1<headers.quantity&&label(c[mc+1]))mc++;
@@ -74,24 +74,28 @@
         var k=headers.keys[i]||'';
         if(i===headers.quantity||i===headers.unit||/^(price|unitprice|amount|total|cost|stockstatus|note)$/.test(k))continue;
         var relevant=(i<headers.quantity)||/^(spec|specification|specificationsize|size|thk|thickness|width|length|code|reference|referencebrand|brand|remarks|description)$/.test(k);
-        if(relevant&&label(c[i])){if(typeof c[i]==='object'){issues.push('Row '+row.number+': '+c[i].error);return;}spec.push(label(c[i]));}
+        if(relevant&&label(c[i])){if(typeof c[i]==='object'){left.push({row:row.number,reason:'specification: '+c[i].error});return;}spec.push(label(c[i]));}
       }
       if(section)spec.push(section);
       var item={material:material,spec:spec.join(' · '),unit:unit,quantity:quantity};
-      if(!material||!unit||typeof c[mc]==='object'||typeof c[headers.unit]==='object'){issues.push('Row '+row.number+': material and unit must be readable text.');return;}
-      if(material.length>150||item.spec.length>200||unit.length>30){issues.push('Row '+row.number+': material, specification or unit is too long. Shorten it in Excel.');return;}
+      // Say exactly what is missing, with what the row does have, so it can be added by hand.
+      var what=typeof c[mc]==='object'?'the material cell: '+c[mc].error:typeof c[headers.unit]==='object'?'the unit cell: '+c[headers.unit].error:!material&&!unit?'no material name and no unit':!material?'no material name':'no unit';
+      if(typeof c[mc]==='object'||typeof c[headers.unit]==='object'||!material||!unit){left.push({row:row.number,reason:what,material:typeof c[mc]==='object'?'':material,unit:typeof c[headers.unit]==='object'?'':unit,quantity:quantity});return;}
+      if(material.length>150||item.spec.length>200||unit.length>30){left.push({row:row.number,reason:'material, specification or unit is too long',material:material.slice(0,60),quantity:quantity});return;}
       items.push(item);
     });
     if(items.length>300)issues.push('A BOM supports at most 300 material rows. Split this sheet into smaller BOMs.');
     if(!recognized)issues.push('No material table found. Use Material, Specification, Quantity and Unit column headers.');
-    if(!items.length&&!issues.length)issues.push('No materials with positive quantities found on this sheet. Choose another sheet.');
+    if(!items.length&&!issues.length)issues.push(left.length?'No material row on this sheet could be read: '+left.map(describe).join('; ')+'.':'No materials with positive quantities found on this sheet. Choose another sheet.');
     var date='';
     rows.slice(0,6).some(function(row){return row.cells.some(function(cell){
       var match=label(cell).match(/^(?:Date:\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/i);
       if(!match)return false;var iso=match[3]+'-'+match[1].padStart(2,'0')+'-'+match[2].padStart(2,'0');var d=new Date(iso+'T00:00:00Z');
       if(Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===iso){date=iso;return true;}return false;
     });});
-    return {items:items,issues:issues,skipped:skipped,date:date};
+    return {items:items,issues:issues,left:left,skipped:skipped,date:date};
   }
-  root.BomImport={read:read,maxFileSize:MAX_FILE};
+  // "Row 38 (Hinges, qty 4): no unit"
+  function describe(x){var bits=[x.material,x.quantity!=null?'qty '+x.quantity:'',x.unit?'unit '+x.unit:''].filter(Boolean);return 'Row '+x.row+(bits.length?' ('+bits.join(', ')+')':'')+': '+x.reason;}
+  root.BomImport={read:read,maxFileSize:MAX_FILE,describe:describe};
 })(typeof globalThis!=='undefined'?globalThis:this);

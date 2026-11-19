@@ -122,6 +122,16 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
+### 4.7 — 2026-11-19 — BOM import keeps the readable rows (pending: deploy waits for the owner's go-ahead; branch `claude/bom-partial-v4.7`)
+No migration. Owner's report 2026-11-19: uploading a BOM failed with "Row 38: material and unit must be readable text. Row 39:
+… Existing rows are kept." One or two rows with a quantity but no unit (or no material name) refused the whole sheet.
+- Procurement → Upload a BOM from Excel: the readable rows load into the table; every row left out is named with what it has
+  and what is missing ("Row 38 (Hinge, qty 4): no unit"), shown as a warning, to add by hand or fix in Excel and choose again.
+  Nothing is guessed (no default unit). Sheets with no header table, over 300 rows or nothing readable still stop.
+- Tests: `tests/bom-import.browser.cjs` covers the owner's case (good rows plus no unit, no name, a formula with no saved
+  result) and the all-bad sheet. Full run: 220 unit tests; procurement, procurement-jobs, portals and bom-import browser pass.
+- Versions: the pending Pag-IBIG file and Sales summary branches become 4.8 and 4.9 (they wait for migrations 30 and 31).
+
 ### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (live)
 Migration `20261202000029_annual_tax.sql`: applied by the owner 2026-11-14 (first try). Verified by the agent through the
 connector: all 11 new or changed functions (including `payroll_run_compute`, `payroll_run_submit`, `payslips_mine`) match the

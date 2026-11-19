@@ -36,7 +36,10 @@ validation functions identical; the procurement tests detect drift. Test split
 supplier quantities, five BOMs, over-allocation, deliveries, cancellation, revision
 conflicts and replayed writes when changing procurement. Procurement uses Google
 Sheets. XLSX selection/drop is decoded locally by bom-import.js with vendored
-fflate; only reviewed material rows are saved. There is no raw BOM document
+fflate; only reviewed material rows are saved. A row it can't read (quantity but no unit or
+material name, a formula with no saved result) no longer blocks the sheet: the readable rows load and each left-out row is
+named with what it has and what's missing (`result.left`, `BomImport.describe`); only structural problems (no header table,
+over 300 rows, nothing readable) still block. There is no raw BOM document
 storage or PDF/image OCR. Preserve this distinction and test workbook import with
 tests/bom-import.browser.cjs. Never commit customer workbooks as public fixtures.
 

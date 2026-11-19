@@ -88,7 +88,10 @@
     if(!$('pr-bom-name').value.trim()||$('pr-bom-name').value===importState.autoName){$('pr-bom-name').value=autoName.slice(0,100);importState.autoName=$('pr-bom-name').value;}
     if(result.date&&($('pr-bom-date').value===today()||$('pr-bom-date').value===importState.autoDate)){$('pr-bom-date').value=result.date;importState.autoDate=result.date;}
     importOptions(book,String(index));
-    importMessage(name+' · '+book.sheets[index].name+' · '+result.items.length+' materials added below. '+result.skipped+' empty/zero-quantity rows skipped. '+(book.sheets.length>1?'Other worksheets are kept separate. Changing the worksheet replaces these imported rows. ':'')+'Review and Save BOM to finish.',false);
+    var left=(result.left||[]).map(root.BomImport.describe);
+    importMessage(name+' · '+book.sheets[index].name+' · '+result.items.length+' materials added below. '+result.skipped+' empty/zero-quantity rows skipped. '+
+      (left.length?left.length+(left.length===1?' row was':' rows were')+' left out, add '+(left.length===1?'it':'them')+' below by hand or fix the workbook and choose it again: '+left.join('; ')+'. ':'')+
+      (book.sheets.length>1?'Other worksheets are kept separate. Changing the worksheet replaces these imported rows. ':'')+'Review and Save BOM to finish.',left.length>0);
     return true;
   }
   async function importFile(file){

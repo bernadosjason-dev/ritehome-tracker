@@ -1,7 +1,7 @@
 # Tracker development instructions
 
 Follow the application rules in README.md, including `track()` for database writes
-and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`, activity.html at `/activity`, approvals.html at `/approvals`, company.html at `/company`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
+and bumping `PAGE_VERSION` whenever tracker.html changes. portal.ritehomemodular.com serves tracker.html at `/` and at `/projects`, `/procurement`, `/fuel` (accounting.html at `/accounting`, leads.html at `/leads`, sales.html at `/sales`, schedule.html at `/schedule`, team.html at `/team`, inventory.html at `/inventory`, attendance.html at `/attendance`, activity.html at `/activity`, approvals.html at `/approvals`, company.html at `/company`) through `vercel.json`; `.vercelignore` keeps the old directory `index.html` out of that deployment, because on Vercel a real file wins over a rewrite. Browser tests need `node tests/fixtures/serve.cjs` running (same rules), not a plain static server. Keep versioned asset URLs current for UI changes.
 
 Owner's standing rule (2026-11-12): every update to the portal also updates the agents' knowledge
 in the same commit. When a change adds or alters a workspace, role, stage, table, RPC, test or deploy
@@ -197,7 +197,7 @@ Roles (`supabase/migrations/20261117000014_sales_bookkeeper.sql`, `…15_multi_r
 person can hold several: a main role (`profiles.role`) plus `profiles.extra_roles`. Admin is only ever a main
 role (a check constraint refuses it as an extra; making someone admin clears their extras). `my_role()` still
 returns the main role (null when inactive); every permission question uses `my_roles()` / `has_role()`, and
-`can_work_stage()` lets a person work a stage when any of their roles owns it. Sales: the Leads workspace
+`can_work_stage()` lets a person work a stage when any of their roles owns it. Sales: the Leads workspace and the Sales summary
 (`can_sell()`; converting a lead into a project stays admin-only because it sets price and budget) and the
 consultation and site visit stages. Bookkeeper: Company profile (v3.0, their home page), Accounting (v3.1) and attendance
 management (v3.2). The site visit stage sits
@@ -454,6 +454,36 @@ true): annual tax on the year less everything withheld before; negative = refund
 `payroll_run_submit` refuses that run while anyone's history is missing. `annual_tax_list(year)` (books) gives each person's 2316
 figures and the December adjustment; `payslips_mine()` now carries `year_end`. Tests: `node --test tests/annual-tax.test.cjs`
 (December 2025 by hand in its header: keep it that way) and `node tests/annual-tax.browser.cjs`.
+
+Pag-IBIG remittance file (v4.7; Accounting → Compliance → "Download Pag-IBIG file" on the `deadline_pagibig` row, SQL in
+`supabase/migrations/20261203000030_pagibig_file.sql`, writer `xlsx-write.js` on the vendored fflate): the layout of Ritehome's
+own monthly sheet (employer ID, name, address, contact, email; then MID, MP2, program "F1-Pag-IBIG 1/2", last, first,
+extension, middle, PERCOV YYYYMM, EE, ER, remarks), every ID a text cell. `pagibig_remittance(month)` (books) sums `pi_ee`/
+`pi_er` of the month's approved/released payroll lines only; the page refuses the download until both cutoffs are approved,
+the Pag-IBIG employer ID is set (Compliance settings) and every member has a MID and last/first name. Remarks follow the MCRF
+guidelines: only changes in the month, `N mm/dd/yy` (hired_on) or `RS mm/dd/yy` (separated_on). `employee_statutory` gained
+last/first/middle name, name_ext, `pagibig_program` ('pagibig1'/'pagibig2'), `mp2_account`, and `pagibig_ee_monthly` (a higher
+monthly share the employee chose): `payroll_run_compute` (redefined in 30) adds the part above the mandatory share on the
+contribution cutoff(s) (split: half each) and records it as `basis.pagibig_voluntary`; it is deducted but NOT excluded from
+taxable pay (withholding and `annual_tax_person` add it back). Never put real members' names or numbers in tests. Tests:
+`node --test tests/pagibig-file.test.cjs` (Nov/Dec 2025 by hand) and `node tests/pagibig-file.browser.cjs` (opens the .xlsx).
+
+Sales summary (v4.8; `sales.html`/`sales.js`/`sales.css` at `/sales`, menu group Sales; reader `sales-import.js`; SQL in
+`supabase/migrations/20261204000031_sales_summary.sql`): the owner's SALES SUMMARY workbooks as one register. A sales contract
+is one `sales_contracts` row (unique `sc_no`, date, client, project description, amount, salesperson name + optional profile id,
+status ongoing / awaiting_payment / paid / on_hold / cancelled, note, optional project id, source portal/import); the monthly
+list, the split by salesperson and quota tracking are computed by `sales_summary(year)` (months, people × 12 months, quotas,
+checks: missing SC numbers, no amount, no salesperson, undated). Read: `can_sell()` or `can_keep_books()`. Writes only through
+`sales_contract_save(p)`: sales add their own (salesperson forced to themselves) and change only status/notes/description of
+their own; the bookkeeper changes status/notes on any; only the admin changes SC no., date, client, amount, salesperson.
+Never deleted: `sales_contract_cancel(id, reason)` (admin). Quotas: `sales_quotas` rows from a date, scope `person_month` or
+`team_quarter`, `sales_quota_save(p)` (admin, same date replaces). History: the admin picks the year's workbook on the page;
+`sales-import.js` reads it in the browser (fflate + DOMParser, Excel's saved formula results, max 60 columns) and `extract()`
+(pure, Node-tested) finds the monthly sheet ("MNTHLY SALES" / "Sales Sum.") and attributes salespeople from the split sheets only
+when exactly one name agrees on the SC number and amount; every judgement is a visible flag; `sales_contract_import(rows)` (admin)
+saves all or nothing and skips SC numbers already in the register. Never commit the owner's workbooks or their figures (public
+repo); tests use made-up clients. Activity log module "Sales". Tests: `node --test tests/sales.test.cjs tests/sales-import.test.cjs`
+and `node tests/sales.browser.cjs`.
 
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's

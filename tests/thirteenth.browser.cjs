@@ -57,6 +57,10 @@ const yearOver = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) > 
     assert.match(await row(), /₱7,775\.00[\s\S]*₱39,600\.00[\s\S]*₱647\.92[\s\S]*₱3,947\.92/);
     await page.getByRole('button', {name: 'Add earlier earnings…'}).click();
     await page.getByLabel('Person', {exact: true}).selectOption({label: 'Dina'});
+    await page.getByLabel('Days worked').fill('90');
+    await page.getByLabel('Daily rate', {exact: true}).fill('600');
+    assert.equal(await page.getByLabel('Basic salary earned').inputValue(), '54000.00', 'days x rate fills the amount');
+    assert.equal(await page.getByLabel('Note').inputValue(), '90 days x 600');
     await page.getByLabel('Basic salary earned').fill('54,000');
     await page.locator('#lookBox').getByRole('button', {name: 'Save'}).click();
     assert.match(await page.locator('#lookBox .form-error').innerText(), /where it comes from[\s\S]*Nothing you entered was lost/);

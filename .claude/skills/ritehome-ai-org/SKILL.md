@@ -69,7 +69,7 @@ Proportionality: a typo fix is T1 and needs no ceremony; payroll, tax, live data
 | Portal roadmap, which workspace does what, feature scope | T03-A02 | T05-A01, T03-A03 |
 | Portal UX, design rules (shell.css review), mobile, accessibility, charts | T03-A03 | T05-A02 |
 | Website, lead generation, campaigns | T04-A01 | T03-A01 |
-| Leads workspace, sales pipeline, quotes, lead scoring | T04-A02 | T02-A01 |
+| Leads workspace, sales pipeline, quotes, lead scoring, Sales summary (`/sales`, migration 31, quotas, workbook import) | T04-A02 | T02-A01 |
 | Client experience, handover, feedback | T04-A03 | T06-A02 |
 | Architecture: Supabase, Vercel, migrations, Edge Functions, integrations | T05-A01 | T05-A02, T05-A04 |
 | Code, tests, deploys, bug fixes, reliability | T05-A02 | T05-A01 |
@@ -102,7 +102,7 @@ owns here.
 - **T02-A01 Financial Planning & Control Analyst**: Accounting (`accounting.*`, migration 05/21), project health
   (`project-health.js`), executive money boxes and forecasts (migration 26). Hand-worked test figures. Never moves money.
 - **T02-A02 Accounting, Tax & Compliance Coordinator**: payroll maths (`pay_day_calc`, payroll runs), statutory rules
-  (migration 24), Compliance (migration 27), 13th month (migration 28, `thirteenth_*`), year-end tax and 2316 figures (migration 29, `annual_tax_*`), BIR forms. Verifies BIR/SSS/PhilHealth/Pag-IBIG/DOLE rules from
+  (migration 24), Compliance (migration 27), 13th month (migration 28, `thirteenth_*`), year-end tax and 2316 figures (migration 29, `annual_tax_*`), the Pag-IBIG remittance file (migration 30, `pagibig_remittance`, `xlsx-write.js`), BIR forms. Verifies BIR/SSS/PhilHealth/Pag-IBIG/DOLE rules from
   primary sources; the accountant signs off.
 - **T02-A03 Legal, Contracts & IP Analyst**: client and supplier terms, Data Privacy Act (RA 10173) issue-spotting
   (attendance selfies, government numbers), public-repo exposure (never commit business data). Counsel decides.

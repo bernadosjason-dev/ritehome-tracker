@@ -834,23 +834,35 @@
     mwe.value = n.minimum_wage_earner == null ? "" : String(n.minimum_wage_earner);
     var raf = h("select", {"aria-label": "13th-month pay"}, [["true", "Rank-and-file: gets 13th-month pay"], ["false", "Managerial: not covered"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
     raf.value = n.rank_and_file === false ? "false" : "true";
+    var nm = {}; [["last_name", "Last name"], ["first_name", "First name"], ["middle_name", "Middle name"], ["name_ext", "Name extension"]].forEach(function(x){
+      nm[x[0]] = h("input", {"aria-label": x[1], value: n[x[0]] || "", maxlength: x[0] === "name_ext" ? "10" : "80", autocomplete: "off", placeholder: x[0] === "name_ext" ? "Jr., III" : ""}); });
+    var prog = h("select", {"aria-label": "Pag-IBIG membership program"}, [["pagibig1", "Pag-IBIG 1"], ["pagibig2", "Pag-IBIG 2"]].map(function(o){ return h("option", {value: o[0], text: o[1]}); }));
+    prog.value = n.pagibig_program || "pagibig1";
+    var mp2 = h("input", {"aria-label": "MP2 account number", value: n.mp2_account || "", inputmode: "numeric", autocomplete: "off", placeholder: "Only if they save in MP2"});
+    var share = h("input", {"aria-label": "Chosen Pag-IBIG monthly share", value: n.pagibig_ee_monthly != null ? String(n.pagibig_ee_monthly) : "", inputmode: "decimal", placeholder: "Blank = the mandatory share"});
     var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
     save.addEventListener("click", function(){
       err.textContent = ""; busy(save, true);
-      var body = {user_id: p.id, birth_date: birth.value, hired_on: hired.value, minimum_wage_earner: mwe.value, rank_and_file: raf.value};
+      var body = {user_id: p.id, birth_date: birth.value, hired_on: hired.value, minimum_wage_earner: mwe.value, rank_and_file: raf.value,
+        last_name: nm.last_name.value, first_name: nm.first_name.value, middle_name: nm.middle_name.value, name_ext: nm.name_ext.value,
+        pagibig_program: prog.value, mp2_account: mp2.value, pagibig_ee_monthly: share.value.replace(/[,\s₱]/g, "")};
       fields.forEach(function(x){ body[x[0]] = f[x[0]].value; });
       rpc("employee_statutory_save", {p: body}).then(function(){ $("look").hidden = true; msg(p.name + ": government numbers saved."); return loadStatutory(); })
         .catch(function(e){ busy(save, false); err.textContent = (e && e.message ? e.message : String(e)) + " Nothing you entered was lost."; });
     });
     put("lookBox", h("div", {style: "display:contents"}, [
       h("h2", {id: "lookTitle", text: "Government numbers · " + p.name}),
-      h("p", {class: "muted small", text: "Digits are enough; the dashes are added. Only the admin and the bookkeeper see these, and the person sees their own."}),
-      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["TIN", f.tin]), h("label", null, ["SSS number", f.sss_no])]),
+      h("p", {class: "muted small", text: "Names exactly as on their Pag-IBIG, SSS and BIR records. Digits are enough for numbers; the dashes are added. Only the admin and the bookkeeper see these, and the person sees their own."}),
+      h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Last name", nm.last_name]), h("label", null, ["First name", nm.first_name])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Middle name", nm.middle_name]), h("label", null, ["Name extension", nm.name_ext])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["TIN", f.tin]), h("label", null, ["SSS number", f.sss_no])]),
         h("div", {class: "rec-row"}, [h("label", null, ["PhilHealth number", f.philhealth_no]), h("label", null, ["Pag-IBIG MID number", f.pagibig_no])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Pag-IBIG program", prog]), h("label", null, ["MP2 account number", mp2])]),
+        h("label", null, ["Pag-IBIG share they chose (₱ a month)", share]),
         h("div", {class: "rec-row"}, [h("label", null, ["Hired on", hired]), h("label", null, ["Birth date", birth])]),
         h("div", {class: "rec-row"}, [h("label", null, ["Minimum wage earner", mwe]), h("label", null, ["13th-month pay", raf])])]), err,
       h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
-    $("look").hidden = false; f.tin.focus();
+    $("look").hidden = false; nm.last_name.focus();
   }
   function renderRules(){
     var R = state.rules; if(!R) return;
@@ -963,7 +975,12 @@
     var admin = !!o.can_approve;
     var who = h("select", {"aria-label": "Person"}, o.people.map(function(p){ return h("option", {value: p.user_id, text: p.name}); }));
     var amount = h("input", {inputmode: "decimal", "aria-label": "Basic salary earned", placeholder: "e.g. 54000"});
-    var ref = h("input", {maxlength: "200", "aria-label": "Where it comes from", placeholder: "e.g. Old payroll sheets Jan-Sep " + o.year});
+    // From the office's 13th-month sheet: days worked at a daily rate (one line per rate if it changed during the year).
+    var days = h("input", {inputmode: "decimal", "aria-label": "Days worked", placeholder: "e.g. 243"}), rate = h("input", {inputmode: "decimal", "aria-label": "Daily rate", placeholder: "e.g. 500"});
+    function calc(){ var d = Number(days.value.replace(/[,\s]/g, "")), r = Number(rate.value.replace(/[,\s₱]/g, ""));
+      if(d > 0 && r > 0){ amount.value = (Math.round(d * r * 100) / 100).toFixed(2); if(!note.value || /^\d[\d.,]* days x /.test(note.value)) note.value = d + " days x " + r; } }
+    days.addEventListener("input", calc); rate.addEventListener("input", calc);
+    var ref = h("input", {maxlength: "200", "aria-label": "Where it comes from", placeholder: "e.g. 13th month sheet " + o.year + ", Jan to Nov 15"});
     var note = h("input", {maxlength: "500", "aria-label": "Note", placeholder: "Note (optional)"});
     var err = h("p", {class: "form-error", role: "alert"}), save = h("button", {class: "btn", type: "button", text: "Save"});
     save.addEventListener("click", function(){
@@ -976,6 +993,8 @@
       h("h2", {id: "lookTitle", text: "Earlier earnings · " + o.year}),
       h("p", {class: "muted small", text: "Basic salary each person earned in " + o.year + " before the portal's first approved payroll: days worked at their rate, without overtime, holiday pay, allowances or paid leave. Entries are never edited: the admin voids a wrong one and you add the right one."}),
       h("div", {class: "rec-form"}, [h("div", {class: "rec-row"}, [h("label", null, ["Person", who]), h("label", null, ["Basic salary earned (₱)", amount])]),
+        h("div", {class: "rec-row"}, [h("label", null, ["Days worked (optional)", days]), h("label", null, ["× daily rate", rate])]),
+        h("p", {class: "muted small", text: "From the 13th-month sheet: the days count × the daily rate fills the amount. If the rate changed during the year (e.g. ₱486 to ₱500 on May 1), save one entry per rate."}),
         h("label", null, ["Where it comes from", ref]), h("label", null, ["Note", note])]), err,
       h("div", {class: "acct-actions"}, [save, h("button", {class: "btn ghost", type: "button", text: "Cancel", onclick: function(){ $("look").hidden = true; }})])]));
     $("look").hidden = false; amount.focus();

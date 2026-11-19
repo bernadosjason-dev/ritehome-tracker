@@ -50,6 +50,7 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 |---|---|---|
 | Supabase project | `laxavfldivkhufeubgmb` | migrations 01–24 applied (18–24 by the owner in the SQL Editor). **Verified 2026-11-13 by the agent through the Supabase connector:** all 155 public functions match a local load of 01–24 (comment- and whitespace-normalised: none differ, none missing, none extra); rolled-back smoke test 25/25 (admin calls work; anon refused for dashboard, company, approvals, salaries, pay, statutory); company-files bucket and its two policies exactly as expected; 18–24 registered in `supabase_migrations.schema_migrations` (24 rows) |
 | Migration 23 (v3.3 salary) | applied 2026-11-13 | owner ran it; agent verified via the connector (18/18 functions match, privileges right). Live calendar has **0 holidays**, so release dates and holiday pay ignore holidays until the owner adds them. Registered in `supabase_migrations` 2026-11-13 |
+| Migrations 30–31 (v4.8 Pag-IBIG file, v4.9 sales summary) | applied 2026-11-19 | owner ran them; agent verified (all 206 functions identical, privileges right, smoke 12/12, nothing left) and registered both. 0 sales contracts and 0 quotas yet: the owner imports 2024-2026 and sets quotas on /sales |
 | Migration 29 (v4.6 year-end tax) | applied 2026-11-14 | owner ran it; agent verified (11/11 functions match, privileges right, smoke 12/12, live table figures match the tests) and registered it. Year-end adjustment on; 0 earlier-pay entries yet, so the Dec 16-31 payroll will refuse to submit for anyone employed before the portal's payroll until theirs is entered |
 | Migration 28 (v4.5 13th month) | applied 2026-11-14 | owner ran it (second try); agent verified (14/14 functions match, privileges right, smoke 11/11) and registered it. 0 people covered until rates and earlier earnings are entered |
 | Migrations 26–27 (v4.2 dashboard, v4.3 compliance) | applied 2026-11-14 | owner ran them; agent verified (9/9 functions match, privileges right, live run as the admin works) and registered both. Live finding: cash in the books is **-3,400** (no opening balance posted), shown as a critical risk. Compliance tracking starts Dec 1 2026 |
@@ -74,6 +75,12 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - Reminder set for Sat Nov 14, 9 AM Manila (owner asked): rates, accountant review of the rules, decisions a-c.
 - Post the opening cash balance in Accounting (Journal: Dr cash on hand / bank, Cr owner's capital, dated the
   books start) so cash in the books stops reading -3,400. Only 2 staff accounts are active: add the rest in Team.
+- Sales summary (v4.9, live Nov 19): on /sales, set the quotas (2025-2026: each
+  salesperson a month; 2024: the team a quarter), import 2024, 2025 and 2026 from the workbooks, and work the "To check" list.
+  Decide SC 487 (used twice) before importing 2025: the second one is skipped until it has its real number.
+- Pag-IBIG file (v4.8, live Nov 19): enter the Pag-IBIG employer ID (Accounting → Compliance →
+  Employer registrations) and, per member, names as on their Pag-IBIG record, MID, program, MP2 and any chosen higher share
+  (Government numbers). Check the two members whose daily rate in the 13th-month sheet is under 500 after May 1, 2026.
 - Year-end tax (v4.6, live Nov 14): by Fri Dec 11, for
   each person, enter their Jan-Nov taxable pay, 13th month/benefits already paid, contributions and tax withheld from the old
   payroll (Attendance → Pay → Year-end tax → Add earlier pay); for anyone hired this year, their previous employer's 2316.
@@ -122,7 +129,54 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
-### 4.7 — 2026-11-19 — BOM import keeps the readable rows (pending: deploy waits for the owner's go-ahead; branch `claude/bom-partial-v4.7`)
+### 4.9 — 2026-11-17 — Sales summary (live)
+Migration `20261204000031_sales_summary.sql`: applied by the owner (after 30) and verified 2026-11-19 (see 4.8); deployed with
+4.7-4.9 on Nov 19. Built as "4.8" on branch `claude/sales-summary-v4.8`, renumbered when the BOM fix shipped first. Owner's request 2026-11-17 ("this is the example of sales summary, also add this in our portal", his SALES SUMMARY
+workbooks for 2024, 2025, 2026). Coordinating agent T04-A02; T02-A01 checked the totals.
+- New page Sales summary (`/sales`, menu group Sales; admin, sales, bookkeeper): every sales contract once (SC no., date,
+  customer, project, amount, salesperson, status, note). Month by month as in his "MNTHLY SALES" sheet; By salesperson × month
+  as in his "Total Individual Sales" sheet, months at quota in green; To check: SC numbers skipped, no amount, no salesperson,
+  no date. Quotas from a date: each salesperson a month, or the team a quarter (his 2024 workbook used a team quarterly quota).
+- Who changes what: sales add their own (always under their own name) and update the status and notes of their own; the
+  bookkeeper updates status and notes on any; only the admin changes SC no., date, customer, amount or salesperson, cancels
+  (never deletes) and sets quotas. Every change is in the activity log ("Sales").
+- Import: the admin picks a year's workbook; it's read in the browser, previewed with every judgement flagged (dates written
+  three ways or with the wrong year, missing dates, amounts as formulas, the salesperson only when the split sheet agrees on SC
+  number and amount), then saved together; SC numbers already in the register are skipped, never overwritten.
+- Read on 2026-11-17 (figures not written here: the repo is public): his 2026 workbook's monthly list and individual split
+  agree, but its per-person yearly summary table doesn't (formulas pointing at the wrong person or month, November missing for
+  some); the 2025 monthly list and per-person grand total differ; SC 487 is used for two different contracts (Dec 2024 and early
+  2025); the split sheets have SC numbers typed against the wrong contract in places; 2024 and 2025 have SC numbers missing.
+- Tests: `tests/sales.test.cjs` (made-up year by hand), `tests/sales-import.test.cjs` (the extraction rules on made-up sheets laid
+  out like his) and `tests/sales.browser.cjs` (imports a made-up workbook through the page). The leads and company browser tests
+  now expect "Sales summary" in the sales and bookkeeper menus. Full run: 231 unit tests and every browser suite pass
+  (approvals.browser failed once in the back-to-back run and passed alone, the known timing flake).
+
+### 4.8 — 2026-11-17 — Pag-IBIG remittance file; days × rate for 13th-month history (live)
+Migration `20261203000030_pagibig_file.sql`: applied by the owner with 31; verified by the agent through the connector 2026-11-19:
+all 206 public functions identical to a local load of 01-31 (one fingerprint for the whole set), the browser can't call
+`sales_quota_on`, `annual_tax_person` or `payroll_run_compute` or write the new tables, anon refused, rolled-back smoke test 12/12
+(sales add, import, quota, Pag-IBIG file, payroll, year-end, dashboard), nothing left behind; 30 and 31 registered (31 rows).
+Built as "4.7"; renumbered when the BOM fix shipped first. Coordinating agent T02-A02. Owner's request 2026-11-17 (his Pag-IBIG sheet as the format).
+- Accounting → Compliance → Pag-IBIG row → "Download Pag-IBIG file": an .xlsx in the owner's sheet layout from the month's
+  approved payroll (both cutoffs), IDs as text so Excel can't change them, totals at the bottom. Refused (with the reason) until
+  both payrolls are approved, the Pag-IBIG employer ID is entered, and every member has a MID and names.
+- Government numbers gain last / first / middle name, extension, Pag-IBIG program (1 or 2), MP2 account, and "Pag-IBIG share
+  they chose" (the owner's sheet has one member at 400): payroll deducts the extra on the contribution cutoff; only the
+  mandatory share lowers taxable pay (for the accountant to confirm).
+- Remarks follow the MCRF guidelines (N = newly hired, RS = resigned/separated, mm/dd/yy, only in the month it happens). The
+  owner's sheet used NH / S / N with mixed date formats and kept old hire remarks every month: flagged to him, not copied.
+  Pag-IBIG's own site blocks automated reading, so the file follows his accepted sheet; check the first upload with the Fund.
+- 13th month: "Add earlier earnings" takes days worked × daily rate (the owner's 13th-month sheet counts days), one entry per
+  rate when it changed in the year.
+- Findings from the owner's sheets (2026-11-17, not stored anywhere): the Pag-IBIG sheet lists about 20 members while the
+  portal has 3 active accounts; the 13th-month sheet stops at Nov 15 (the year runs to Dec 31), applies one rate to the whole
+  year (the minimum wage rose 486 -> 500 on May 1), shows two rows with a rate under 500 and days after May 1, and one row whose
+  monthly cells look like running totals.
+- Tests: `tests/pagibig-file.test.cjs` (Nov split / Dec 16-31, voluntary 400, tax 1,964.10, net 19,635.90 by hand) and
+  `tests/pagibig-file.browser.cjs` (downloads and reads the .xlsx); the 13th-month browser test covers the calculator.
+  Full run: 223 unit tests and every browser suite pass.
+### 4.7 — 2026-11-19 — BOM import keeps the readable rows (live)
 No migration. Owner's report 2026-11-19: uploading a BOM failed with "Row 38: material and unit must be readable text. Row 39:
 … Existing rows are kept." One or two rows with a quantity but no unit (or no material name) refused the whole sheet.
 - Procurement → Upload a BOM from Excel: the readable rows load into the table; every row left out is named with what it has
@@ -130,7 +184,7 @@ No migration. Owner's report 2026-11-19: uploading a BOM failed with "Row 38: ma
   Nothing is guessed (no default unit). Sheets with no header table, over 300 rows or nothing readable still stop.
 - Tests: `tests/bom-import.browser.cjs` covers the owner's case (good rows plus no unit, no name, a formula with no saved
   result) and the all-bad sheet. Full run: 220 unit tests; procurement, procurement-jobs, portals and bom-import browser pass.
-- Versions: the pending Pag-IBIG file and Sales summary branches become 4.8 and 4.9 (they wait for migrations 30 and 31).
+- Versions: the Pag-IBIG file and Sales summary, built as 4.7 and 4.8, became 4.8 and 4.9; all three deployed together Nov 19.
 
 ### 4.6 — 2026-11-14 — Year-end tax adjustment and BIR 2316 figures (live)
 Migration `20261202000029_annual_tax.sql`: applied by the owner 2026-11-14 (first try). Verified by the agent through the

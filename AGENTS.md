@@ -39,7 +39,8 @@ Sheets. XLSX selection/drop is decoded locally by bom-import.js with vendored
 fflate; only reviewed material rows are saved. A row it can't read (quantity but no unit or
 material name, a formula with no saved result) no longer blocks the sheet: the readable rows load and each left-out row is
 named with what it has and what's missing (`result.left`, `BomImport.describe`); only structural problems (no header table,
-over 300 rows, nothing readable) still block. There is no raw BOM document
+over 300 rows, nothing readable) still block. On choosing a workbook the page opens the visible sheet with the most readable materials (offices
+keep reference or template sheets first); header dates are read as m/d/yyyy or "November 10, 2026". There is no raw BOM document
 storage or PDF/image OCR. Preserve this distinction and test workbook import with
 tests/bom-import.browser.cjs. Never commit customer workbooks as public fixtures.
 

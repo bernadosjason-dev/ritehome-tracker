@@ -12,6 +12,7 @@
   }
   function nodes(el,name){return Array.from(el.getElementsByTagNameNS('*',name));}
   function content(el,name){var n=nodes(el,name)[0];return n?n.textContent:'';}
+  var MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
   function label(v){return String(v==null?'':v).trim();}
   function key(v){return label(v).toLowerCase().replace(/[^a-z0-9]/g,'');}
   function column(ref){var m=/^([A-Z]+)[1-9][0-9]*$/.exec(ref||'');if(!m)throw Error('Invalid Excel cell address.');var n=0;for(var c of m[1])n=n*26+c.charCodeAt(0)-64;if(n>100)throw Error('BOM sheets support up to 100 columns.');return n-1;}
@@ -89,7 +90,9 @@
     if(!items.length&&!issues.length)issues.push(left.length?'No material row on this sheet could be read: '+left.map(describe).join('; ')+'.':'No materials with positive quantities found on this sheet. Choose another sheet.');
     var date='';
     rows.slice(0,6).some(function(row){return row.cells.some(function(cell){
-      var match=label(cell).match(/^(?:Date:\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/i);
+      // "Date: 09/28/2026" or "Date: November 10, 2026" (the office's BOM header writes both).
+      var text=label(cell),match=text.match(/^(?:Date:\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})$/i),named=text.match(/^(?:Date:\s*)?([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+      if(!match&&named){var mi=MONTHS.findIndex(function(m){return m.indexOf(named[1].toLowerCase().slice(0,3))===0&&m.indexOf(named[1].toLowerCase())===0;});if(mi>=0)match=[0,String(mi+1),named[2],named[3]];}
       if(!match)return false;var iso=match[3]+'-'+match[1].padStart(2,'0')+'-'+match[2].padStart(2,'0');var d=new Date(iso+'T00:00:00Z');
       if(Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===iso){date=iso;return true;}return false;
     });});

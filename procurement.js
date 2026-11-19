@@ -89,7 +89,8 @@
     if(result.date&&($('pr-bom-date').value===today()||$('pr-bom-date').value===importState.autoDate)){$('pr-bom-date').value=result.date;importState.autoDate=result.date;}
     importOptions(book,String(index));
     var left=(result.left||[]).map(root.BomImport.describe);
-    importMessage(name+' · '+book.sheets[index].name+' · '+result.items.length+' materials added below. '+result.skipped+' empty/zero-quantity rows skipped. '+
+    var others=book.sheets.length>1?' Opened the sheet with the most materials; the others are in the worksheet list.':'';
+    importMessage(name+' · '+book.sheets[index].name.trim()+' · '+result.items.length+' materials added below.'+others+' '+result.skipped+' empty/zero-quantity rows skipped. '+
       (left.length?left.length+(left.length===1?' row was':' rows were')+' left out, add '+(left.length===1?'it':'them')+' below by hand or fix the workbook and choose it again: '+left.join('; ')+'. ':'')+
       (book.sheets.length>1?'Other worksheets are kept separate. Changing the worksheet replaces these imported rows. ':'')+'Review and Save BOM to finish.',left.length>0);
     return true;
@@ -104,7 +105,9 @@
     try{
       var buffer=await file.arrayBuffer();if(sequence!==importState.sequence)return;
       var book=root.BomImport.read(buffer);
-      try{if(!applySheet(book,0,file.name))importMessage(priorMessage,priorError);}catch(e){
+      // Open the visible sheet with the most readable materials (a workbook often keeps reference or template sheets first).
+      var best=0,most=-1;book.sheets.forEach(function(s,i){try{var n=book.parse(i).items.length;if(n>most){most=n;best=i;}}catch(e){}});
+      try{if(!applySheet(book,best,file.name))importMessage(priorMessage,priorError);}catch(e){
         // Keep other visible sheets available even when the first is empty or unsupported.
         importState.book=book;importState.name=file.name;importState.sheet='';importOptions(book,'');throw e;
       }

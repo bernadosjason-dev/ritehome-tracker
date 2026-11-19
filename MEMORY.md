@@ -129,6 +129,23 @@ Record the result in "Live state".
 
 ## Version history (newest first)
 
+### 4.10 — 2026-11-19 — BOM upload opens the right sheet and reads the date in words (pending: deploy waits for the owner's go-ahead; branch `claude/bom-sheet-v4.10`)
+No migration. Owner sent a real BOM workbook 2026-11-19 ("make sure it will be read by our online portal"); read locally, not
+stored anywhere (customer data, public repo). Coordinating agent T06-A03 (procurement); T05-A02 for the code.
+- What the portal read from it: 4 sheets, 2 hidden templates (ignored). The first visible sheet ("BOM REFERENCES") holds 1
+  readable material; the real BOM ("F - ACCESSORIES", sections A-F) holds 28 rows with a quantity: 26 read, 2 left out because
+  their Unit cell is empty (the two Kuchen accessories, on both sheets). Every material with a quantity is accounted for.
+- Fixed: the page opened the first visible sheet, so this BOM imported as 1 line unless someone changed the worksheet list. It
+  now opens the visible sheet with the most readable materials and says so. The header date "Date: November 10, 2026" was not
+  read (only 11/10/2026 was): month names are read now.
+- Found in the workbook and reported to the owner (not the portal's to fix): no unit on the two Kuchen rows; the main sheet has no
+  prices on the countertop and the F. Accessories rows, so its grand total leaves them out (the reference sheet prices the
+  accessories); the countertop section's Amount and Remarks columns are swapped against the other sections and its total cell is
+  a typed 0; the reference sheet's total sums only rows 36-40; the main sheet is named "F - ACCESSORIES" but holds the whole BOM.
+- Tests: `tests/bom-import.browser.cjs` (opens the sheet with materials over an empty first one; dates in words, abbreviated and
+  numeric, and an unknown month left blank). Full run: 231 unit tests; procurement, procurement-jobs, portals, bom-import pass.
+  The owner's workbook through the real page in a scratch run: 26 materials, date 2026-11-10, right sheet, 2 rows named.
+
 ### 4.9 — 2026-11-17 — Sales summary (live)
 Migration `20261204000031_sales_summary.sql`: applied by the owner (after 30) and verified 2026-11-19 (see 4.8); deployed with
 4.7-4.9 on Nov 19. Built as "4.8" on branch `claude/sales-summary-v4.8`, renumbered when the BOM fix shipped first. Owner's request 2026-11-17 ("this is the example of sales summary, also add this in our portal", his SALES SUMMARY

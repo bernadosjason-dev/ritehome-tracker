@@ -130,7 +130,7 @@ Record the result in "Live state".
 ## Version history (newest first)
 
 ### 4.10 — 2026-11-19 — BOM upload opens the right sheet and reads the date in words (live)
-No migration. Deployed 2026-11-19 on the owner's "deploy". Owner sent a real BOM workbook 2026-11-19 ("make sure it will be read by our online portal"); read locally, not
+No migration. Deployed 2026-11-19 on the owner's "deploy". Owner confirmed 2026-11-19 on the live portal: his workbook uploaded, 26 materials loaded. Owner sent a real BOM workbook 2026-11-19 ("make sure it will be read by our online portal"); read locally, not
 stored anywhere (customer data, public repo). Coordinating agent T06-A03 (procurement); T05-A02 for the code.
 - What the portal read from it: 4 sheets, 2 hidden templates (ignored). The first visible sheet ("BOM REFERENCES") holds 1
   readable material; the real BOM ("F - ACCESSORIES", sections A-F) holds 28 rows with a quantity: 26 read, 2 left out because

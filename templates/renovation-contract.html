@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Renovation Contract</title>
+<!-- Ritehome's renovation contract (the owner's template of 2026-11-24, the renovation contract he approved), with the
+     Ritehome logo header. Filled by templates/render-contract.cjs ("template": "renovation"); double-brace fields are filled
+     in, item, rule and exclusion rows repeat. Never commit a filled-in copy: client data, public repo. -->
+<style>
+  @page { size: A4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.23; color: #111; }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; padding-bottom: 5px; border-bottom: 2px solid #000; }
+  .head img { height: 44px; }
+  .head .name { text-align: center; }
+  .head h1 { margin: 0; font-size: 17pt; font-weight: bold; letter-spacing: 0.12em; }
+  .head .city { font-size: 8pt; color: #666; margin-top: 2px; letter-spacing: 0.04em; }
+  .titlerow { display: flex; justify-content: space-between; align-items: baseline; margin: 5px 0 4px; }
+  .titlerow h2 { margin: 0; font-size: 13pt; }
+  .titlerow .meta { font-size: 8pt; color: #666; }
+  h3 { font-size: 9.5pt; margin: 6px 0 2px; text-transform: uppercase; letter-spacing: 0.03em; }
+  p { margin: 0 0 4px; }
+  .blank { display: inline-block; border-bottom: 1px solid #000; min-width: 38mm; height: 1.1em; vertical-align: -2px; }
+  .blank.s { min-width: 18mm; } .blank.xs { min-width: 10mm; } .blank.l { min-width: 70mm; } .blank.xl { min-width: 100%; display: block; margin-top: 3px; }
+  table.grid { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2px 0 4px; }
+  .grid th, .grid td { border: 1px solid #999; padding: 2px 5px; vertical-align: top; text-align: left; }
+  .grid th { background: #eee; font-weight: bold; }
+  .grid .num { text-align: right; } .grid td.num { white-space: nowrap; }
+  .grid tfoot td { font-weight: bold; background: #f5f5f5; }
+  ul { margin: 0 0 4px; padding-left: 16px; } li { margin: 0 0 2px; }
+  .parties p { margin-bottom: 3px; }
+  .sig-intro { font-weight: bold; margin-top: 8px; break-after: avoid; }
+  .sigwrap { break-inside: avoid; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; column-gap: 7mm; }
+  .cols h3:first-child { margin-top: 6px; }
+  .sigs { display: flex; gap: 18px; margin-top: 34px; }
+  .sigs > div { flex: 1 1 0; min-width: 0; border-top: 1px solid #000; padding-top: 4px; font-size: 8.5pt; }
+</style></head><body>
+
+<div class="head">
+  <img src="{{logo}}" alt="Ritehome logo">
+  <div class="name"><h1>RITEHOME CONSTRUCTION SERVICES</h1><div class="city">Cagayan de Oro City</div></div>
+</div>
+<div class="titlerow"><h2>Renovation Contract</h2><div class="meta">Contract No. {{contract_no}} &nbsp;|&nbsp; Date: {{date}}</div></div>
+
+<div class="parties">
+<p><b>Contractor:</b> RITEHOME CONSTRUCTION SERVICES, Cagayan de Oro City, represented by {{representative}} ("Contractor").</p>
+<p><b>Owner:</b> {{owner}}, of {{owner_address}} ("Owner").</p>
+<p><b>Project:</b> {{project}} at {{site}}, Cagayan de Oro City. All amounts are in Philippine pesos (PHP). Official receipts are issued by Ritehome Modular Systems.</p>
+</div>
+
+<h3>1. Scope of work and prices</h3>
+<table class="grid">
+  <colgroup><col style="width:4.5%"><col style="width:65%"><col style="width:18.5%"><col style="width:12%"></colgroup>
+  <thead><tr><th>#</th><th>Work</th><th>Who buys materials</th><th class="num">Price (PHP)</th></tr></thead>
+  <tbody>
+{{#items}}    <tr><td>{{n}}</td><td>{{work}}</td><td>{{materials_by}}</td><td class="num">{{price}}</td></tr>
+{{/items}}  </tbody>
+</table>
+
+<h3>2. Contract price and payment</h3>
+<table class="grid">
+  <colgroup><col style="width:34%"><col style="width:33%"><col style="width:33%"></colgroup>
+  <thead><tr><th class="num">Contract price</th><th class="num">50% downpayment on signing</th><th class="num">50% balance by progress billing</th></tr></thead>
+  <tbody>
+    <tr><td class="num">{{total}}</td><td class="num">{{down}}</td><td class="num">{{balance}}</td></tr>
+  </tbody>
+</table>
+<p>Work starts after the downpayment is received. The other 50% is paid by progress billing, per work finished: Contractor bills each item of work when it is finished. Each bill is 50% of that item's price in Section 1 plus materials (Section 5), due within 7 days.</p>
+
+<h3>3. Time</h3>
+<p>{{time}}</p>
+
+<div class="cols"><div><h3>4. Work rules</h3>
+<ul>
+{{#work_rules}}  <li>{{text}}</li>
+{{/work_rules}}</ul>
+
+<h3>5. Materials and waiting time</h3>
+<p>{{materials}}</p>
+
+</div><div><h3>6. Not included</h3>
+<ul>
+{{#not_included}}  <li>{{text}}</li>
+{{/not_included}}</ul>
+
+<h3>7. Warranty</h3>
+<p>{{warranty}}</p>
+
+<h3>8. Changes, notices and disputes</h3>
+<p>Any change to the scope, price or schedule must be in a written change order agreed by both parties; Owner may agree by message. Notices are by email, message or signed letter. Disputes are discussed for 15 days first; unresolved disputes go to the courts of Cagayan de Oro City under Philippine law.</p></div></div>
+
+<div class="sigwrap"><p class="sig-intro">Agreed and accepted:</p>
+<div class="sigs">
+  <div>For RITEHOME CONSTRUCTION SERVICES<br>Date: <span class="blank s"></span></div>
+  <div>{{owner_sign}} (Owner)<br>Date: <span class="blank s"></span></div>
+  <div>Witness<br>Date: <span class="blank s"></span></div>
+</div></div>
+</body></html>

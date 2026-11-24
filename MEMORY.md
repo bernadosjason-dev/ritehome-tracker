@@ -42,8 +42,9 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
   with a gross-pay export meanwhile.
 - 2026-11-14 Agents work through the Ritehome AI organization (`.claude/skills/ritehome-ai-org/SKILL.md`): route,
   classify, stop at the owner's gates, record here.
-- 2026-11-24 Client contracts use his template (the kitchen-and-ceiling contract he sent), always with the Ritehome logo
-  and header: `templates/construction-contract.html`, filled by `templates/render-contract.cjs` (see AGENTS.md).
+- 2026-11-24 Client contracts use his two templates, always with the Ritehome logo and header: the construction contract
+  (his kitchen-and-ceiling contract, `templates/construction-contract.html`) and the renovation contract (the one he approved,
+  `templates/renovation-contract.html`), filled by `templates/render-contract.cjs` (see AGENTS.md).
 - Brutal honesty in reports to the owner; every task has a deadline.
 
 ## Live state (update when it changes)

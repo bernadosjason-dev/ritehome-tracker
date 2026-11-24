@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Construction Contract</title>
+<!-- Ritehome's construction contract (the owner's template of 2026-11-24, with the Ritehome logo header).
+     Filled by templates/render-contract.cjs from a JSON file: double-brace fields are filled in, item and milestone rows repeat.
+     Never commit a filled-in copy: client names, sites and prices are business data and this repo is public. -->
+<style>
+  @page { size: A4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.3; color: #111; }
+  .head { display: flex; align-items: center; justify-content: center; gap: 12px; padding-bottom: 6px; border-bottom: 2px solid #000; }
+  .head img { height: 46px; }
+  .head .name { text-align: center; }
+  .head h1 { margin: 0; font-size: 17pt; font-weight: bold; letter-spacing: 0.12em; }
+  .head .city { font-size: 8pt; color: #666; margin-top: 2px; letter-spacing: 0.04em; }
+  .titlerow { display: flex; justify-content: space-between; align-items: baseline; margin: 9px 0 7px; }
+  .titlerow h2 { margin: 0; font-size: 13pt; }
+  .titlerow .meta { font-size: 8pt; color: #666; }
+  h3 { font-size: 9.5pt; margin: 8px 0 3px; padding-bottom: 2px; border-bottom: 1px solid #ccc; }
+  p { margin: 0 0 4px; }
+  .blank { display: inline-block; border-bottom: 1px solid #000; min-width: 38mm; height: 1.1em; vertical-align: -2px; }
+  .blank.s { min-width: 18mm; } .blank.xs { min-width: 10mm; } .blank.l { min-width: 60mm; } .blank.m { min-width: 48mm; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2px 0 4px; }
+  th { background: #eee; font-weight: bold; text-align: left; padding: 3px 5px; }
+  td { padding: 3px 5px; vertical-align: top; border-bottom: 1px solid #e3e3e3; }
+  .num { text-align: right; white-space: nowrap; }
+  .total td { font-weight: bold; border-bottom: 1px solid #ccc; }
+  .item-title { font-weight: bold; }
+  ul { margin: 0 0 4px; padding-left: 16px; } li { margin: 0 0 1px; }
+  .sig-intro { font-weight: bold; margin-top: 12px; }
+  .sigs { display: flex; gap: 18px; margin-top: 34px; break-inside: avoid; }
+  .sigs > div { flex: 1 1 0; min-width: 0; border-top: 1px solid #000; padding-top: 14px; font-size: 8pt; color: #555; }
+</style></head><body>
+
+<div class="head">
+  <img src="{{logo}}" alt="Ritehome logo">
+  <div class="name"><h1>RITEHOME CONSTRUCTION SERVICES</h1><div class="city">Cagayan de Oro City</div></div>
+</div>
+<div class="titlerow"><h2>Construction Contract</h2><div class="meta">Contract No. {{contract_no}} &nbsp;|&nbsp; Date: {{date}}</div></div>
+
+<p><b>Contractor:</b> RITEHOME CONSTRUCTION SERVICES, Cagayan de Oro City, represented by {{representative}} ("Contractor").</p>
+<p><b>Owner:</b> {{owner}}, of {{owner_address}} ("Owner").</p>
+<p><b>Project site:</b> {{site}}, Cagayan de Oro City. All amounts are in Philippine pesos (PHP). Official receipts are issued by Ritehome Modular Systems.</p>
+
+<h3>1. Scope of work and price</h3>
+<p>This contract follows the Contractor's final quotation to the Owner. The Contractor supplies all materials, labor and installation for the {{item_count_words}} below.</p>
+<table>
+  <colgroup><col style="width:5%"><col style="width:78%"><col style="width:17%"></colgroup>
+  <thead><tr><th>#</th><th>Work</th><th class="num">Price (PHP)</th></tr></thead>
+  <tbody>
+{{#items}}    <tr><td>{{n}}</td><td><div class="item-title">{{title}}</div>{{spec}}</td><td class="num">{{price}}</td></tr>
+{{/items}}    <tr class="total"><td></td><td class="num">CONTRACT PRICE</td><td class="num">{{total}}</td></tr>
+  </tbody>
+</table>
+
+<h3>2. Payment</h3>
+<table>
+  <colgroup><col style="width:66%"><col style="width:12%"><col style="width:22%"></colgroup>
+  <thead><tr><th>Milestone</th><th class="num">Share</th><th class="num">Amount (PHP)</th></tr></thead>
+  <tbody>
+{{#milestones}}    <tr><td>{{label}}</td><td class="num">{{share}}%</td><td class="num">{{amount}}</td></tr>
+{{/milestones}}    <tr class="total"><td>Total</td><td class="num">100%</td><td class="num">{{total}}</td></tr>
+  </tbody>
+</table>
+<p>Work starts after the signing payment is received. Each payment is due on its milestone. The Contractor notifies the Owner in writing when a milestone is reached. Late payment earns 1% interest per month.</p>
+
+<h3>3. Time</h3>
+<p>Work starts on {{start_date}} and is turned over within {{working_days}} working days from the start date. Cabinet fabrication lead time is {{lead_weeks}} weeks from the signing payment and approval of the final drawings. The Owner provides free access to the site during working hours.</p>
+
+<h3>4. Not included</h3>
+<ul>
+  <li>Anything not listed in the scope above.</li>
+  <li>Permits and government fees.</li>
+  <li>Appliances, plumbing fixtures and tiles, unless stated in the specification in item 1.</li>
+  <li>Concealed or hidden conditions found when work opens up (for example damaged wiring or structure). The Contractor reports them with photos and a price, and works on them only after the Owner agrees in writing.</li>
+</ul>
+
+<h3>5. Warranty</h3>
+<p><b>6 months</b> on workmanship, counted from turnover. Damage from misuse, from work by others, or from normal wear is not covered.</p>
+
+<h3>6. Changes, notices and disputes</h3>
+<p>Any change to the scope, specification, price or schedule must be in a written change order signed by both parties. Notices are by email, message or signed letter. Disputes are discussed for 15 days first; unresolved disputes go to the courts of Cagayan de Oro City under Philippine law.</p>
+
+<p class="sig-intro">Agreed and accepted:</p>
+<div class="sigs">
+  <div>For RITEHOME CONSTRUCTION SERVICES / Date</div>
+  <div>Owner / Date</div>
+  <div>Witness / Date</div>
+</div>
+</body></html>

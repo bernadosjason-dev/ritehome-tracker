@@ -486,6 +486,15 @@ saves all or nothing and skips SC numbers already in the register. Never commit 
 repo); tests use made-up clients. Activity log module "Sales". Tests: `node --test tests/sales.test.cjs tests/sales-import.test.cjs`
 and `node tests/sales.browser.cjs`.
 
+Client contracts (owner's template, 2026-11-24): every Ritehome construction contract uses `templates/construction-contract.html`,
+the owner's kitchen-and-ceiling contract with the Ritehome logo header (`brand/logo-mark.png` beside "RITEHOME CONSTRUCTION
+SERVICES", "Cagayan de Oro City" in grey, a 2 px black line). Fill it with `node templates/render-contract.cjs <job.json> <out.pdf>`
+(A4, Arial 9 pt, 12 mm top/bottom and 14 mm side margins; it computes the milestone amounts so they add up to the contract price
+exactly, refuses shares that don't add up to 100, and prints the page count). Keep the template's wording; change a clause only when
+the owner asks, and leave any field he hasn't given as a blank line. Look at every page before sending. The job JSON and the PDF
+hold client names, sites and prices: keep them in the session scratchpad, never in this repo (it is public). `templates/` is in
+`.vercelignore`, so nothing in it is served on the portal.
+
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's
 "AI Organization" skill). Claude Code loads it as a skill; Codex: read that file before starting work. Route each

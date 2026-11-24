@@ -45,6 +45,8 @@ Supabase project and its commit is deployed to Vercel; until then it says "pendi
 - 2026-11-24 Client contracts use his two templates, always with the Ritehome logo and header: the construction contract
   (his kitchen-and-ceiling contract, `templates/construction-contract.html`) and the renovation contract (the one he approved,
   `templates/renovation-contract.html`), filled by `templates/render-contract.cjs` (see AGENTS.md).
+- 2026-11-24 Contracts and templates: standing approval to push template changes (`templates/` and their notes only)
+  to production without asking for "merge"; portal code and migrations still need his "merge".
 - Brutal honesty in reports to the owner; every task has a deadline.
 
 ## Live state (update when it changes)

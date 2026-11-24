@@ -502,6 +502,13 @@ prints the figures and the page count. Keep the templates' wording; change a cla
 field he hasn't given as a blank line. Look at every page before sending. The job JSON and the PDF hold client names, sites and
 prices: keep them in the session scratchpad, never in this repo (it is public). `templates/` is in `.vercelignore`, so nothing
 in it is served on the portal.
+Owner's standing approval (2026-11-24, "I don't want to say merge every time"): when he asks for a contract or a template,
+do the whole process without asking for "merge": build or fill the template, check figures and every page, send the PDF,
+and when the templates themselves change (a new template, a clause he asked for, the layout), commit and push straight to
+`claude/portal-supabase`, then check the Vercel deployment is READY, /templates/ still answers 404, and record it in MEMORY.md.
+This covers commits that touch only `templates/` and the notes about them (AGENTS.md, MEMORY.md, the ai-org skill); any
+portal code, migration or other file in the same change still waits for his "merge". A filled-in contract for a client is
+never committed (client data); it goes to him as a PDF only.
 
 AI organization (owner's request 2026-11-14): every task in this repo runs through the Ritehome AI organization in
 `.claude/skills/ritehome-ai-org/SKILL.md` (8 teams, 26 specialist agents, one orchestrator; adapted from the owner's

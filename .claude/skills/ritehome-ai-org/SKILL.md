@@ -45,6 +45,7 @@ Proportionality: a typo fix is T1 and needs no ceremony; payroll, tax, live data
 |---|---|---|
 | A migration on the live database | Owner | He runs it in the SQL Editor (or approves the connector), then says "merge"; the agent verifies function fingerprints before pushing |
 | Anything going live (push to `claude/portal-supabase`) | Owner | Only after its migration is applied and verified (AGENTS.md "Deploys") |
+| Contract templates (`templates/` and their notes only) | Standing approval, owner 2026-11-24 | Pushed to `claude/portal-supabase` without asking for "merge" (AGENTS.md "Client contracts"); anything else in the same change still waits for him |
 | A statutory rate or deadline becoming official | Owner, after the accountant checks it | `statutory_rule_decide` with a note naming who checked; agents never approve a rule |
 | Pay rates, payroll runs, adjustments, releases | Rates: owner/bookkeeper; runs and adjustments: owner | The portal enforces it (approve buttons are admin-only) |
 | Tax filings and remittances | Owner/bookkeeper in the agency's own system | Recorded in Compliance with the reference; generating a report never marks anything filed or paid |
